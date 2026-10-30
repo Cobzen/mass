@@ -11,7 +11,7 @@
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <!-- MA 3D · cleaned surface texture paint -->
-<title>MA 3D · v9.40</title>
+<title>MA 3D · v9.62</title>
 <script>
 (() => {
   const CURRENT_BUILD = '9.13';
@@ -2256,6 +2256,36 @@ html.ma-iphone #selectHoldBtn.iphoneSelectMultiHold.primaryChoice{
 #paintColorPicker{width:100%;height:44px;border:0;padding:0;background:transparent;border-radius:10px;}
 #paintColorSwatches{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin-top:10px;}
 #paintColorSwatches button{height:32px;border-radius:10px;border:1px solid rgba(70,70,68,.22);padding:0;}
+
+/* v9.47 — COLOR drag turns the entire six-control dock into a hue meter. */
+html.ma-unified-ui #maBottomDock.colorMeterMode{
+  --paint-hue-pos:0%;
+  background:linear-gradient(90deg,#f33 0%,#ff0 16.666%,#3f3 33.333%,#0ff 50%,#33f 66.666%,#f0f 83.333%,#f33 100%) !important;
+  box-shadow:0 2px 10px rgba(0,0,0,.08), inset 0 0 0 1px rgba(40,40,38,.14) !important;
+}
+html.ma-unified-ui #maBottomDock.colorMeterMode.dock-vertical{
+  background:linear-gradient(0deg,#f33 0%,#ff0 16.666%,#3f3 33.333%,#0ff 50%,#33f 66.666%,#f0f 83.333%,#f33 100%) !important;
+}
+html.ma-unified-ui #maBottomDock.colorMeterMode #viewJoystick,
+html.ma-unified-ui #maBottomDock.colorMeterMode #lookJoystick,
+html.ma-unified-ui #maBottomDock.colorMeterMode #maModeBar .primaryDockButton{
+  background:rgba(255,255,255,.10) !important;
+  border-color:rgba(255,255,255,.42) !important;
+  box-shadow:none !important;
+}
+html.ma-unified-ui #maBottomDock.colorMeterMode .primaryLabel,
+html.ma-unified-ui #maBottomDock.colorMeterMode .joyLabel,
+html.ma-unified-ui #maBottomDock.colorMeterMode .joyKnob,
+html.ma-unified-ui #maBottomDock.colorMeterMode .brushSizePreview{opacity:0 !important;}
+html.ma-unified-ui #maBottomDock.colorMeterMode::after{
+  content:'';position:absolute;z-index:20;pointer-events:none;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.65),0 1px 4px rgba(0,0,0,.35);
+}
+html.ma-unified-ui #maBottomDock.colorMeterMode.dock-horizontal::after{
+  left:var(--paint-hue-pos);top:5px;bottom:5px;width:3px;transform:translateX(-1.5px);border-radius:2px;
+}
+html.ma-unified-ui #maBottomDock.colorMeterMode.dock-vertical::after{
+  bottom:var(--paint-hue-pos);left:5px;right:5px;height:3px;transform:translateY(1.5px);border-radius:2px;
+}
 </style>
 </head>
 <body>
@@ -2710,6 +2740,7 @@ function applyViewMode(mode,{rememberPrevious=true}={}){
   viewMode=(mode==='workspace'||mode==='color'||mode==='notan'||mode==='shadow'||mode==='depth')?mode:'workspace';
   if(previous!==viewMode)lookSettingsPanelSuppressed=false;
   if(viewMode!=='color'){
+    if(paintPolylineState)finishPaintPolyline(true);setColorMeterActive?.(false);
     paintOverlayInputArmed=false;paintOverlayHoldPointerId=null;
     if(paintOverlayPointer){const st=paintOverlayPointer;paintOverlayPointer=null;if(st.stroke?.points?.length){paintOverlayStrokes.push(st.stroke);paintOverlayRedo=[];scheduleAutosave();}}
   }
@@ -2839,6 +2870,8 @@ let paintOverlayAction='add',paintOverlayColor='#242424',paintOverlaySize=16,pai
 let paintOverlayStrokes=[],paintOverlayRedo=[],paintOverlayPointer=null;
 let paintOverlayInputArmed=false,paintOverlayHoldPointerId=null;
 let paintToolPickerHeld=false,paintToolPickerSourceId='drawAddHoldBtn',paintToolScrubChoice=null,paintToolScrubHoverButtonId=null;
+let paintPolylineState=null;
+let colorMeterActive=false,colorAdjustState=null;
 let currentProjectName='untitled',autosaveTimer=null;
 let currentLibraryProjectId=null,currentLibraryCreatedAt=null,currentLibraryThumbnail=null;
 let projectLibraryVisible=false,blankProjectTemplate=null;
@@ -2891,7 +2924,7 @@ const VIEW_AXIS_TAP_MS=280;
 const JOYSTICK_THRESHOLD=10;
 const JOYSTICK_TRAVEL=18;
 const unifiedUIPointers=new Set();
-let lastNativePenPointerAt=0;
+let lastNativePenPointerAt=0,nativePenPointerEverSeen=false;
 const stylusTouchFallbackIds=new Set();
 
 const MA_IS_IPAD=!!window.__MA_IS_IPAD__;
@@ -2903,9 +2936,17 @@ let pencilSelectManuallyOff=false;
 // longer a hold gesture there; a tap toggles persistent Single / Multi Select.
 let ipadPencilMultiSelect=false;
 let pencilDrawButtonPress=null;
+let pencilPaintButtonPress=null;
 const PENCIL_DRAW_MENU_HOLD_MS=60;
 const PENCIL_DRAW_TOGGLE_HOLD_MS=220;
+const PENCIL_PAINT_MENU_HOLD_MS=180;
 const touchPointers=new Map();let touchNavState=null,touchGesture=null,touchOrbitPivot=null,touchNavRAF=0,touchPanScale=0;
+// v9.56 — iPad palm rejection. Workspace touches that overlap a native Pencil
+// contact are quarantined until those exact fingers/palm contacts lift. UI/dock
+// pointers are intentionally not included so finger-held tools + Pencil still work.
+const palmRejectedTouchPointers=new Set();
+const nativePencilContactPointers=new Set();
+let lastNativePencilContactEndAt=-Infinity;
 // v8.97 — track 4-finger Mirror independently from Select/NAVI routing.
 // This is necessary because touches landing on geometry are normally consumed
 // as pending Select taps before they ever enter touchPointers.
@@ -5533,7 +5574,7 @@ async function readLibraryProject(id){
   return best;
 }
 
-async function writeLibraryProject(record){
+async function writeLibraryProject(record,{routine=false}={}){
   if(!record?.id||!record?.project)return false;
 
   const projectJSON=JSON.stringify(record.project);
@@ -5546,12 +5587,13 @@ async function writeLibraryProject(record){
     projectJSON
   };
 
-  // Session mirror is the immediate source of truth for the Library UI.
-  sessionLibraryRecords.set(stored.id,hydrateLibraryRecord(stored));
+  // Routine autosaves stay lean: keep only the serialized record in memory.
+  // Hydrating projectJSON here duplicates the entire project/paint history in RAM.
+  sessionLibraryRecords.set(stored.id,routine?stored:hydrateLibraryRecord(stored));
 
-  // Write the shadow copy first. This also makes NEW PROJECT independent of
-  // transient IndexedDB problems on iPad/Safari.
-  const fallbackOK=writeLibraryFallbackStored(stored);
+  // The synchronous localStorage recovery shadow is intentionally skipped for
+  // routine autosaves on iPad. Full saves (Library/background/export) still write it.
+  const fallbackOK=routine?false:writeLibraryFallbackStored(stored);
 
   let idbOK=false;
   let db=null;
@@ -5568,18 +5610,17 @@ async function writeLibraryProject(record){
         tx.onabort=()=>reject(tx.error||new Error('Project transaction aborted'));
       });
 
-      const verified=await new Promise((resolve,reject)=>{
-        const tx=db.transaction(MA_LIBRARY_STORE,'readonly');
-        const req=tx.objectStore(MA_LIBRARY_STORE).get(stored.id);
-        req.onsuccess=()=>resolve(req.result||null);
-        req.onerror=()=>reject(req.error||new Error('Project verification failed'));
-      });
-
-      idbOK=!!(
-        verified &&
-        verified.projectJSON===projectJSON &&
-        verified.id===stored.id
-      );
+      if(routine){
+        idbOK=true;
+      }else{
+        const verified=await new Promise((resolve,reject)=>{
+          const tx=db.transaction(MA_LIBRARY_STORE,'readonly');
+          const req=tx.objectStore(MA_LIBRARY_STORE).get(stored.id);
+          req.onsuccess=()=>resolve(req.result||null);
+          req.onerror=()=>reject(req.error||new Error('Project verification failed'));
+        });
+        idbOK=!!(verified&&verified.projectJSON===projectJSON&&verified.id===stored.id);
+      }
     }
   }catch(err){
     console.warn('MA library IndexedDB save failed; shadow copy status:',fallbackOK,err);
@@ -5658,7 +5699,8 @@ function captureLibraryThumbnail(){
 }
 async function persistCurrentLibraryProject({
   thumbnail=false,
-  projectSnapshot=null
+  projectSnapshot=null,
+  routine=false
 }={}){
   if(!currentLibraryProjectId)return false;
 
@@ -5669,8 +5711,9 @@ async function persistCurrentLibraryProject({
       currentLibraryThumbnail=captureLibraryThumbnail();
     }
 
-    // Capture geometry first and detach it completely from live runtime state.
-    const project=JSON.parse(JSON.stringify(projectSnapshot||serializeProject()));
+    // writeLibraryProject stringifies synchronously before its first await, so a
+    // second full JSON deep-copy only doubles peak memory without adding safety.
+    const project=projectSnapshot||serializeProject();
 
     const record={
       id:currentLibraryProjectId,
@@ -5681,7 +5724,7 @@ async function persistCurrentLibraryProject({
       project
     };
 
-    const ok=await writeLibraryProject(record);
+    const ok=await writeLibraryProject(record,{routine});
     if(ok)currentLibraryCreatedAt=record.createdAt;
     return ok;
   }catch(err){
@@ -5690,25 +5733,25 @@ async function persistCurrentLibraryProject({
   }
 }
 
-async function saveAutosaveNow({thumbnail=false,force=false,projectSnapshot=null}={}){
+async function saveAutosaveNow({thumbnail=false,force=false,projectSnapshot=null,routine=false}={}){
   if(!force&&(restoring||projectLibraryVisible))return false;
   if(!currentLibraryProjectId)return false;
 
-  return persistCurrentLibraryProject({thumbnail,projectSnapshot});
+  return persistCurrentLibraryProject({thumbnail,projectSnapshot,routine});
 }
 function scheduleAutosave(){
   if(restoring||projectLibraryVisible||!currentLibraryProjectId)return;
   clearTimeout(autosaveTimer);
-  autosaveTimer=setTimeout(async()=>{
+  const delay=window.__MA_IS_IPAD__?3200:450;
+  const run=async()=>{
     autosaveTimer=null;
-    const ok=await saveAutosaveNow();
-    if(!ok&&!projectLibraryVisible&&currentLibraryProjectId){
-      autosaveTimer=setTimeout(()=>{
-        autosaveTimer=null;
-        saveAutosaveNow();
-      },1200);
-    }
-  },450);
+    // Keep iPad autosave off the hot Pencil path. Paint history and WebGL/Canvas
+    // buffers stay live while drawing, so routine persistence must be low-peak.
+    if(paintOverlayPointer||paintMoveRAF||paintMovePending||colorAdjustState||interaction||transformDragging){autosaveTimer=setTimeout(run,1100);return;}
+    const ok=await saveAutosaveNow({routine:!!window.__MA_IS_IPAD__});
+    if(!ok&&!projectLibraryVisible&&currentLibraryProjectId){autosaveTimer=setTimeout(run,2200);}
+  };
+  autosaveTimer=setTimeout(run,delay);
 }
 async function readAutosave(){
   try{
@@ -6259,7 +6302,7 @@ function loadProjectObject(project,{fromAutosave=false}={}){
   paintOverlayStrokes=Array.isArray(s.paintOverlay?.strokes)?s.paintOverlay.strokes.filter(x=>paintStrokeHasRenderableData(x)).map(normalizePaintOverlayStroke).filter(Boolean):[];
   paintOverlayRedo=[];
   if(s.settings){
-    if(Number.isFinite(+s.settings.paintOverlaySize))paintOverlaySize=clamp(+s.settings.paintOverlaySize,2,96);
+    if(Number.isFinite(+s.settings.paintOverlaySize))paintOverlaySize=clamp(+s.settings.paintOverlaySize,PAINT_SIZE_MIN,96);
     if(/^#[0-9a-f]{6}$/i.test(String(s.settings.paintOverlayColor||'')))paintOverlayColor=String(s.settings.paintOverlayColor).toLowerCase();
     paintOverlayTool=normalizePaintTool(s.settings.paintOverlayTool);
   }
@@ -6565,32 +6608,58 @@ function massFromHit(hit){return hit?massById(hit.object?.userData?.massId):null
 // --- Surface texture paint ------------------------------------------------------
 // Current engine: world-space brush sampling rasterized into per-mass texture-atlas pages.
 // Brush radius and texel density are independent of camera angle, camera distance and object size.
-const PAINT_TEXELS_PER_WORLD=144;
+const PAINT_TEXELS_PER_WORLD=window.__MA_IS_IPAD__?120:144;
 const PAINT_PAGE_PAD=10;
 const PAINT_STAMP_SPACING_FACTOR=.26;
 const PAINT_SURFACE_CONTINUITY_DOT=.62;
+const PAINT_FACE_COPLANAR_DOT=.9995;
+const PAINT_BUCKET_OBJECT_HOLD_MS=620;
+const PAINT_BUCKET_MOVE_TOLERANCE_PX=14;
+const PAINT_BUCKET_SWEEP_STEP_PX=7;
+const PAINT_STRAIGHT_HOLD_MS=460;
+const PAINT_STRAIGHT_MIN_PX=18;
+const PAINT_STRAIGHT_MOVE_RESET_PX=3;
+const PAINT_SHAPE_SCREEN_STEP_PX=5;
+const PAINT_POLY_DOUBLE_TAP_MS=340;
+const PAINT_POLY_DOUBLE_TAP_PX=26;
 const PAINT_UPLOAD_INTERVAL_MS=16;
 const PAINT_PAGE_SIZE_CHOICES=window.__MA_IS_IPHONE__?[1024,2048]:(window.__MA_IS_IPAD__?[1024,2048]:[1024,2048,4096]);
+const PAINT_SIZE_MIN=.5;
 const PAINT_WORLD_RADIUS_PER_SIZE=.0125;
 const paintDirtyPages=new Set();
 let paintUploadRAF=0,paintLastUploadTime=0;
+// iPad stability + live-brush performance: keep one shared upload scratch canvas,
+// but track several small dirty regions instead of unioning distant UV islands into one
+// huge bounding box. Large regions are tiled so we never need a giant temporary crop.
+const PAINT_UPLOAD_TILE_SIZE=window.__MA_IS_IPAD__?384:512;
+const PAINT_MAX_DIRTY_RECTS=24;
+const paintUploadScratchCanvas=document.createElement('canvas');
+let paintUploadScratchCtx=null;
+let paintTransparentTexture=null;
+let paintMoveRAF=0,paintMovePending=null;
 
-function normalizePaintTool(tool){return tool==='bucket'||tool==='texture'?tool:'brush';}
-function activePaintToolForAction(action=paintOverlayAction){return normalizePaintTool(paintOverlayTool);}
-function paintToolLabel(tool){return tool==='bucket'?'BUCKET':tool==='texture'?'TEXTURE':'BRUSH';}
+function normalizePaintTool(tool){return ['brush','texture','bucket','square','circle','polyline'].includes(tool)?tool:'brush';}
+function activePaintToolForAction(action=paintOverlayAction){return normalizePaintTool(paintToolPickerHeld&&paintToolScrubChoice?paintToolScrubChoice:paintOverlayTool);}
+function paintToolLabel(tool){return tool==='bucket'?'BUCKET':tool==='texture'?'TEXTURE':tool==='square'?'SQUARE':tool==='circle'?'CIRCLE':tool==='polyline'?'POLY':'BRUSH';}
 function paintStrokeTool(stroke){return normalizePaintTool(stroke?.tool);}
-function paintStrokeIsFill(stroke){return !!stroke&&(stroke.kind==='fill'||(paintStrokeTool(stroke)==='bucket'&&Number.isFinite(+stroke.massId)));}
-function paintStrokeHasRenderableData(stroke){return !!stroke&&(Array.isArray(stroke.points)?stroke.points.some(isPaintSample):Number.isFinite(+stroke.massId));}
+function paintStrokeIsFaceFill(stroke){return !!stroke&&stroke.kind==='faceFill'&&Number.isFinite(+stroke.massId);}
+function paintStrokeIsFaceSweep(stroke){return !!stroke&&stroke.kind==='faceSweep'&&Array.isArray(stroke.fills);}
+function paintStrokeIsObjectFill(stroke){return !!stroke&&!paintStrokeIsFaceFill(stroke)&&!paintStrokeIsFaceSweep(stroke)&&(stroke.kind==='fill'||(paintStrokeTool(stroke)==='bucket'&&Number.isFinite(+stroke.massId)&&!Array.isArray(stroke.facePoint)));}
+function paintStrokeIsFill(stroke){return paintStrokeIsFaceFill(stroke)||paintStrokeIsFaceSweep(stroke)||paintStrokeIsObjectFill(stroke);}
+function paintStrokeHasRenderableData(stroke){if(!stroke)return false;if(paintStrokeIsFaceSweep(stroke))return stroke.fills.some(f=>paintStrokeIsFaceFill(f));return Array.isArray(stroke.points)?stroke.points.some(isPaintSample):Number.isFinite(+stroke.massId);}
+function paintStrokeTouchesMass(stroke,massId){if(!stroke)return false;if(paintStrokeIsFaceSweep(stroke))return stroke.fills.some(f=>Math.round(+f.massId)===massId);if(paintStrokeIsFill(stroke))return Math.round(+stroke.massId)===massId;return (stroke.points||[]).some(s=>s?.m===massId);}
 function normalizePaintOverlayStroke(stroke){
   if(!paintStrokeHasRenderableData(stroke))return null;
   const mode=stroke?.mode==='erase'?'erase':'add';
   const color=/^#[0-9a-f]{6}$/i.test(String(stroke?.color||''))?String(stroke.color).toLowerCase():'#242424';
   const tool=paintStrokeTool(stroke);
-  if(paintStrokeIsFill(stroke))return{kind:'fill',tool:'bucket',mode,color,massId:Math.round(+stroke.massId)};
+  if(paintStrokeIsFaceSweep(stroke)){const fills=stroke.fills.map(f=>normalizePaintOverlayStroke({...f,kind:'faceFill',tool:'bucket',mode,color})).filter(paintStrokeIsFaceFill);return fills.length?{kind:'faceSweep',tool:'bucket',mode,color,fills}:null;}
+  if(paintStrokeIsFaceFill(stroke))return{kind:'faceFill',tool:'bucket',mode,color,massId:Math.round(+stroke.massId),facePoint:Array.isArray(stroke.facePoint)?stroke.facePoint.slice(0,3):null,faceNormal:Array.isArray(stroke.faceNormal)?stroke.faceNormal.slice(0,3):null,hitTri:Number.isInteger(stroke.hitTri)?stroke.hitTri:null};
+  if(paintStrokeIsObjectFill(stroke))return{kind:'fill',tool:'bucket',mode,color,massId:Math.round(+stroke.massId)};
   const worldRadius=Math.max(.00001,Number.isFinite(+stroke?.worldRadius)?+stroke.worldRadius:paintWorldRadiusForSize(paintOverlaySize));
   return{kind:'stroke',tool,mode,color,worldRadius,points:(stroke.points||[]).filter(isPaintSample).map(s=>({m:Math.round(+s.m),p:s.p.slice(0,3),n3:Array.isArray(s.n3)?s.n3.slice(0,3):null,hitTri:Number.isInteger(s.hitTri)?s.hitTri:null}))};
 }
-function setPaintOverlayTool(tool){paintOverlayTool=normalizePaintTool(tool);scheduleAutosave();showToast(paintToolLabel(paintOverlayTool));}
+function setPaintOverlayTool(tool){const next=normalizePaintTool(tool);if(paintPolylineState&&next!=='polyline')finishPaintPolyline(true);paintOverlayTool=next;scheduleAutosave();showToast(paintToolLabel(paintOverlayTool));}
 function paintRoughSeed(ell){let n=((ell.u*104729)+(ell.v*130363)+(ell.ru*65537)+(ell.rv*32771))*100000;return (Math.floor(n)^0x9e3779b9)>>>0;}
 function paintRoughRand(state){state.v=(state.v*1664525+1013904223)>>>0;return state.v/4294967296;}
 function addRoughPaintEllipsePath(ctx,ell,s){
@@ -6599,7 +6668,7 @@ function addRoughPaintEllipsePath(ctx,ell,s){
   ctx.closePath();
 }
 function paintOverlayViewportRect(){return document.getElementById('viewport')?.getBoundingClientRect?.()||{left:0,top:0,right:1,bottom:1,width:1,height:1};}
-function paintWorldRadiusForSize(size){return Math.max(.0025,clamp(+size||16,2,96)*PAINT_WORLD_RADIUS_PER_SIZE);}
+function paintWorldRadiusForSize(size){return Math.max(.001,clamp(+size||16,PAINT_SIZE_MIN,96)*PAINT_WORLD_RADIUS_PER_SIZE);}
 function isPaintSample(sample){return !!sample&&Array.isArray(sample.p)&&sample.p.length>=3;}
 function paintMatrixMinScale(matrix){const e=matrix.elements,sx=Math.hypot(e[0],e[1],e[2]),sy=Math.hypot(e[4],e[5],e[6]),sz=Math.hypot(e[8],e[9],e[10]);return Math.max(1e-6,Math.min(sx,sy,sz));}
 function paintEdgeKey(a,b,tol){const k=v=>`${Math.round(v.x/tol)},${Math.round(v.y/tol)},${Math.round(v.z/tol)}`,ka=k(a),kb=k(b);return ka<kb?`${ka}|${kb}`:`${kb}|${ka}`;}
@@ -6611,48 +6680,75 @@ function disposeMassPaintLayer(m){
   if(Array.isArray(m.paintPages))for(const p of m.paintPages)p?.texture?.dispose?.();
   m.paintMesh=null;m.paintPages=null;m.paintTriCache=null;
 }
-function createPaintPage(size,index){
-  const canvas=document.createElement('canvas');canvas.width=size;canvas.height=size;
-  const ctx=canvas.getContext('2d',{alpha:true});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.clearRect(0,0,size,size);
-  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.flipY=false;texture.wrapS=THREE.ClampToEdgeWrapping;texture.wrapT=THREE.ClampToEdgeWrapping;texture.minFilter=THREE.LinearFilter;texture.magFilter=THREE.LinearFilter;texture.generateMipmaps=false;texture.premultiplyAlpha=true;texture.needsUpdate=true;
-  return{index,size,canvas,ctx,texture,dirty:false,dirtyRect:null,uploadCanvas:null,uploadCtx:null};
+function getPaintTransparentTexture(){
+  if(paintTransparentTexture)return paintTransparentTexture;
+  const data=new Uint8Array([0,0,0,0]),texture=new THREE.DataTexture(data,1,1,THREE.RGBAFormat,THREE.UnsignedByteType);
+  texture.colorSpace=THREE.SRGBColorSpace;texture.flipY=false;texture.wrapS=THREE.ClampToEdgeWrapping;texture.wrapT=THREE.ClampToEdgeWrapping;texture.minFilter=THREE.NearestFilter;texture.magFilter=THREE.NearestFilter;texture.generateMipmaps=false;texture.premultiplyAlpha=true;texture.needsUpdate=true;
+  paintTransparentTexture=texture;return texture;
 }
-function unionPaintDirtyRect(page,rect){
-  if(!page)return;
-  const s=page.size;
-  let r=rect?{x:Math.max(0,Math.floor(rect.x)),y:Math.max(0,Math.floor(rect.y)),x1:Math.min(s,Math.ceil(rect.x+rect.w)),y1:Math.min(s,Math.ceil(rect.y+rect.h))}:{x:0,y:0,x1:s,y1:s};
-  if(r.x1<=r.x||r.y1<=r.y)return;
-  if(!page.dirtyRect)page.dirtyRect=r;else{const d=page.dirtyRect;d.x=Math.min(d.x,r.x);d.y=Math.min(d.y,r.y);d.x1=Math.max(d.x1,r.x1);d.y1=Math.max(d.y1,r.y1);}
+function createPaintPage(size,index){return{index,size,canvas:null,ctx:null,texture:null,material:null,dirty:false,dirtyRects:[]};}
+function ensurePaintPageAllocated(page){
+  if(!page)return null;if(page.ctx&&page.canvas&&page.texture)return page;
+  const canvas=document.createElement('canvas');canvas.width=page.size;canvas.height=page.size;
+  const ctx=canvas.getContext('2d',{alpha:true});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.clearRect(0,0,page.size,page.size);
+  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.flipY=false;texture.wrapS=THREE.ClampToEdgeWrapping;texture.wrapT=THREE.ClampToEdgeWrapping;texture.minFilter=THREE.LinearFilter;texture.magFilter=THREE.LinearFilter;texture.generateMipmaps=false;texture.premultiplyAlpha=true;texture.needsUpdate=true;
+  page.canvas=canvas;page.ctx=ctx;page.texture=texture;
+  if(page.material){page.material.map=texture;page.material.needsUpdate=true;}
+  return page;
+}
+function normalizePaintDirtyRect(page,rect){
+  if(!page)return null;const s=page.size;
+  const r=rect?{x:Math.max(0,Math.floor(rect.x)),y:Math.max(0,Math.floor(rect.y)),x1:Math.min(s,Math.ceil(rect.x+rect.w)),y1:Math.min(s,Math.ceil(rect.y+rect.h))}:{x:0,y:0,x1:s,y1:s};
+  return r.x1>r.x&&r.y1>r.y?r:null;
+}
+function paintRectsTouch(a,b,pad=3){return !(a.x1+pad<b.x||b.x1+pad<a.x||a.y1+pad<b.y||b.y1+pad<a.y);}
+function paintRectUnion(a,b){return{x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),x1:Math.max(a.x1,b.x1),y1:Math.max(a.y1,b.y1)};}
+function paintRectArea(r){return Math.max(0,r.x1-r.x)*Math.max(0,r.y1-r.y);}
+function addPaintDirtyRect(page,rect){
+  const r=normalizePaintDirtyRect(page,rect);if(!r)return;
+  if(!Array.isArray(page.dirtyRects))page.dirtyRects=[];
+  // Merge only genuinely adjacent regions. Distant UV islands must remain separate;
+  // unioning them is what made v9.51 upload most of the atlas every brush frame.
+  let merged=r;
+  for(let i=page.dirtyRects.length-1;i>=0;i--){const d=page.dirtyRects[i];if(!paintRectsTouch(merged,d))continue;const u=paintRectUnion(merged,d);if(paintRectArea(u)<=1.45*(paintRectArea(merged)+paintRectArea(d))){merged=u;page.dirtyRects.splice(i,1);}}
+  page.dirtyRects.push(merged);
+  // Defensive cap for pathological meshes: merge the cheapest pair, never all regions.
+  while(page.dirtyRects.length>PAINT_MAX_DIRTY_RECTS){let bi=0,bj=1,best=Infinity;for(let i=0;i<page.dirtyRects.length;i++)for(let j=i+1;j<page.dirtyRects.length;j++){const a=page.dirtyRects[i],b=page.dirtyRects[j],u=paintRectUnion(a,b),cost=paintRectArea(u)-paintRectArea(a)-paintRectArea(b);if(cost<best){best=cost;bi=i;bj=j;}}const u=paintRectUnion(page.dirtyRects[bi],page.dirtyRects[bj]);page.dirtyRects.splice(bj,1);page.dirtyRects[bi]=u;}
 }
 function markPaintPageDirty(page,force=false,rect=null){
-  if(!page)return;page.dirty=true;unionPaintDirtyRect(page,rect);paintDirtyPages.add(page);
+  if(!page?.ctx||!page?.texture)return;page.dirty=true;addPaintDirtyRect(page,force?null:rect);paintDirtyPages.add(page);
   if(force){flushPaintTextureUploads(true);return;}
   if(!paintUploadRAF)paintUploadRAF=requestAnimationFrame(flushPaintTextureUploads);
 }
-function uploadPaintPageDirtyRegion(page,force=false){
-  if(!page?.dirtyRect)return;
-  const d=page.dirtyRect,x=d.x|0,y=d.y|0,w=Math.max(1,(d.x1-d.x)|0),h=Math.max(1,(d.y1-d.y)|0),full=w>=page.size&&h>=page.size;
-  page.dirtyRect=null;page.dirty=false;
-  // Full rebuilds/clears are rare and safer through Three's normal upload path.
-  if(force||full){page.texture.needsUpdate=true;return;}
+function splitPaintDirtyRect(r,maxSize=PAINT_UPLOAD_TILE_SIZE){
+  const out=[];for(let y=r.y;y<r.y1;y+=maxSize)for(let x=r.x;x<r.x1;x+=maxSize)out.push({x,y,x1:Math.min(r.x1,x+maxSize),y1:Math.min(r.y1,y+maxSize)});return out;
+}
+function uploadPaintRect(page,r,webglTex,gl){
+  const x=r.x|0,y=r.y|0,w=Math.max(1,(r.x1-r.x)|0),h=Math.max(1,(r.y1-r.y)|0);
+  const uc=paintUploadScratchCanvas;if(uc.width!==w)uc.width=w;if(uc.height!==h)uc.height=h;
+  const uctx=paintUploadScratchCtx||(paintUploadScratchCtx=uc.getContext('2d',{alpha:true,willReadFrequently:false}));
+  uctx.setTransform(1,0,0,1,0,0);uctx.globalCompositeOperation='copy';uctx.clearRect(0,0,w,h);uctx.drawImage(page.canvas,x,y,w,h,0,0,w,h);uctx.globalCompositeOperation='source-over';
+  gl.bindTexture(gl.TEXTURE_2D,webglTex);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,true);gl.texSubImage2D(gl.TEXTURE_2D,0,x,y,gl.RGBA,gl.UNSIGNED_BYTE,uc);
+}
+function uploadPaintPageDirtyRegions(page,force=false){
+  if(!page?.ctx||!page?.canvas||!page?.texture)return;const rects=Array.isArray(page?.dirtyRects)?page.dirtyRects.splice(0):[];page.dirty=false;if(!rects.length)return;
+  if(force){page.texture.needsUpdate=true;return;}
   try{
-    renderer.initTexture?.(page.texture);
-    const props=renderer.properties?.get?.(page.texture),webglTex=props?.__webglTexture;
-    if(!webglTex)throw new Error('paint texture not initialized');
-    if(!page.uploadCanvas){page.uploadCanvas=document.createElement('canvas');page.uploadCtx=page.uploadCanvas.getContext('2d',{alpha:true,willReadFrequently:false});}
-    const uc=page.uploadCanvas;if(uc.width!==w)uc.width=w;if(uc.height!==h)uc.height=h;
-    const uctx=page.uploadCtx||uc.getContext('2d',{alpha:true});page.uploadCtx=uctx;uctx.setTransform(1,0,0,1,0,0);uctx.globalCompositeOperation='copy';uctx.drawImage(page.canvas,x,y,w,h,0,0,w,h);uctx.globalCompositeOperation='source-over';
-    const gl=renderer.getContext();gl.bindTexture(gl.TEXTURE_2D,webglTex);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,true);gl.texSubImage2D(gl.TEXTURE_2D,0,x,y,gl.RGBA,gl.UNSIGNED_BYTE,uc);gl.bindTexture(gl.TEXTURE_2D,null);renderer.resetState?.();
-  }catch(err){
-    // Conservative fallback: correctness first on browsers where Three's texture handle is unavailable.
-    page.texture.needsUpdate=true;
-  }
+    renderer.initTexture?.(page.texture);const props=renderer.properties?.get?.(page.texture),webglTex=props?.__webglTexture;if(!webglTex)throw new Error('paint texture not initialized');
+    const gl=renderer.getContext();for(const r of rects)for(const tile of splitPaintDirtyRect(r))uploadPaintRect(page,tile,webglTex,gl);gl.bindTexture(gl.TEXTURE_2D,null);renderer.resetState?.();
+  }catch(err){page.texture.needsUpdate=true;}
 }
 function flushPaintTextureUploads(forceOrTime=false){
   const force=forceOrTime===true,now=force?performance.now():(Number.isFinite(forceOrTime)?forceOrTime:performance.now());
   if(!force&&now-paintLastUploadTime<PAINT_UPLOAD_INTERVAL_MS){paintUploadRAF=requestAnimationFrame(flushPaintTextureUploads);return;}
   paintUploadRAF=0;paintLastUploadTime=now;
-  for(const page of paintDirtyPages)uploadPaintPageDirtyRegion(page,force);
+  for(const page of paintDirtyPages)uploadPaintPageDirtyRegions(page,force);
+  paintDirtyPages.clear();
+}
+function flushPaintTextureUploadsNow(){
+  if(paintUploadRAF){cancelAnimationFrame(paintUploadRAF);paintUploadRAF=0;}
+  paintLastUploadTime=performance.now();
+  for(const page of paintDirtyPages)uploadPaintPageDirtyRegions(page,false);
   paintDirtyPages.clear();
 }
 
@@ -6704,20 +6800,20 @@ function buildPaintAtlasGeometry(m){
   return{geometry:g,tris:info.charts,density:info.density,pageSize:info.pageSize,pageCount};
 }
 function paintMaterialForPage(page){
-  return new THREE.MeshBasicMaterial({map:page.texture,color:0xffffff,transparent:true,premultipliedAlpha:true,alphaTest:0,depthWrite:false,depthTest:true,depthFunc:THREE.LessEqualDepth,side:THREE.FrontSide,polygonOffset:false});
+  return new THREE.MeshBasicMaterial({map:page.texture||getPaintTransparentTexture(),color:0xffffff,transparent:true,premultipliedAlpha:true,alphaTest:0,depthWrite:false,depthTest:true,depthFunc:THREE.LessEqualDepth,side:THREE.FrontSide,polygonOffset:false});
 }
 function ensureMassPaintLayer(m){
   if(!m)return null;
   if(m.paintMesh&&Array.isArray(m.paintPages)&&m.paintPages.length)return m;
   disposeMassPaintLayer(m);
   const atlas=buildPaintAtlasGeometry(m),pages=[];for(let i=0;i<atlas.pageCount;i++)pages.push(createPaintPage(atlas.pageSize,i));
-  const materials=pages.map(p=>paintMaterialForPage(p)),mesh=new THREE.Mesh(atlas.geometry,materials);mesh.renderOrder=6;mesh.userData.massId=m.id;mesh.visible=viewMode==='color';m.paintGroup.add(mesh);
+  const materials=pages.map(p=>{const mat=paintMaterialForPage(p);p.material=mat;return mat;}),mesh=new THREE.Mesh(atlas.geometry,materials);mesh.renderOrder=6;mesh.userData.massId=m.id;mesh.visible=viewMode==='color';m.paintGroup.add(mesh);
   m.paintPages=pages;m.paintMesh=mesh;m.paintTriCache={tris:atlas.tris};
   return m;
 }
 function ensurePaintTriangleCache(m){ensureMassPaintLayer(m);return m.paintTriCache;}
 function syncMassPaintGeometry(m){
-  if(!m)return;const hasPaint=!!m.paintMesh||paintOverlayStrokes.some(st=>paintStrokeIsFill(st)?Math.round(+st.massId)===m.id:(st.points||[]).some(s=>s?.m===m.id));disposeMassPaintLayer(m);if(hasPaint){ensureMassPaintLayer(m);rebuildMassPaintTexture(m);} 
+  if(!m)return;const hasPaint=!!m.paintMesh||paintOverlayStrokes.some(st=>paintStrokeTouchesMass(st,m.id));disposeMassPaintLayer(m);if(hasPaint){ensureMassPaintLayer(m);rebuildMassPaintTexture(m);} 
 }
 
 function paintEllipseForTriangle(m,tri,centerWorld,worldRadius){
@@ -6767,15 +6863,44 @@ function paintEllipsePixelBounds(ell,s){
   const x=Math.max(0,Math.floor(ell.u*s-ex-pad)),y=Math.max(0,Math.floor(ell.v*s-ey-pad)),x1=Math.min(s,Math.ceil(ell.u*s+ex+pad)),y1=Math.min(s,Math.ceil(ell.v*s+ey+pad));return{x,y,w:Math.max(0,x1-x),h:Math.max(0,y1-y)};
 }
 function drawPaintStampsOnTriangle(stroke,m,tri,ells,markDirty=true){
-  const page=m.paintPages?.[tri.page];if(!page||!ells?.length)return false;
+  const page=m.paintPages?.[tri.page];if(!page||!ells?.length)return false;ensurePaintPageAllocated(page);
   const ctx=page.ctx,s=page.size,clipPath=paintAtlasSlotClipPath(tri,s),roughBrush=paintStrokeTool(stroke)==='texture';
   ctx.save();ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.clip(clipPath);ctx.globalCompositeOperation=stroke.mode==='erase'?'destination-out':'source-over';ctx.globalAlpha=1;ctx.fillStyle=stroke.color||'#242424';ctx.beginPath();let dirty=null;
-  for(const ell of ells){if(roughBrush)addRoughPaintEllipsePath(ctx,ell,s);else ctx.ellipse(ell.u*s,ell.v*s,Math.max(.65,ell.ru*s),Math.max(.65,ell.rv*s),ell.rot,0,Math.PI*2);const r=paintEllipsePixelBounds(ell,s);if(r.w&&r.h){if(!dirty)dirty=r;else{const x0=Math.min(dirty.x,r.x),y0=Math.min(dirty.y,r.y),x1=Math.max(dirty.x+dirty.w,r.x+r.w),y1=Math.max(dirty.y+dirty.h,r.y+r.h);dirty={x:x0,y:y0,w:x1-x0,h:y1-y0};}}}
+  for(const ell of ells){if(roughBrush)addRoughPaintEllipsePath(ctx,ell,s);else{const cx=ell.u*s,cy=ell.v*s,ru=Math.max(.65,ell.ru*s),rv=Math.max(.65,ell.rv*s),cr=Math.cos(ell.rot),sr=Math.sin(ell.rot);ctx.moveTo(cx+ru*cr,cy+ru*sr);ctx.ellipse(cx,cy,ru,rv,ell.rot,0,Math.PI*2);}const r=paintEllipsePixelBounds(ell,s);if(r.w&&r.h){if(!dirty)dirty=r;else{const x0=Math.min(dirty.x,r.x),y0=Math.min(dirty.y,r.y),x1=Math.max(dirty.x+dirty.w,r.x+r.w),y1=Math.max(dirty.y+dirty.h,r.y+r.h);dirty={x:x0,y:y0,w:x1-x0,h:y1-y0};}}}
   ctx.fill();ctx.restore();if(markDirty&&dirty)markPaintPageDirty(page,false,dirty);return true;
+}
+function paintAtlasSlotPixelBounds(tri,pageSize){
+  const xs=tri.uv.map(q=>q.x*pageSize),ys=tri.uv.map(q=>q.y*pageSize),bleed=Math.max(1,PAINT_PAGE_PAD-1);
+  const x=Math.max(0,Math.floor(Math.min(...xs)-bleed)),y=Math.max(0,Math.floor(Math.min(...ys)-bleed));
+  const x1=Math.min(pageSize,Math.ceil(Math.max(...xs)+bleed)),y1=Math.min(pageSize,Math.ceil(Math.max(...ys)+bleed));
+  return{x,y,w:Math.max(1,x1-x),h:Math.max(1,y1-y)};
+}
+function resolvePaintFaceStartTriangle(m,stroke){
+  const cache=ensurePaintTriangleCache(m);if(!cache?.tris?.length)return null;
+  let start=Number.isInteger(stroke?.hitTri)?stroke.hitTri:-1;
+  if(start>=0&&start<cache.tris.length)return cache.tris[start];
+  if(!Array.isArray(stroke?.facePoint))return null;
+  const p=new THREE.Vector3().fromArray(stroke.facePoint),tmp=new THREE.Vector3();let best=null,bd=Infinity;
+  for(const tri of cache.tris){(tri.triangle||new THREE.Triangle(tri.a,tri.b,tri.c)).closestPointToPoint(p,tmp);const d=tmp.distanceToSquared(p);if(d<bd){bd=d;best=tri;}}
+  return best;
+}
+function paintFaceTrianglesForStroke(m,stroke){
+  const cache=ensurePaintTriangleCache(m),start=resolvePaintFaceStartTriangle(m,stroke);if(!cache?.tris?.length||!start)return[];
+  const refN=Array.isArray(stroke?.faceNormal)?new THREE.Vector3().fromArray(stroke.faceNormal).normalize():start.n.clone().normalize(),queue=[start.index],visited=new Set(),out=[];
+  while(queue.length){const idx=queue.shift();if(visited.has(idx))continue;visited.add(idx);const tri=cache.tris[idx];if(!tri)continue;const n=tri.n.clone().normalize();if(n.dot(refN)<PAINT_FACE_COPLANAR_DOT)continue;out.push(tri);for(const ni of tri.neighbors)if(!visited.has(ni))queue.push(ni);}
+  return out;
+}
+function applyPaintFaceFillTriangles(stroke,m,tris,live=true){
+  if(!m||!tris?.length)return false;ensureMassPaintLayer(m);let ok=false;
+  for(const tri of tris){const page=m.paintPages?.[tri.page];if(!page)continue;ensurePaintPageAllocated(page);const r=paintAtlasSlotPixelBounds(tri,page.size),ctx=page.ctx;ctx.save();ctx.setTransform(1,0,0,1,0,0);if(stroke.mode==='erase')ctx.clearRect(r.x,r.y,r.w,r.h);else{ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;ctx.fillStyle=stroke.color||'#242424';ctx.fillRect(r.x,r.y,r.w,r.h);}ctx.restore();if(live)markPaintPageDirty(page,false,r);ok=true;}
+  return ok;
+}
+function applyPaintFaceFillStroke(stroke,m,live=true){
+  if(!m)return false;ensureMassPaintLayer(m);return applyPaintFaceFillTriangles(stroke,m,paintFaceTrianglesForStroke(m,stroke),live);
 }
 function applyPaintFillStrokeToMass(stroke,m,live=true){
   if(!m)return false;ensureMassPaintLayer(m);let ok=false;
-  for(const page of m.paintPages||[]){const ctx=page.ctx;ctx.save();ctx.setTransform(1,0,0,1,0,0);if(stroke.mode==='erase'){ctx.clearRect(0,0,page.size,page.size);}else{ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;ctx.fillStyle=stroke.color||'#242424';ctx.fillRect(0,0,page.size,page.size);}ctx.restore();if(live)markPaintPageDirty(page,false,{x:0,y:0,w:page.size,h:page.size});ok=true;}
+  for(const page of m.paintPages||[]){ensurePaintPageAllocated(page);const ctx=page.ctx;ctx.save();ctx.setTransform(1,0,0,1,0,0);if(stroke.mode==='erase'){ctx.clearRect(0,0,page.size,page.size);}else{ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;ctx.fillStyle=stroke.color||'#242424';ctx.fillRect(0,0,page.size,page.size);}ctx.restore();if(live)markPaintPageDirty(page,false,{x:0,y:0,w:page.size,h:page.size});ok=true;}
   return ok;
 }
 function applyWorldPaintSamplesToTexture(stroke,samples,live=true){
@@ -6785,22 +6910,124 @@ function applyWorldPaintSamplesToTexture(stroke,samples,live=true){
 }
 function applyPaintStrokeToTexture(stroke,live=true,massFilter=null){
   if(!stroke)return false;
-  if(paintStrokeIsFill(stroke)){const mid=Math.round(+stroke.massId),m=massFilter||massById(mid);if(!m||m.id!==mid)return false;return applyPaintFillStrokeToMass(stroke,m,live);}
+  if(paintStrokeIsFaceSweep(stroke)){let ok=false;for(const fill of stroke.fills){const mid=Math.round(+fill.massId);if(massFilter&&massFilter.id!==mid)continue;const m=massFilter||massById(mid);if(m)ok=applyPaintFaceFillStroke({...fill,mode:stroke.mode,color:stroke.color},m,live)||ok;}return ok;}
+  if(paintStrokeIsFill(stroke)){const mid=Math.round(+stroke.massId),m=massFilter||massById(mid);if(!m||m.id!==mid)return false;return paintStrokeIsFaceFill(stroke)?applyPaintFaceFillStroke(stroke,m,live):applyPaintFillStrokeToMass(stroke,m,live);}
   const samples=(stroke.points||[]).filter(sample=>isPaintSample(sample)&&(!massFilter||sample?.m===massFilter.id));
   return samples.length?applyWorldPaintSamplesToTexture(stroke,samples,live):false;
 }
 function rebuildMassPaintTexture(m){
-  if(!m)return;ensureMassPaintLayer(m);for(const p of m.paintPages){p.ctx.setTransform(1,0,0,1,0,0);p.ctx.clearRect(0,0,p.size,p.size);}
+  if(!m)return;ensureMassPaintLayer(m);for(const p of m.paintPages){if(!p.ctx)continue;p.ctx.setTransform(1,0,0,1,0,0);p.ctx.clearRect(0,0,p.size,p.size);}
   for(const stroke of paintOverlayStrokes)applyPaintStrokeToTexture(stroke,false,m);
-  for(const p of m.paintPages)markPaintPageDirty(p,true);
+  for(const p of m.paintPages)if(p.ctx)markPaintPageDirty(p,true);
 }
 function rebuildAllPaintTextures(){
-  for(const m of masses)for(const p of m.paintPages||[]){p.ctx.setTransform(1,0,0,1,0,0);p.ctx.clearRect(0,0,p.size,p.size);}
+  for(const m of masses)for(const p of m.paintPages||[]){if(!p.ctx)continue;p.ctx.setTransform(1,0,0,1,0,0);p.ctx.clearRect(0,0,p.size,p.size);}
   for(const stroke of paintOverlayStrokes)applyPaintStrokeToTexture(stroke,false,null);
-  for(const m of masses){for(const p of m.paintPages||[])markPaintPageDirty(p,true);if(m.paintMesh)m.paintMesh.visible=viewMode==='color';}
+  for(const m of masses){for(const p of m.paintPages||[])if(p.ctx)markPaintPageDirty(p,true);if(m.paintMesh)m.paintMesh.visible=viewMode==='color';}
 }
 
 function paintOverlayClientInside(x,y){const r=paintOverlayViewportRect();return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;}
+function resetPaintSamplingState(st){if(!st)return;st.lastHit=null;st.lastScreen=null;st.lastStampedWorld=null;st.distanceSinceStamp=0;}
+function renderPaintScreenSegment(st,a,b,includeStart=true){
+  if(!st||!a||!b)return;const d=Math.hypot(b.x-a.x,b.y-a.y),steps=Math.max(1,Math.min(180,Math.ceil(d/PAINT_SHAPE_SCREEN_STEP_PX))),start=includeStart?0:1;
+  for(let i=start;i<=steps;i++){const t=i/steps;processPaintOverlaySegment(st,a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t);}
+}
+function renderPaintScreenPath(st,points,closed=false){
+  if(!st||!Array.isArray(points)||points.length<2)return;resetPaintSamplingState(st);
+  for(let i=0;i<points.length-1;i++)renderPaintScreenSegment(st,points[i],points[i+1],i===0);
+  if(closed)renderPaintScreenSegment(st,points[points.length-1],points[0],false);
+}
+function disposePaintGuide(st){
+  if(st?.guideRAF){cancelAnimationFrame(st.guideRAF);st.guideRAF=0;}if(st)st.pendingGuideEnd=null;
+  const g=st?.guide;if(!g)return;scene.remove(g);g.geometry?.dispose?.();g.material?.dispose?.();st.guide=null;
+}
+function setPaintGuide(st,points,closed=false){
+  if(!st||!Array.isArray(points)||points.length<2)return false;
+  const pts=points.filter(p=>p?.isVector3).map(p=>p.clone());if(pts.length<2)return false;
+  if(!st.guide||!!st.guide.userData.closed!==!!closed||st.guide.userData.shapeRibbon){
+    disposePaintGuide(st);
+    const geometry=new THREE.BufferGeometry().setFromPoints(pts),material=new THREE.LineBasicMaterial({color:st.stroke?.color||paintOverlayColor,transparent:true,opacity:.92,depthTest:false,depthWrite:false});
+    st.guide=closed?new THREE.LineLoop(geometry,material):new THREE.Line(geometry,material);st.guide.userData.closed=!!closed;st.guide.userData.ignoreModelRaycast=true;st.guide.renderOrder=999;st.guide.frustumCulled=false;scene.add(st.guide);
+  }else{
+    const pos=st.guide.geometry?.getAttribute?.('position');
+    if(pos&&pos.count===pts.length){for(let i=0;i<pts.length;i++)pos.setXYZ(i,pts[i].x,pts[i].y,pts[i].z);pos.needsUpdate=true;st.guide.geometry.computeBoundingSphere?.();}
+    else{st.guide.geometry?.dispose?.();st.guide.geometry=new THREE.BufferGeometry().setFromPoints(pts);}
+    st.guide.material?.color?.set?.(st.stroke?.color||paintOverlayColor);
+  }
+  return true;
+}
+function buildPaintRibbonGeometry(points,normal,width,closed=false){
+  const pts=points.filter(p=>p?.isVector3);if(pts.length<2||!normal?.isVector3)return null;
+  const positions=[],radius=Math.max(.0002,width),n=normal.clone().normalize(),count=closed?pts.length:pts.length-1;
+  const pushTri=(a,b,c)=>{positions.push(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z);};
+  for(let i=0;i<count;i++){const a=pts[i],b=pts[(i+1)%pts.length],dir=b.clone().sub(a);if(dir.lengthSq()<1e-12)continue;dir.normalize();const side=n.clone().cross(dir).normalize().multiplyScalar(radius),aL=a.clone().add(side),aR=a.clone().sub(side),bL=b.clone().add(side),bR=b.clone().sub(side);pushTri(aL,aR,bL);pushTri(aR,bR,bL);}
+  const segs=8;for(let i=0;i<pts.length;i++){const c=pts[i],ref=(Math.abs(n.y)<.9?new THREE.Vector3(0,1,0):new THREE.Vector3(1,0,0));let u=ref.clone().addScaledVector(n,-ref.dot(n));if(u.lengthSq()<1e-12)u=new THREE.Vector3(1,0,0);u.normalize();const v=n.clone().cross(u).normalize();for(let j=0;j<segs;j++){const a=j/segs*Math.PI*2,b=(j+1)/segs*Math.PI*2,p1=c.clone().addScaledVector(u,Math.cos(a)*radius).addScaledVector(v,Math.sin(a)*radius),p2=c.clone().addScaledVector(u,Math.cos(b)*radius).addScaledVector(v,Math.sin(b)*radius);pushTri(c,p1,p2);}}
+  if(!positions.length)return null;const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.computeBoundingSphere();return g;
+}
+function setPaintRibbonGuide(st,points,normal,width,closed=false,opacity=.48){
+  if(!st||!Array.isArray(points)||points.length<2||!normal?.isVector3)return false;const n=normal.clone().normalize();if(n.lengthSq()<1e-12)return false;const offset=Math.max(.00015,(width||paintWorldRadiusForSize(paintOverlaySize))*.025),pts=points.map(p=>p.clone().addScaledVector(n,offset)),g=buildPaintRibbonGeometry(pts,n,width||paintWorldRadiusForSize(paintOverlaySize),closed);if(!g)return false;
+  if(!st.guide||!st.guide.userData.shapeRibbon){disposePaintGuide(st);const mat=new THREE.MeshBasicMaterial({color:st.stroke?.color||paintOverlayColor,transparent:true,opacity,depthTest:false,depthWrite:false,side:THREE.DoubleSide});st.guide=new THREE.Mesh(g,mat);st.guide.userData.shapeRibbon=true;st.guide.userData.ignoreModelRaycast=true;st.guide.renderOrder=999;st.guide.frustumCulled=false;scene.add(st.guide);}else{st.guide.geometry?.dispose?.();st.guide.geometry=g;st.guide.material?.color?.set?.(st.stroke?.color||paintOverlayColor);st.guide.material.opacity=opacity;}
+  return true;
+}
+function setPaintShapePreview(st,points,closed=true){
+  if(!st||!Array.isArray(points)||points.length<2||!st.shapeNormalWorld)return false;return setPaintRibbonGuide(st,points,st.shapeNormalWorld,st.stroke?.worldRadius||paintWorldRadiusForSize(paintOverlaySize),closed,.48);
+}
+function paintPreviewNormalFromHit(hit){
+  if(!hit?.face?.normal)return null;const n=hit.face.normal.clone();const obj=hit.object||massById(massFromHit(hit)?.id)?.group;return obj?n.applyMatrix3(new THREE.Matrix3().getNormalMatrix(obj.matrixWorld)).normalize():n.normalize();
+}
+function paintWorldPointToClient(p){const r=paintOverlayViewportRect(),q=p.clone().project(camera);return{x:r.left+(q.x+1)*.5*r.width,y:r.top+(1-q.y)*.5*r.height};}
+
+function paintShapePlaneFromHit(hit){
+  if(!hit?.point||!hit?.face||!hit?.object)return null;hit.object.updateMatrixWorld?.(true);camera.updateMatrixWorld?.(true);
+  const normalLocal=hit.face.normal.clone().normalize(),normalWorld=normalLocal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize();
+  let u=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0);u.addScaledVector(normalWorld,-u.dot(normalWorld));
+  if(u.lengthSq()<1e-10){u=Math.abs(normalWorld.y)<.9?new THREE.Vector3(0,1,0):new THREE.Vector3(1,0,0);u.addScaledVector(normalWorld,-u.dot(normalWorld));}
+  u.normalize();let v=normalWorld.clone().cross(u).normalize();const camUp=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,1);if(v.dot(camUp)<0)v.negate();
+  return{plane:new THREE.Plane().setFromNormalAndCoplanarPoint(normalWorld,hit.point),normalLocal,normalWorld,u,v,start:hit.point.clone()};
+}
+function paintPointOnShapePlane(st,x,y){if(!st?.shapePlane)return null;setPointerXY(x,y);const p=new THREE.Vector3();return ray.ray.intersectPlane(st.shapePlane,p)?p:null;}
+function paintShapeWorldPath(st,endWorld){
+  if(!st?.shapeStartWorld||!endWorld)return[];const start=st.shapeStartWorld,u=st.shapeU,v=st.shapeV,d=endWorld.clone().sub(start);
+  if(st.shapeTool==='circle'){const r=d.length();if(r<1e-6)return[];const seg=Math.max(28,Math.min(72,Math.ceil(r/Math.max(.0001,st.stroke.worldRadius*1.5)))),pts=[];for(let i=0;i<seg;i++){const a=i/seg*Math.PI*2;pts.push(start.clone().addScaledVector(u,Math.cos(a)*r).addScaledVector(v,Math.sin(a)*r));}return pts;}
+  const du=d.dot(u),dv=d.dot(v);if(Math.abs(du)+Math.abs(dv)<1e-6)return[];return[start.clone(),start.clone().addScaledVector(u,du),start.clone().addScaledVector(u,du).addScaledVector(v,dv),start.clone().addScaledVector(v,dv)];
+}
+function renderPaintShapeGuide(st,x,y,immediate=false){
+  if(!st||st.kind!=='shape')return false;const end=paintPointOnShapePlane(st,x,y);if(!end)return false;st.currentScreen={x,y};st.shapeEndWorld=end;st.pendingGuideEnd=end.clone();
+  const draw=()=>{st.guideRAF=0;if(!st.pendingGuideEnd)return false;const latest=st.pendingGuideEnd;st.pendingGuideEnd=null;const pts=paintShapeWorldPath(st,latest);return pts.length?setPaintShapePreview(st,pts,true):false;};
+  if(immediate){if(st.guideRAF){cancelAnimationFrame(st.guideRAF);st.guideRAF=0;}return draw();}
+  if(!st.guideRAF)st.guideRAF=requestAnimationFrame(()=>{if(paintOverlayPointer===st)draw();else{st.guideRAF=0;st.pendingGuideEnd=null;}});return true;
+}
+function renderPaintWorldPath(st,m,points,normalLocal,hitTri,closed=false){
+  if(!st||!m||!Array.isArray(points)||points.length<2)return false;const spacing=Math.max(.00075,st.stroke.worldRadius*PAINT_STAMP_SPACING_FACTOR),batch=[];st.stroke.points.length=0;
+  const addSegment=(a,b,includeStart)=>{const len=a.distanceTo(b),steps=Math.max(1,Math.ceil(len/spacing));for(let i=includeStart?0:1;i<=steps;i++){const t=i/steps,p=a.clone().lerp(b,t);appendPaintOverlayWorldSample(st,m,p,normalLocal,hitTri,batch);}};
+  for(let i=0;i<points.length-1;i++)addSegment(points[i],points[i+1],i===0);if(closed)addSegment(points[points.length-1],points[0],false);
+  if(batch.length)applyWorldPaintSamplesToTexture(st.stroke,batch,true);return !!batch.length;
+}
+function updatePaintStraightGuide(st){
+  if(!st?.straightMode)return false;const ah=st.startHit?.point?st.startHit:raycastMasses(st.startScreen.x,st.startScreen.y),bh=raycastMasses(st.currentScreen.x,st.currentScreen.y),a=ah?.point,b=bh?.point;if(!a||!b)return false;
+  if(MA_DRAW_MOBILE){const n=paintPreviewNormalFromHit(bh||ah);if(n)return setPaintRibbonGuide(st,[a,b],n,st.stroke?.worldRadius||paintWorldRadiusForSize(paintOverlaySize),false,.38);}
+  return setPaintGuide(st,[a,b],false);
+}
+function prepareStraightPaintStroke(st){
+  if(!st||st.kind!=='stroke'||paintStrokeTool(st.stroke)!=='brush'||st.straightMode)return false;const end=st.currentScreen;if(!end||Math.hypot(end.x-st.startScreen.x,end.y-st.startScreen.y)<PAINT_STRAIGHT_MIN_PX)return false;
+  const touched=[...new Set((st.stroke.points||[]).map(s=>s?.m).filter(Number.isFinite))];for(const id of touched){const m=massById(id);if(m)rebuildMassPaintTexture(m);}
+  st.stroke.points.length=0;st.straightMode=true;resetPaintSamplingState(st);updatePaintStraightGuide(st);showToast('STRAIGHT · MOVE END');return true;
+}
+function schedulePaintStraightHold(st){
+  if(!st||paintStrokeTool(st.stroke)!=='brush'||st.straightMode)return;if(st.straightTimer)clearTimeout(st.straightTimer);
+  if(!st.currentScreen||Math.hypot(st.currentScreen.x-st.startScreen.x,st.currentScreen.y-st.startScreen.y)<PAINT_STRAIGHT_MIN_PX)return;
+  st.holdAnchor={...st.currentScreen};st.straightTimer=setTimeout(()=>{st.straightTimer=null;if(paintOverlayPointer===st)prepareStraightPaintStroke(st);},PAINT_STRAIGHT_HOLD_MS);
+}
+function finishPaintPolyline(commit=true){
+  const st=paintPolylineState;if(!st)return false;paintPolylineState=null;if(commit&&st.stroke?.points?.length){paintOverlayStrokes.push(st.stroke);paintOverlayRedo=[];flushPaintTextureUploadsNow();scheduleAutosave();showToast('POLY · DONE');return true;}if(!commit)rebuildAllPaintTextures();return false;
+}
+function beginPaintPolylineTap(e){
+  const now=performance.now(),pt={x:e.clientX,y:e.clientY};
+  if(paintPolylineState&&paintPolylineState.mode===paintOverlayAction&&paintPolylineState.color===paintOverlayColor){const d=Math.hypot(pt.x-paintPolylineState.lastTap.x,pt.y-paintPolylineState.lastTap.y);if(now-paintPolylineState.lastTapTime<=PAINT_POLY_DOUBLE_TAP_MS&&d<=PAINT_POLY_DOUBLE_TAP_PX){finishPaintPolyline(true);return true;}}
+  if(paintPolylineState&&(paintPolylineState.mode!==paintOverlayAction||paintPolylineState.color!==paintOverlayColor))finishPaintPolyline(true);
+  if(!paintPolylineState){const stroke={kind:'stroke',tool:'polyline',mode:paintOverlayAction,color:paintOverlayColor,worldRadius:paintWorldRadiusForSize(paintOverlaySize),points:[]};const st=paintPolylineState={kind:'polyline',stroke,mode:paintOverlayAction,color:paintOverlayColor,lastPoint:pt,lastTap:pt,lastTapTime:now,lastHit:null,lastScreen:null,lastStampedWorld:null,distanceSinceStamp:0};processPaintOverlaySegment(st,pt.x,pt.y);showToast('POLY · TAP POINTS · DOUBLE TAP = DONE');return true;}
+  renderPaintScreenSegment(paintPolylineState,paintPolylineState.lastPoint,pt,false);paintPolylineState.lastPoint=pt;paintPolylineState.lastTap=pt;paintPolylineState.lastTapTime=now;return true;
+}
 function appendPaintOverlayWorldSample(st,m,worldPoint,nLocal,hitTri,batch=null){
   if(!st||!m||!worldPoint)return false;ensureMassPaintLayer(m);m.group.updateMatrixWorld(true);const inv=m.group.matrixWorld.clone().invert(),lp=worldPoint.clone().applyMatrix4(inv),nn=nLocal?.clone?.().normalize?.()||new THREE.Vector3(0,0,1),sample={m:m.id,p:lp.toArray(),n3:nn.toArray(),hitTri:Number.isInteger(hitTri)?hitTri:null};st.stroke.points.push(sample);if(batch)batch.push(sample);else applyWorldPaintSamplesToTexture(st.stroke,[sample],true);st.lastStampedWorld=worldPoint.clone();return true;
 }
@@ -6844,7 +7071,7 @@ function resamplePaintHitSegment(st,m,aHit,bHit,spacing,batch,forceEnd=false){
 }
 function processPaintOverlaySegment(st,x,y){
   const f={x,y},hit=raycastMasses(x,y);if(!hit?.point||!hit?.face){st.lastHit=null;st.lastScreen=f;st.distanceSinceStamp=0;return;}
-  const m=massFromHit(hit),prev=st.lastHit,prevMass=massFromHit(prev),spacing=Math.max(.00075,st.stroke.worldRadius*PAINT_STAMP_SPACING_FACTOR),batch=[];if(!m){st.lastHit=null;st.lastScreen=f;st.distanceSinceStamp=0;return;}
+  const m=massFromHit(hit),prev=st.lastHit,prevMass=massFromHit(prev),spacing=Math.max(.00075,st.stroke.worldRadius*PAINT_STAMP_SPACING_FACTOR),batch=[];if(!m||(Number.isFinite(st.lockMassId)&&m.id!==st.lockMassId)){st.lastHit=null;st.lastScreen=f;st.distanceSinceStamp=0;return;}
   if(!prev?.point||!prev?.face||!prevMass||prevMass.id!==m.id){appendPaintOverlayHit(st,hit,batch);applyWorldPaintSamplesToTexture(st.stroke,batch,true);st.lastHit=hit;st.lastScreen=f;st.distanceSinceStamp=0;return;}
   // One raycast per ordinary pointer event. At a real hard edge we do a tiny binary
   // search in screen space to find the handoff point, then finish face A and start face B
@@ -6868,41 +7095,109 @@ function processPaintOverlaySegment(st,x,y){
   if(batch.length)applyWorldPaintSamplesToTexture(st.stroke,batch,true);st.lastHit=hit;st.lastScreen=f;
 }
 function paintOverlayPointerCanPaint(e){if(!paintOverlayInputArmed)return false;if(MA_IS_IPAD&&ipadPencilMode)return e.pointerType==='pen';if(MA_DRAW_MOBILE)return e.pointerType==='touch'&&e.pointerId!==paintOverlayHoldPointerId;return e.pointerType==='mouse'&&e.button===0;}
+function makePaintFaceFillStroke(hit,m,mode=paintOverlayAction,color=paintOverlayColor){
+  if(!hit?.point||!hit?.face||!m)return null;m.group.updateMatrixWorld(true);const inv=m.group.matrixWorld.clone().invert(),lp=hit.point.clone().applyMatrix4(inv);
+  return{kind:'faceFill',tool:'bucket',mode:mode==='erase'?'erase':'add',color:color||paintOverlayColor,massId:m.id,facePoint:lp.toArray(),faceNormal:hit.face.normal.clone().normalize().toArray(),hitTri:Number.isInteger(hit.faceIndex)?hit.faceIndex:null};
+}
+function commitPaintBucketStroke(stroke,toastText){if(!stroke)return false;if(!applyPaintStrokeToTexture(stroke,true,null))return false;paintOverlayStrokes.push(stroke);paintOverlayRedo=[];flushPaintTextureUploads(true);scheduleAutosave();if(toastText)showToast(toastText);return true;}
+function paintBucketFaceRegionKey(m,stroke,tris=null){const region=tris||paintFaceTrianglesForStroke(m,stroke);if(!region.length)return null;let min=Infinity;for(const tri of region)min=Math.min(min,tri.index);return `${m.id}:${min}`;}
+function paintBucketSweepVisit(st,hit){
+  const m=massFromHit(hit);if(!st||!hit?.point||!hit?.face||!m)return false;const stroke=makePaintFaceFillStroke(hit,m,st.mode,st.color);if(!stroke)return false;const tris=paintFaceTrianglesForStroke(m,stroke),key=paintBucketFaceRegionKey(m,stroke,tris);if(!key||st.faceKeys.has(key))return false;
+  st.faceKeys.add(key);st.fills.push(stroke);applyPaintFaceFillTriangles(stroke,m,tris,true);return true;
+}
+function paintBucketSweepSegment(st,x,y){
+  if(!st)return false;const x0=Number.isFinite(st.lastX)?st.lastX:st.startX,y0=Number.isFinite(st.lastY)?st.lastY:st.startY,dist=Math.hypot(x-x0,y-y0),steps=Math.max(1,Math.min(28,Math.ceil(dist/PAINT_BUCKET_SWEEP_STEP_PX)));let changed=false;
+  for(let i=1;i<=steps;i++){const t=i/steps,hit=raycastMasses(x0+(x-x0)*t,y0+(y-y0)*t);if(paintBucketSweepVisit(st,hit))changed=true;}
+  st.lastX=x;st.lastY=y;return changed;
+}
+function commitPaintBucketSweep(st){
+  if(!st?.fills?.length)return false;const stroke={kind:'faceSweep',tool:'bucket',mode:st.mode==='erase'?'erase':'add',color:st.color||paintOverlayColor,fills:st.fills.map(f=>({...f}))};paintOverlayStrokes.push(stroke);paintOverlayRedo=[];flushPaintTextureUploads(true);scheduleAutosave();showToast(`${st.fills.length} FACES ${stroke.mode==='erase'?'CLEARED':'FILLED'}`);return true;
+}
+function firePaintBucketObjectHold(st){
+  if(!st||paintOverlayPointer!==st||st.kind!=='bucket'||st.longFired)return false;
+  const m=massById(st.massId);if(!m)return false;const stroke={kind:'fill',tool:'bucket',mode:st.mode==='erase'?'erase':'add',color:st.color||paintOverlayColor,massId:m.id};
+  st.longFired=commitPaintBucketStroke(stroke,stroke.mode==='erase'?'OBJECT CLEARED':'OBJECT FILLED');return st.longFired;
+}
+function paintHexFromRGB(r,g,b){return '#'+[r,g,b].map(v=>Math.max(0,Math.min(255,v|0)).toString(16).padStart(2,'0')).join('');}
+function paintFallbackColorForHit(hit){const mat=Array.isArray(hit?.object?.material)?hit.object.material[hit?.face?.materialIndex||0]:hit?.object?.material;return mat?.color?.isColor?'#'+mat.color.getHexString():'#b8b8b8';}
+function samplePaintColorFromHit(hit){
+  const m=massFromHit(hit);if(!hit?.point||!hit?.face||!m)return null;ensureMassPaintLayer(m);const cache=ensurePaintTriangleCache(m);let tri=Number.isInteger(hit.faceIndex)?cache?.tris?.[hit.faceIndex]:null;
+  if(!tri){const local=hit.point.clone().applyMatrix4(m.group.matrixWorld.clone().invert()),tmp=new THREE.Vector3();let bd=Infinity;for(const t of cache?.tris||[]){(t.triangle||new THREE.Triangle(t.a,t.b,t.c)).closestPointToPoint(local,tmp);const d=tmp.distanceToSquared(local);if(d<bd){bd=d;tri=t;}}}
+  if(tri){const uvInfo=paintEllipseForTriangle(m,tri,hit.point,1);const page=uvInfo?m.paintPages?.[tri.page]:null;if(uvInfo&&page?.ctx){const x=Math.max(0,Math.min(page.size-1,Math.floor(uvInfo.u*page.size))),y=Math.max(0,Math.min(page.size-1,Math.floor(uvInfo.v*page.size)));try{const d=page.ctx.getImageData(x,y,1,1).data;if(d[3]>8)return paintHexFromRGB(d[0],d[1],d[2]);}catch(_){}}}
+  return paintFallbackColorForHit(hit);
+}
+function samplePaintColorAtClient(x,y){const hit=raycastMasses(x,y),color=samplePaintColorFromHit(hit);if(!color)return false;setPaintOverlayColor(color);showToast('PIPETTE · '+color.toUpperCase());return true;}
+function queuePaintOverlayMove(e){
+  paintMovePending={pointerId:e.pointerId,clientX:e.clientX,clientY:e.clientY,pointerType:e.pointerType};
+  if(!paintMoveRAF)paintMoveRAF=requestAnimationFrame(()=>{paintMoveRAF=0;const pending=paintMovePending;paintMovePending=null;if(pending&&paintOverlayPointer?.pointerId===pending.pointerId)updatePaintOverlayStroke(pending);});
+}
+function flushPendingPaintOverlayMove(pointerId){
+  if(!paintMovePending||paintMovePending.pointerId!==pointerId)return;
+  const pending=paintMovePending;paintMovePending=null;if(paintMoveRAF){cancelAnimationFrame(paintMoveRAF);paintMoveRAF=0;}if(paintOverlayPointer?.pointerId===pointerId)updatePaintOverlayStroke(pending);
+}
 function beginPaintOverlayStroke(e){
   if(viewMode!=='color'||paintOverlayPointer||!paintOverlayClientInside(e.clientX,e.clientY)||!paintOverlayPointerCanPaint(e))return false;
   const tool=activePaintToolForAction(paintOverlayAction);
+  if(tool==='polyline')return beginPaintPolylineTap(e);
   if(tool==='bucket'){
-    const hit=raycastMasses(e.clientX,e.clientY),m=massFromHit(hit);
-    if(!hit?.point||!hit?.face||!m)return false;
-    const stroke={kind:'fill',tool:'bucket',mode:paintOverlayAction,color:paintOverlayColor,massId:m.id};
-    applyPaintStrokeToTexture(stroke,true,null);paintOverlayStrokes.push(stroke);paintOverlayRedo=[];flushPaintTextureUploads(true);scheduleAutosave();showToast(paintOverlayAction==='erase'?'OBJECT CLEARED':'OBJECT FILLED');
-    return true;
+    const hit=raycastMasses(e.clientX,e.clientY),m=massFromHit(hit);if(!hit?.point||!hit?.face||!m)return false;
+    const st=paintOverlayPointer={pointerId:e.pointerId,kind:'bucket',massId:m.id,hit,startX:e.clientX,startY:e.clientY,lastX:e.clientX,lastY:e.clientY,longFired:false,moved:false,sweep:false,mode:paintOverlayAction,color:paintOverlayColor,timer:null,fills:[],faceKeys:new Set()};
+    st.timer=setTimeout(()=>firePaintBucketObjectHold(st),PAINT_BUCKET_OBJECT_HOLD_MS);return true;
   }
-  const stroke={kind:'stroke',tool,mode:paintOverlayAction,color:paintOverlayColor,worldRadius:paintWorldRadiusForSize(paintOverlaySize),points:[]};paintOverlayPointer={pointerId:e.pointerId,stroke,lastHit:null,lastScreen:null,lastStampedWorld:null,distanceSinceStamp:0};processPaintOverlaySegment(paintOverlayPointer,e.clientX,e.clientY);return true;
+  const stroke={kind:'stroke',tool,mode:paintOverlayAction,color:paintOverlayColor,worldRadius:paintWorldRadiusForSize(paintOverlaySize),points:[]};
+  if(tool==='square'||tool==='circle'){
+    const hit=raycastMasses(e.clientX,e.clientY),m=massFromHit(hit),basis=paintShapePlaneFromHit(hit);if(!m||!basis)return false;
+    paintOverlayPointer={pointerId:e.pointerId,kind:'shape',shapeTool:tool,stroke,shapeMass:m,shapeMassId:m.id,lockMassId:m.id,startHit:hit,startScreen:{x:e.clientX,y:e.clientY},currentScreen:{x:e.clientX,y:e.clientY},shapePlane:basis.plane,shapeNormalLocal:basis.normalLocal,shapeNormalWorld:basis.normalWorld,shapeU:basis.u,shapeV:basis.v,shapeStartWorld:basis.start,shapeEndWorld:basis.start.clone(),shapeHitTri:Number.isInteger(hit.faceIndex)?hit.faceIndex:null,guide:null,lastHit:null,lastScreen:null,lastStampedWorld:null,distanceSinceStamp:0};return true;
+  }
+  const startHit=raycastMasses(e.clientX,e.clientY);const st=paintOverlayPointer={pointerId:e.pointerId,kind:'stroke',stroke,startScreen:{x:e.clientX,y:e.clientY},currentScreen:{x:e.clientX,y:e.clientY},startHit,holdAnchor:{x:e.clientX,y:e.clientY},straightMode:false,straightTimer:null,guide:null,lastHit:null,lastScreen:null,lastStampedWorld:null,distanceSinceStamp:0};processPaintOverlaySegment(st,e.clientX,e.clientY);return true;
 }
 function updatePaintOverlayStroke(e){
   const st=paintOverlayPointer;if(!st||st.pointerId!==e.pointerId)return false;
-  // Use the newest browser sample only; the world-space resampler fills the path
-  // deterministically, so high-frequency touch events cannot create extra work.
-  processPaintOverlaySegment(st,e.clientX,e.clientY);return true;
+  if(st.kind==='bucket'){
+    if(st.longFired)return true;
+    if(!st.sweep&&Math.hypot(e.clientX-st.startX,e.clientY-st.startY)>PAINT_BUCKET_MOVE_TOLERANCE_PX){st.moved=true;st.sweep=true;if(st.timer){clearTimeout(st.timer);st.timer=null;}paintBucketSweepVisit(st,st.hit);}
+    if(st.sweep)paintBucketSweepSegment(st,e.clientX,e.clientY);
+    return true;
+  }
+  if(st.kind==='shape')return renderPaintShapeGuide(st,e.clientX,e.clientY);
+  st.currentScreen={x:e.clientX,y:e.clientY};
+  if(st.straightMode){updatePaintStraightGuide(st);return true;}
+  processPaintOverlaySegment(st,e.clientX,e.clientY);
+  if(paintStrokeTool(st.stroke)==='brush'){const a=st.holdAnchor||st.startScreen;if(Math.hypot(st.currentScreen.x-a.x,st.currentScreen.y-a.y)>=PAINT_STRAIGHT_MOVE_RESET_PX)schedulePaintStraightHold(st);}
+  return true;
 }
 function endPaintOverlayStroke(e,cancel=false){
   const st=paintOverlayPointer;if(!st||st.pointerId!==e.pointerId)return false;
-  if(!cancel){
-    const hit=raycastMasses(e.clientX,e.clientY),m=massFromHit(hit);
-    if(hit?.point&&hit?.face&&m){
-      const minCap=Math.max(.0005,st.stroke.worldRadius*PAINT_STAMP_SPACING_FACTOR*.35);
-      if(!st.lastStampedWorld||st.lastStampedWorld.distanceTo(hit.point)>minCap)appendPaintOverlayHit(st,hit);
-    }
+  if(st.kind==='bucket'){
+    if(st.timer)clearTimeout(st.timer);st.timer=null;paintOverlayPointer=null;
+    if(cancel){if(st.sweep&&!st.longFired)rebuildAllPaintTextures();return true;}
+    if(st.longFired)return true;
+    if(st.sweep){paintBucketSweepSegment(st,e.clientX,e.clientY);commitPaintBucketSweep(st);return true;}
+    const stroke=makePaintFaceFillStroke(st.hit,massById(st.massId),st.mode,st.color);commitPaintBucketStroke(stroke,stroke?.mode==='erase'?'FACE CLEARED':'FACE FILLED');return true;
   }
-  paintOverlayPointer=null;
-  if(!cancel&&st.stroke.points.length){paintOverlayStrokes.push(st.stroke);paintOverlayRedo=[];flushPaintTextureUploads(true);scheduleAutosave();}
-  else if(cancel)rebuildAllPaintTextures();return true;
+  if(st.straightTimer){clearTimeout(st.straightTimer);st.straightTimer=null;}
+  if(st.kind==='shape'){
+    if(!cancel)renderPaintShapeGuide(st,e.clientX,e.clientY,true);const pts=!cancel?paintShapeWorldPath(st,st.shapeEndWorld):[];disposePaintGuide(st);paintOverlayPointer=null;if(cancel)return true;
+    if(pts.length){st.stroke.points.length=0;resetPaintSamplingState(st);const screenPts=pts.map(paintWorldPointToClient);renderPaintScreenPath(st,screenPts,true);if(st.stroke.points.length){paintOverlayStrokes.push(st.stroke);paintOverlayRedo=[];flushPaintTextureUploadsNow();scheduleAutosave();}}return true;
+  }
+  if(cancel){disposePaintGuide(st);paintOverlayPointer=null;rebuildAllPaintTextures();flushPaintTextureUploads(true);return true;}
+  if(st.straightMode){st.currentScreen={x:e.clientX,y:e.clientY};disposePaintGuide(st);st.stroke.points.length=0;resetPaintSamplingState(st);renderPaintScreenPath(st,[st.startScreen,st.currentScreen],false);}
+  else{const hit=raycastMasses(e.clientX,e.clientY),m=massFromHit(hit);if(hit?.point&&hit?.face&&m){const minCap=Math.max(.0005,st.stroke.worldRadius*PAINT_STAMP_SPACING_FACTOR*.35);if(!st.lastStampedWorld||st.lastStampedWorld.distanceTo(hit.point)>minCap)appendPaintOverlayHit(st,hit);}disposePaintGuide(st);}
+  paintOverlayPointer=null;if(st.stroke.points.length){paintOverlayStrokes.push(st.stroke);paintOverlayRedo=[];flushPaintTextureUploadsNow();scheduleAutosave();}return true;
 }
-function undoPaintOverlay(){if(!paintOverlayStrokes.length)return false;paintOverlayRedo.push(paintOverlayStrokes.pop());rebuildAllPaintTextures();scheduleAutosave();showToast('UNDO');return true;}
-function redoPaintOverlay(){if(!paintOverlayRedo.length)return false;paintOverlayStrokes.push(paintOverlayRedo.pop());rebuildAllPaintTextures();scheduleAutosave();showToast('REDO');return true;}
+function undoPaintOverlay(){if(paintPolylineState)finishPaintPolyline(true);if(!paintOverlayStrokes.length)return false;paintOverlayRedo.push(paintOverlayStrokes.pop());rebuildAllPaintTextures();scheduleAutosave();showToast('UNDO');return true;}
+function redoPaintOverlay(){if(paintPolylineState)finishPaintPolyline(true);if(!paintOverlayRedo.length)return false;paintOverlayStrokes.push(paintOverlayRedo.pop());rebuildAllPaintTextures();scheduleAutosave();showToast('REDO');return true;}
 function openPaintColorPanel(open=true){if(!ui.paintColorPanel)return;ui.paintColorPanel.style.display=open?'block':'none';if(open&&ui.paintColorPicker)ui.paintColorPicker.value=paintOverlayColor;}
-function setPaintOverlayColor(color){if(!/^#[0-9a-f]{6}$/i.test(String(color||'')))return;paintOverlayColor=String(color).toLowerCase();if(ui.paintColorPicker)ui.paintColorPicker.value=paintOverlayColor;syncPrimaryDockUI?.();scheduleAutosave();}
+function setPaintOverlayColor(color,{autosave=true}={}){if(!/^#[0-9a-f]{6}$/i.test(String(color||'')))return;if(paintPolylineState&&String(color).toLowerCase()!==paintOverlayColor)finishPaintPolyline(true);paintOverlayColor=String(color).toLowerCase();if(ui.paintColorPicker)ui.paintColorPicker.value=paintOverlayColor;syncPrimaryDockUI?.();syncPaintColorMeterVisuals?.();if(autosave)scheduleAutosave();}
+function paintHexToHSV(hex){const h=String(hex||'#242424').replace('#',''),r=parseInt(h.slice(0,2),16)/255,g=parseInt(h.slice(2,4),16)/255,b=parseInt(h.slice(4,6),16)/255,max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;let hue=0;if(d){if(max===r)hue=((g-b)/d)%6;else if(max===g)hue=(b-r)/d+2;else hue=(r-g)/d+4;hue/=6;if(hue<0)hue+=1;}return{h:hue,s:max?d/max:0,v:max};}
+function paintHSVToHex(h,s,v){h=((h%1)+1)%1;s=clamp(s,0,1);v=clamp(v,0,1);const i=Math.floor(h*6),f=h*6-i,p=v*(1-s),q=v*(1-f*s),t=v*(1-(1-f)*s);let r,g,b;switch(i%6){case 0:r=v;g=t;b=p;break;case 1:r=q;g=v;b=p;break;case 2:r=p;g=v;b=t;break;case 3:r=p;g=q;b=v;break;case 4:r=t;g=p;b=v;break;default:r=v;g=p;b=q;}return paintHexFromRGB(Math.round(r*255),Math.round(g*255),Math.round(b*255));}
+function syncPaintColorMeterVisuals(){const dock=document.getElementById('maBottomDock');if(!dock)return;dock.classList.toggle('colorMeterMode',!!colorMeterActive);const hsv=paintHexToHSV(paintOverlayColor);dock.style.setProperty('--paint-hue-pos',`${hsv.h*100}%`);dock.style.filter=colorMeterActive?`brightness(${.18+.82*hsv.v})`:'';}
+function setColorMeterActive(active){colorMeterActive=!!active;if(!colorMeterActive)colorAdjustState=null;syncPaintColorMeterVisuals();updateMobileDrawUI?.();}
+function updatePaintColorDrag(e){if(e.pointerId!==colorButtonPointerId||!colorAdjustState)return false;const st=colorAdjustState,dist=Math.hypot(e.clientX-st.startX,e.clientY-st.startY);if(!st.active&&dist<8)return false;if(!st.active){st.active=true;colorMeterActive=true;openPaintColorPanel(false);syncPaintColorMeterVisuals();}
+  const dock=document.getElementById('maBottomDock'),r=dock?.getBoundingClientRect?.();if(!r)return true;const vertical=dock.classList.contains('dock-vertical'),insideDock=e.clientX>=r.left-8&&e.clientX<=r.right+8&&e.clientY>=r.top-8&&e.clientY<=r.bottom+8;
+  if(insideDock){const pos=vertical?clamp((r.bottom-e.clientY)/Math.max(1,r.height),0,1):clamp((e.clientX-r.left)/Math.max(1,r.width),0,1);st.h=pos;st.s=1;st.valueAnchorY=null;}else if(paintOverlayClientInside(e.clientX,e.clientY)){const vr=paintOverlayViewportRect(),bottom=Math.min(vr.bottom,r.top),span=Math.max(1,bottom-vr.top);st.v=clamp((bottom-e.clientY)/span,.025,1);}
+  const color=paintHSVToHex(st.h,Math.max(.02,st.s),st.v);setPaintOverlayColor(color,{autosave:false});return true;
+}
 
 
 // --- Surface workplanes ---------------------------------------------------------
@@ -6991,7 +7286,7 @@ function iphonePrimaryDrawPaletteMap(sourceId=drawPaletteSourceId||'drawAddHoldB
   orderedButtons.forEach((id,index)=>{map[id]=orderedKinds[index]||mobileDrawKind;});
   return map;
 }
-const ALL_PRIMARY_PAINT_TOOLS=['brush','bucket','texture'];
+const ALL_PRIMARY_PAINT_TOOLS=['brush','texture','bucket','square','circle','polyline'];
 function iphonePrimaryPaintPaletteMap(sourceId=paintToolPickerSourceId||'drawAddHoldBtn'){
   const anchor=IPHONE_DRAW_DOCK_IDS.includes(sourceId)?sourceId:'drawAddHoldBtn';
   const current=normalizePaintTool(paintOverlayTool),orderedTools=[current,...ALL_PRIMARY_PAINT_TOOLS.filter(t=>t!==current)];
@@ -7011,12 +7306,14 @@ function updatePaintToolScrubSelectionFromPoint(x,y){
 }
 function commitPaintToolScrubSelection(){const next=paintToolScrubChoice;paintToolScrubChoice=null;paintToolScrubHoverButtonId=null;if(next){setPaintOverlayTool(next);return true;}updateMobileDrawUI();return false;}
 function beginPaintToolPickerHold(e,erase=false){
-  paintOverlayAction=erase?'erase':'add';paintOverlayInputArmed=true;paintOverlayHoldPointerId=e.pointerId;paintToolPickerHeld=true;paintToolPickerSourceId=e?.currentTarget?.id||'drawAddHoldBtn';paintToolScrubChoice=null;paintToolScrubHoverButtonId=null;
+  const nextAction=erase?'erase':'add';if(paintPolylineState&&paintPolylineState.mode!==nextAction)finishPaintPolyline(true);
+  paintOverlayAction=nextAction;paintOverlayInputArmed=true;paintOverlayHoldPointerId=e.pointerId;paintToolPickerHeld=true;paintToolPickerSourceId=e?.currentTarget?.id||'drawAddHoldBtn';paintToolScrubChoice=null;paintToolScrubHoverButtonId=null;
   try{e.currentTarget?.setPointerCapture?.(e.pointerId);}catch(_){}updateMobileDrawUI();showToast(erase?'ERASE · HOLD':'ADD · HOLD');
 }
 function finishPaintToolPickerHold(e,cancel=false){
   if(!paintToolPickerHeld||paintOverlayHoldPointerId!==e.pointerId)return false;
   if(!cancel){updatePaintToolScrubSelectionFromPoint(e.clientX,e.clientY);commitPaintToolScrubSelection();}
+  if(paintPolylineState&&!(MA_IS_IPAD&&ipadPencilMode))finishPaintPolyline(!cancel);
   paintToolPickerHeld=false;paintToolScrubChoice=null;paintToolScrubHoverButtonId=null;
   const keepArmed=(MA_IS_IPAD&&ipadPencilMode)||(!MA_DRAW_MOBILE&&e.pointerType==='mouse');paintOverlayHoldPointerId=null;if(!keepArmed)paintOverlayInputArmed=false;
   if(paintOverlayPointer){const st=paintOverlayPointer;paintOverlayPointer=null;if(st.stroke?.points?.length){paintOverlayStrokes.push(st.stroke);paintOverlayRedo=[];flushPaintTextureUploads(true);scheduleAutosave();}}
@@ -7166,7 +7463,7 @@ function updateBrushSizeButton(){
   if(!circle)return;
   // Keep the preview's layout size fixed and animate only the compositor transform.
   // This avoids repeated layout/reflow while scrubbing SIZE on iPad.
-  const d=viewMode==='color'?clamp(paintOverlaySize,6,34):brushSizePreviewDiameter();
+  const d=viewMode==='color'?clamp(paintOverlaySize*1.5,3,34):brushSizePreviewDiameter();
   circle.style.transform=`scale(${(d/32).toFixed(4)})`;
 }
 
@@ -11690,6 +11987,87 @@ if(mainMenuButton){
   }
 }
 
+// v9.56 — native Pencil owns the iPad workspace while its tip is down.
+// A resting palm can arrive as a normal touch pointer just before/while Pencil draws.
+// If that touch starts navigation it can keep workspace state alive and make the next
+// Pencil contact look unresponsive. Quarantine only workspace touches; dock/UI touches
+// remain valid so a finger can still hold a tool while Pencil paints.
+function palmTouchIsUI(e){
+  const t=e?.target;
+  return !!(t instanceof Element&&t.closest('#projectLibrary,#maBottomDock,#maModeBar,#viewJoystick,#lookJoystick,#dockDragHandle,#mainMenuButton,#paintColorPanel,#sunDirPanel,#depthRangePanel,#safeFramePanel,#shortcutPanel,#streamlinePanel,#fovSettingsPanel,#brushPalettePanel'));
+}
+function clearWorkspaceTouchStateForPencil(){
+  if(!MA_IS_IPAD)return;
+  for(const id of touchPointers.keys()){
+    palmRejectedTouchPointers.add(id);
+    try{renderer.domElement.releasePointerCapture?.(id);}catch(_){}
+  }
+  // Mirror tracking is also renderer/workspace-only. A palm must not build a
+  // latent 4-touch gesture while Pencil is drawing.
+  for(const id of mirrorTouchPointers.keys())palmRejectedTouchPointers.add(id);
+  touchPointers.clear();
+  mirrorTouchPointers.clear();
+  mirrorTouchGesture=null;
+  touchGesture=null;touchNavState=null;touchOrbitPivot=null;touchPanScale=0;
+  cancelTouchFovArm?.();
+  cancelTouchCameraUpdate?.();
+}
+function rejectWorkspacePalmPointer(e){
+  if(!MA_IS_IPAD||!ipadPencilMode||e.pointerType!=='touch'||palmTouchIsUI(e))return false;
+  // Existing quarantined contacts stay dead until their own pointerup/cancel.
+  // A tiny post-Pencil grace catches WebKit's companion palm contact without
+  // delaying a genuinely new finger navigation gesture in normal use.
+  const reject=palmRejectedTouchPointers.has(e.pointerId)||nativePencilContactPointers.size>0||(performance.now()-lastNativePencilContactEndAt<90);
+  if(!reject)return false;
+  palmRejectedTouchPointers.add(e.pointerId);
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  return true;
+}
+window.addEventListener('pointerdown',e=>{
+  if(!MA_IS_IPAD)return;
+  if(e.pointerType==='pen'&&e.isTrusted!==false){
+    nativePencilContactPointers.add(e.pointerId);
+    clearWorkspaceTouchStateForPencil();
+    return;
+  }
+  rejectWorkspacePalmPointer(e);
+},{capture:true,passive:false});
+window.addEventListener('pointermove',e=>{
+  if(!MA_IS_IPAD||e.pointerType!=='touch'||!palmRejectedTouchPointers.has(e.pointerId))return;
+  e.preventDefault();e.stopImmediatePropagation();
+},{capture:true,passive:false});
+function finishPalmRejectedPointer(e){
+  if(!MA_IS_IPAD)return;
+  if(e.pointerType==='pen'&&nativePencilContactPointers.has(e.pointerId)){
+    nativePencilContactPointers.delete(e.pointerId);
+    lastNativePencilContactEndAt=performance.now();
+    return;
+  }
+  if(e.pointerType==='touch'&&palmRejectedTouchPointers.has(e.pointerId)){
+    palmRejectedTouchPointers.delete(e.pointerId);
+    e.preventDefault();e.stopImmediatePropagation();
+  }
+}
+window.addEventListener('pointerup',finishPalmRejectedPointer,{capture:true,passive:false});
+window.addEventListener('pointercancel',finishPalmRejectedPointer,{capture:true,passive:false});
+
+// COLOR drag: horizontal motion over the dock selects hue; vertical motion in the workspace changes value.
+window.addEventListener('pointermove',e=>{if(e.pointerId===colorButtonPointerId&&updatePaintColorDrag(e)){e.preventDefault();e.stopImmediatePropagation();}},{capture:true,passive:false});
+
+// Once COLOR adjustment is latched, the next workspace tap returns to normal paint/draw controls.
+window.addEventListener('pointerdown',e=>{
+  if(!colorMeterActive||colorButtonPointerId!=null)return;const t=e.target;if(t instanceof Element&&t.closest('#maBottomDock,#mainMenuButton,#paintColorPanel,#projectLibrary,#sunDirPanel,#depthRangePanel,#safeFramePanel,#shortcutPanel,#streamlinePanel,#fovSettingsPanel,#brushPalettePanel'))return;if(!paintOverlayClientInside(e.clientX,e.clientY))return;setColorMeterActive(false);openPaintColorPanel(false);showToast('DRAW');e.preventDefault();e.stopImmediatePropagation();
+},{capture:true,passive:false});
+
+// Holding COLOR turns a second workspace tap into an eyedropper.
+window.addEventListener('pointerdown',e=>{
+  if(viewMode!=='color'||colorButtonPointerId==null||e.pointerId===colorButtonPointerId)return;
+  const t=e.target;if(t instanceof Element&&t.closest('#maBottomDock,#mainMenuButton,#paintColorPanel,#projectLibrary,#sunDirPanel,#depthRangePanel,#safeFramePanel,#shortcutPanel,#streamlinePanel,#fovSettingsPanel,#brushPalettePanel'))return;
+  if(!paintOverlayClientInside(e.clientX,e.clientY))return;
+  if(samplePaintColorAtClient(e.clientX,e.clientY)){colorButtonEyedropperUsed=true;e.preventDefault();e.stopImmediatePropagation();}
+},{capture:true,passive:false});
+
 // Texture paint only owns the workspace pointer while ADD/ERASE is armed.
 // Otherwise Draw mode remains normal NAVI, so orbit/pan/zoom keep working.
 window.addEventListener('pointerdown',e=>{
@@ -11700,9 +12078,21 @@ window.addEventListener('pointerdown',e=>{
   if(paintOverlayPointer){e.preventDefault();e.stopImmediatePropagation();return;}
   if(beginPaintOverlayStroke(e)){e.preventDefault();e.stopImmediatePropagation();}
 },{capture:true,passive:false});
-window.addEventListener('pointermove',e=>{if(!paintOverlayPointer||paintOverlayPointer.pointerId!==e.pointerId)return;e.preventDefault();e.stopImmediatePropagation();updatePaintOverlayStroke(e);},{capture:true,passive:false});
-window.addEventListener('pointerup',e=>{if(!paintOverlayPointer||paintOverlayPointer.pointerId!==e.pointerId)return;e.preventDefault();e.stopImmediatePropagation();endPaintOverlayStroke(e,false);},{capture:true,passive:false});
-window.addEventListener('pointercancel',e=>{if(!paintOverlayPointer||paintOverlayPointer.pointerId!==e.pointerId)return;e.preventDefault();e.stopImmediatePropagation();endPaintOverlayStroke(e,true);},{capture:true,passive:false});
+window.addEventListener('pointermove',e=>{
+  if(!paintOverlayPointer)return;
+  if(e.pointerId!==paintOverlayPointer.pointerId){if(MA_IS_IPAD&&e.pointerType==='pen'){e.preventDefault();e.stopImmediatePropagation();}return;}
+  e.preventDefault();e.stopImmediatePropagation();const st=paintOverlayPointer;if((window.__MA_IS_IPAD__||window.__MA_IS_IPHONE__)&&st.kind==='stroke')queuePaintOverlayMove(e);else updatePaintOverlayStroke(e);
+},{capture:true,passive:false});
+window.addEventListener('pointerup',e=>{
+  if(!paintOverlayPointer)return;
+  if(e.pointerId!==paintOverlayPointer.pointerId){if(MA_IS_IPAD&&e.pointerType==='pen'){e.preventDefault();e.stopImmediatePropagation();}return;}
+  e.preventDefault();e.stopImmediatePropagation();flushPendingPaintOverlayMove(e.pointerId);endPaintOverlayStroke(e,false);
+},{capture:true,passive:false});
+window.addEventListener('pointercancel',e=>{
+  if(!paintOverlayPointer)return;
+  if(e.pointerId!==paintOverlayPointer.pointerId){if(MA_IS_IPAD&&e.pointerType==='pen'){e.preventDefault();e.stopImmediatePropagation();}return;}
+  e.preventDefault();e.stopImmediatePropagation();paintMovePending=null;if(paintMoveRAF){cancelAnimationFrame(paintMoveRAF);paintMoveRAF=0;}endPaintOverlayStroke(e,true);
+},{capture:true,passive:false});
 
 // A pointer that begins on the dock/UI is permanently UI-only until release.
 // This prevents the DRAW-hold finger from ever leaking into the modelling path.
@@ -12129,7 +12519,7 @@ function installSafeFrameRatioDockControl(id,action,ratio){
     unifiedUIPointers.add(e.pointerId);
     maMenuSuppressClickUntil=performance.now()+600;
     if(e.pointerType==='pen'){
-      lastNativePenPointerAt=performance.now();
+      nativePenPointerEverSeen=true;lastNativePenPointerAt=performance.now();
       registerIPadPencil();
     }
     try{el.setPointerCapture?.(e.pointerId);}catch(_){}
@@ -12445,6 +12835,8 @@ function enterIPadFingerMode({announce=true}={}){
   // Pencil-specific tool state surviving the mode switch.
   if(pencilDrawButtonPress?.timer)clearTimeout(pencilDrawButtonPress.timer);
   pencilDrawButtonPress=null;
+  if(pencilPaintButtonPress?.timer)clearTimeout(pencilPaintButtonPress.timer);
+  pencilPaintButtonPress=null;
   clearDrawHoldCancelTimer();
   clearSelectHoldCancelTimer();
   clearTransformHoldCancelTimer();
@@ -12538,14 +12930,17 @@ function syntheticHoldEvent(e){
   };
 }
 window.addEventListener('pointerover',e=>{
-  if(e.pointerType==='pen')registerIPadPencil();
+  if(e.pointerType==='pen'){if(e.isTrusted!==false){nativePenPointerEverSeen=true;lastNativePenPointerAt=performance.now();}registerIPadPencil();}
 },{capture:true,passive:true});
 window.addEventListener('pointermove',e=>{
-  if(e.pointerType==='pen')registerIPadPencil();
+  if(e.pointerType==='pen'){if(e.isTrusted!==false){nativePenPointerEverSeen=true;lastNativePenPointerAt=performance.now();}registerIPadPencil();}
 },{capture:true,passive:true});
 window.addEventListener('pointerdown',e=>{
   if(e.pointerType==='pen'){
-    if(e.isTrusted!==false)lastNativePenPointerAt=performance.now();
+    if(e.isTrusted!==false){
+      nativePenPointerEverSeen=true;lastNativePenPointerAt=performance.now();
+      cancelSyntheticWorkspacePencilForNative?.();
+    }
     registerIPadPencil();
   }
 },{capture:true,passive:true});
@@ -12723,6 +13118,13 @@ function setupDrawHoldButton(id,erase=false){
     // Keep the rest of the base dock untouched so both joysticks remain usable.
     if(dockMode==='base'&&viewMode==='color'){
       openPaintColorPanel(false);
+      if(MA_IS_IPAD&&ipadPencilMode&&e.pointerType==='touch'){
+        if(pencilPaintButtonPress)return;
+        const action=erase?'erase':'add',press=pencilPaintButtonPress={pointerId:e.pointerId,erase,action,event:syntheticHoldEvent(e),held:false,toggleOff:paintOverlayInputArmed&&paintOverlayAction===action,timer:null};
+        press.timer=setTimeout(()=>{if(pencilPaintButtonPress!==press)return;press.held=true;beginPaintToolPickerHold(press.event,erase);},PENCIL_PAINT_MENU_HOLD_MS);
+        try{btn.setPointerCapture?.(e.pointerId);}catch(_){}
+        return;
+      }
       const wantsPicker=e.pointerType==='touch'||(!MA_DRAW_MOBILE&&e.pointerType==='mouse'&&e.button===2);
       if(wantsPicker){beginPaintToolPickerHold(e,erase);return;}
       paintOverlayAction=erase?'erase':'add';paintOverlayInputArmed=true;paintOverlayHoldPointerId=null;updateMobileDrawUI();showToast(`${erase?'ERASE':'ADD'} · ${paintToolLabel(activePaintToolForAction(erase?'erase':'add'))}`);
@@ -12773,11 +13175,26 @@ function setupDrawHoldButton(id,erase=false){
     if(e.pointerType==='touch'){
       beginDrawModeHold(syntheticHoldEvent(e),erase);
     }else{
-      armDesktopDraw(erase);
+      const wanted=erase?'erase':'add';
+      const sameTool=currentAppMode()==='draw'&&desktopShapeArmed&&!drawModeHeld&&drawHoldAction===wanted;
+      if(sameTool){
+        clearLatchedDrawForFunctionSwitch();
+        updateMobileDrawUI();
+        showToast('NAVI');
+      }else{
+        armDesktopDraw(erase);
+      }
     }
   },{passive:false});
 
   btn.addEventListener('pointerup',e=>{
+    if(MA_IS_IPAD&&ipadPencilMode&&viewMode==='color'&&pencilPaintButtonPress?.pointerId===e.pointerId){
+      e.preventDefault();e.stopPropagation();const press=pencilPaintButtonPress;pencilPaintButtonPress=null;if(press.timer)clearTimeout(press.timer);
+      if(press.held){if(paintToolPickerHeld&&paintOverlayHoldPointerId===e.pointerId)finishPaintToolPickerHold(e,false);}
+      else if(press.toggleOff){paintOverlayInputArmed=false;paintOverlayHoldPointerId=null;if(paintPolylineState)finishPaintPolyline(true);updateMobileDrawUI();showToast('DRAW · OFF');}
+      else{paintOverlayAction=press.action;paintOverlayInputArmed=true;paintOverlayHoldPointerId=null;updateMobileDrawUI();showToast(`${press.erase?'ERASE':'ADD'} · ${paintToolLabel(activePaintToolForAction(press.action))}`);}
+      try{btn.releasePointerCapture?.(e.pointerId);}catch(_){}return;
+    }
     if(viewMode==='color'&&paintToolPickerHeld&&paintOverlayHoldPointerId===e.pointerId){e.preventDefault();e.stopPropagation();finishPaintToolPickerHold(e,false);return;}
     if(viewMode==='color'&&paintOverlayHoldPointerId===e.pointerId){
       e.preventDefault();e.stopPropagation();paintOverlayInputArmed=false;paintOverlayHoldPointerId=null;
@@ -12824,6 +13241,9 @@ function setupDrawHoldButton(id,erase=false){
   },{passive:false});
 
   btn.addEventListener('pointercancel',e=>{
+    if(MA_IS_IPAD&&viewMode==='color'&&pencilPaintButtonPress?.pointerId===e.pointerId){
+      e.preventDefault();e.stopPropagation();const press=pencilPaintButtonPress;pencilPaintButtonPress=null;if(press.timer)clearTimeout(press.timer);if(press.held&&paintToolPickerHeld&&paintOverlayHoldPointerId===e.pointerId)finishPaintToolPickerHold(e,true);return;
+    }
     if(viewMode==='color'&&paintToolPickerHeld&&paintOverlayHoldPointerId===e.pointerId){e.preventDefault();e.stopPropagation();finishPaintToolPickerHold(e,true);return;}
     if(viewMode==='color'&&paintOverlayHoldPointerId===e.pointerId){
       e.preventDefault();e.stopPropagation();paintOverlayInputArmed=false;paintOverlayHoldPointerId=null;
@@ -12916,7 +13336,7 @@ function promoteIPhoneSelectPressToMulti(){
   return true;
 }
 
-let colorButtonPointerId=null;
+let colorButtonPointerId=null,colorButtonEyedropperUsed=false;
 const selectHoldBtn=document.getElementById('selectHoldBtn');
 if(selectHoldBtn){
   selectHoldBtn.addEventListener('pointerdown',e=>{
@@ -12927,8 +13347,9 @@ if(selectHoldBtn){
     // Own the pointer here, but open the panel on pointer-up so iOS sees one
     // clean button gesture and none of the SELECT release logic can run.
     if(viewMode==='color'&&primaryDockMode()==='base'){
-      colorButtonPointerId=e.pointerId;
+      colorButtonPointerId=e.pointerId;colorButtonEyedropperUsed=false;const hsv=paintHexToHSV(paintOverlayColor);colorAdjustState={startX:e.clientX,startY:e.clientY,active:false,h:hsv.h,s:Math.max(.02,hsv.s),v:hsv.v,valueAnchorY:null,valueAnchorV:hsv.v};
       try{selectHoldBtn.setPointerCapture?.(e.pointerId);}catch(_){}
+      showToast('COLOR · DRAG = HUE / VALUE · HOLD + TAP = PIPETTE');
       return;
     }
 
@@ -13065,10 +13486,11 @@ if(selectHoldBtn){
   const finishSelectButton=e=>{
     if(e.pointerId===colorButtonPointerId){
       e.preventDefault();e.stopPropagation();
-      colorButtonPointerId=null;
+      const usedEyedropper=colorButtonEyedropperUsed,usedMeter=!!colorAdjustState?.active;colorButtonPointerId=null;colorButtonEyedropperUsed=false;
       try{selectHoldBtn.releasePointerCapture?.(e.pointerId);}catch(_){}
-      openPaintColorPanel(true);
-      return;
+      if(usedMeter){colorMeterActive=true;syncPaintColorMeterVisuals();scheduleAutosave();showToast('COLOR · TAP WORKSPACE = DRAW');}
+      else if(!usedEyedropper)openPaintColorPanel(true);
+      colorAdjustState=null;return;
     }
     const press=selectButtonPress;
     if(!press||press.pointerId!==e.pointerId)return;
@@ -13142,7 +13564,7 @@ if(selectHoldBtn){
   selectHoldBtn.addEventListener('pointerup',finishSelectButton,{passive:false});
   selectHoldBtn.addEventListener('pointercancel',e=>{
     if(e.pointerId===colorButtonPointerId){
-      colorButtonPointerId=null;
+      colorButtonPointerId=null;colorButtonEyedropperUsed=false;colorAdjustState=null;
       try{selectHoldBtn.releasePointerCapture?.(e.pointerId);}catch(_){}
       return;
     }
@@ -13373,7 +13795,7 @@ if(mobileSizeBtn){
     }
 
     if(unifiedSizeDrag.colorPaint){
-      paintOverlaySize=clamp(unifiedSizeDrag.startSize+travel*.22,2,96);updateBrushSizeButton();
+      paintOverlaySize=clamp(unifiedSizeDrag.startSize+travel*.22,PAINT_SIZE_MIN,96);updateBrushSizeButton();
     }else{
       const sensitivity=vertical?.009:.012;
       const next=unifiedSizeDrag.startSize*Math.exp(travel*sensitivity);
@@ -14090,6 +14512,18 @@ function dispatchStylusPointerToUI(type,touch,target){
   target.dispatchEvent(ev);
   return true;
 }
+function cancelSyntheticWorkspacePencilForNative(){
+  if(!MA_IS_IPAD)return;
+  // A synthetic modelling pointer uses the reserved 1,000,000+ id range. If a real
+  // native Pencil pointer arrives afterwards, cancel the synthetic owner immediately
+  // so it cannot block the native stream until TouchEvent cleanup eventually runs.
+  const st=paintOverlayPointer;
+  if(st&&Number.isFinite(+st.pointerId)&&+st.pointerId>=1000000){
+    const fake={pointerId:st.pointerId,clientX:st.currentScreen?.x??st.startScreen?.x??0,clientY:st.currentScreen?.y??st.startScreen?.y??0};
+    try{endPaintOverlayStroke(fake,true);}catch(_){paintOverlayPointer=null;}
+  }
+  stylusTouchFallbackIds.clear();
+}
 function stylusTouchesFromEvent(e){
   return [...(e.changedTouches||[])].filter(isStylusTouch);
 }
@@ -14135,9 +14569,10 @@ function handleDocumentStylusStart(e){
   if(handledUI)e.preventDefault();
   if(!modelTouches.length)return;
 
-  // Native pen PointerEvents normally arrive first. If one did, do not create
-  // a duplicate synthetic Pencil stream for the modelling surface.
-  if(nativePenAlreadyArrived)return;
+  // Once this iPad has demonstrated native Pencil PointerEvents, never synthesize
+  // a second modelling/workspace Pencil stream again. The old 120 ms heuristic could
+  // re-enable the fallback between strokes and create two competing pointerIds.
+  if(nativePenPointerEverSeen||nativePenAlreadyArrived)return;
 
   e.preventDefault();
   for(const t of modelTouches){
@@ -15416,6 +15851,8 @@ function resetTouchNavigationRuntime(){
   lastNativePenPointerAt=0;
   if(pencilDrawButtonPress?.timer)clearTimeout(pencilDrawButtonPress.timer);
   pencilDrawButtonPress=null;
+  if(pencilPaintButtonPress?.timer)clearTimeout(pencilPaintButtonPress.timer);
+  pencilPaintButtonPress=null;
   touchPointers.clear();
   touchGesture=null;touchNavState=null;touchOrbitPivot=null;touchPanScale=0;cancelTouchFovArm();
   ipadStraightHeld=false;
