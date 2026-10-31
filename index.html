@@ -10,8 +10,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<!-- MA 3D · cleaned surface texture paint -->
-<title>MA 3D · v9.62</title>
+<!-- MA 3D · object value mode -->
+<title>MA 3D · v9.63</title>
 <script>
 (() => {
   const CURRENT_BUILD = '9.13';
@@ -2249,43 +2249,16 @@ html.ma-iphone #selectHoldBtn.iphoneSelectMultiHold.primaryChoice{
 </style>
 
 
-<style id="ma-surface-paint-ui">
-#paintColorPanel{position:fixed;display:none;z-index:145;left:50%;bottom:calc(max(14px,env(safe-area-inset-bottom)) + 82px);transform:translateX(-50%);width:min(310px,calc(100vw - 28px));box-sizing:border-box;padding:12px 14px 14px;border:1px solid rgba(70,70,68,.18);border-radius:18px;background:rgba(242,242,239,.97);box-shadow:0 2px 10px rgba(0,0,0,.045);color:#2d2d2b;}
-#paintColorPanel .head{display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:600;letter-spacing:.04em;margin-bottom:10px;}
-#paintColorPanel .head button{border:0;background:transparent;color:inherit;font:inherit;font-size:9px;padding:4px 0;}
-#paintColorPicker{width:100%;height:44px;border:0;padding:0;background:transparent;border-radius:10px;}
-#paintColorSwatches{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin-top:10px;}
-#paintColorSwatches button{height:32px;border-radius:10px;border:1px solid rgba(70,70,68,.22);padding:0;}
-
-/* v9.47 — COLOR drag turns the entire six-control dock into a hue meter. */
-html.ma-unified-ui #maBottomDock.colorMeterMode{
-  --paint-hue-pos:0%;
-  background:linear-gradient(90deg,#f33 0%,#ff0 16.666%,#3f3 33.333%,#0ff 50%,#33f 66.666%,#f0f 83.333%,#f33 100%) !important;
-  box-shadow:0 2px 10px rgba(0,0,0,.08), inset 0 0 0 1px rgba(40,40,38,.14) !important;
-}
-html.ma-unified-ui #maBottomDock.colorMeterMode.dock-vertical{
-  background:linear-gradient(0deg,#f33 0%,#ff0 16.666%,#3f3 33.333%,#0ff 50%,#33f 66.666%,#f0f 83.333%,#f33 100%) !important;
-}
-html.ma-unified-ui #maBottomDock.colorMeterMode #viewJoystick,
-html.ma-unified-ui #maBottomDock.colorMeterMode #lookJoystick,
-html.ma-unified-ui #maBottomDock.colorMeterMode #maModeBar .primaryDockButton{
-  background:rgba(255,255,255,.10) !important;
-  border-color:rgba(255,255,255,.42) !important;
-  box-shadow:none !important;
-}
-html.ma-unified-ui #maBottomDock.colorMeterMode .primaryLabel,
-html.ma-unified-ui #maBottomDock.colorMeterMode .joyLabel,
-html.ma-unified-ui #maBottomDock.colorMeterMode .joyKnob,
-html.ma-unified-ui #maBottomDock.colorMeterMode .brushSizePreview{opacity:0 !important;}
-html.ma-unified-ui #maBottomDock.colorMeterMode::after{
-  content:'';position:absolute;z-index:20;pointer-events:none;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.65),0 1px 4px rgba(0,0,0,.35);
-}
-html.ma-unified-ui #maBottomDock.colorMeterMode.dock-horizontal::after{
-  left:var(--paint-hue-pos);top:5px;bottom:5px;width:3px;transform:translateX(-1.5px);border-radius:2px;
-}
-html.ma-unified-ui #maBottomDock.colorMeterMode.dock-vertical::after{
-  bottom:var(--paint-hue-pos);left:5px;right:5px;height:3px;transform:translateY(1.5px);border-radius:2px;
-}
+<style id="ma-value-mode-ui">
+#valuePalette{display:none;position:absolute;z-index:35;align-items:center;justify-content:space-between;gap:0;padding:0 10px;border:1px solid rgba(70,70,68,.16);border-radius:999px;background:rgba(242,242,239,.94);box-shadow:0 2px 10px rgba(0,0,0,.05);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-sizing:border-box;}
+html.ma-unified-ui #maBottomDock.valueMode #maModeBar{display:grid!important;}
+html.ma-unified-ui #maBottomDock.valueMode #maModeBar .primaryDockButton{visibility:hidden!important;pointer-events:none!important;}
+html.ma-unified-ui #maBottomDock.valueMode #valuePalette{display:flex;}
+html.ma-unified-ui #maBottomDock.valueMode.dock-horizontal #valuePalette{left:calc(var(--ma-side-dock-pad) + var(--ma-control-size) + var(--ma-control-gap));top:50%;transform:translateY(-50%);width:calc((4 * var(--ma-control-size)) + (3 * var(--ma-control-gap)));height:var(--ma-control-size);flex-direction:row;}
+html.ma-unified-ui #maBottomDock.valueMode.dock-vertical #valuePalette{top:calc(var(--ma-side-dock-pad) + var(--ma-control-size) + var(--ma-control-gap));left:50%;transform:translateX(-50%);width:var(--ma-control-size);height:calc((4 * var(--ma-control-size)) + (3 * var(--ma-control-gap)));padding:10px 0;flex-direction:column;}
+#valuePalette button{appearance:none;-webkit-appearance:none;width:clamp(18px,calc(var(--ma-control-size) * 0.38),24px);height:clamp(18px,calc(var(--ma-control-size) * 0.38),24px);min-width:clamp(18px,calc(var(--ma-control-size) * 0.38),24px);min-height:clamp(18px,calc(var(--ma-control-size) * 0.38),24px);padding:0;border-radius:50%;border:1px solid rgba(45,45,43,.24);box-shadow:none;touch-action:none;flex:0 0 auto;opacity:.82;transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease, opacity .12s ease;}
+#valuePalette button.active{opacity:1;border-color:rgba(20,20,20,.92);transform:scale(1.16);box-shadow:0 0 0 2px var(--paper),0 0 0 5px var(--ink),0 1px 4px rgba(0,0,0,.18);}
+@media (max-width:560px){#valuePalette{padding:0 8px}html.ma-unified-ui #maBottomDock.valueMode.dock-vertical #valuePalette{padding:8px 0;}#valuePalette button{width:clamp(16px,calc(var(--ma-control-size) * 0.36),22px);height:clamp(16px,calc(var(--ma-control-size) * 0.36),22px);min-width:clamp(16px,calc(var(--ma-control-size) * 0.36),22px);min-height:clamp(16px,calc(var(--ma-control-size) * 0.36),22px)}}
 </style>
 </head>
 <body>
@@ -2386,20 +2359,6 @@ html.ma-unified-ui #maBottomDock.colorMeterMode.dock-vertical::after{
     <input id="fovSettingsRange" type="range" min="15" max="100" step="1" value="50">
   </div>
 
-
-  <div id="paintColorPanel">
-    <div class="head"><span>COLOR</span><button id="paintColorClose" type="button">CLOSE</button></div>
-    <input id="paintColorPicker" type="color" value="#242424" aria-label="Paint color">
-    <div id="paintColorSwatches">
-      <button type="button" data-paint-color="#242424" style="background:#242424"></button>
-      <button type="button" data-paint-color="#ffffff" style="background:#ffffff"></button>
-      <button type="button" data-paint-color="#d94b4b" style="background:#d94b4b"></button>
-      <button type="button" data-paint-color="#4e6fd1" style="background:#4e6fd1"></button>
-      <button type="button" data-paint-color="#48a56a" style="background:#48a56a"></button>
-      <button type="button" data-paint-color="#e0b83e" style="background:#e0b83e"></button>
-    </div>
-  </div>
-
   <div id="shortcutPanel">
     <div class="head"><span>SHORTCUTS</span><div class="actions"><button id="shortcutReset">RESET</button><button id="shortcutClose">CLOSE</button></div></div>
     <div class="note">Current MA 3D functions only. ESC always cancels back toward NAVI. Choose LEARN, then press the keyboard or 8BitDo button you want. × clears a binding.</div>
@@ -2411,6 +2370,18 @@ html.ma-unified-ui #maBottomDock.colorMeterMode.dock-vertical::after{
   
   
   <div id="maBottomDock" aria-label="MA controls" data-side="left">
+  <div id="valuePalette" aria-label="Value levels">
+    <button type="button" data-value-level="0" aria-label="Value 1" style="background:#000000"></button>
+    <button type="button" data-value-level="1" aria-label="Value 2" style="background:#1c1c1c"></button>
+    <button type="button" data-value-level="2" aria-label="Value 3" style="background:#393939"></button>
+    <button type="button" data-value-level="3" aria-label="Value 4" style="background:#555555"></button>
+    <button type="button" data-value-level="4" aria-label="Value 5" style="background:#717171"></button>
+    <button type="button" data-value-level="5" aria-label="Value 6" style="background:#8e8e8e"></button>
+    <button type="button" data-value-level="6" aria-label="Value 7" style="background:#aaaaaa"></button>
+    <button type="button" data-value-level="7" aria-label="Value 8" style="background:#c6c6c6"></button>
+    <button type="button" data-value-level="8" aria-label="Value 9" style="background:#e3e3e3"></button>
+    <button type="button" data-value-level="9" aria-label="Value 10" style="background:#ffffff"></button>
+  </div>
   <div id="viewJoystick" class="maJoystick viewJoystick" aria-label="View joystick. Tap locks or unlocks the current workplane. Left X, right Y, up Z, down Perspective. Hold X/Y/Z to axis-lock Move.">
     <span class="joyLabel joyUp" data-joy-view="z">Z</span>
     <span class="joyLabel joyLeft" data-joy-view="x">X</span>
@@ -2437,9 +2408,9 @@ html.ma-unified-ui #maBottomDock.colorMeterMode.dock-vertical::after{
     </button>
   </div>
 
-  <div id="lookJoystick" class="maJoystick lookJoystick" aria-label="Look joystick. Tap toggles outlines. Left Color/Draw, up Light, right Depth Fog, down Workspace.">
+  <div id="lookJoystick" class="maJoystick lookJoystick" aria-label="Look joystick. Tap toggles outlines. Left Value, up Light, right Depth Fog, down Workspace.">
     <span class="joyLabel joyUp" data-joy-mode="shadow">L</span>
-    <span class="joyLabel joyLeft" data-joy-mode="color">C</span>
+    <span class="joyLabel joyLeft" data-joy-mode="color">V</span>
     <span class="joyLabel joyRight" data-joy-mode="depth">D</span>
     <span class="joyLabel joyDown" data-joy-mode="workspace">W</span>
     <div id="lookJoystickKnob" class="joyKnob"></div>
@@ -2739,12 +2710,6 @@ function applyViewMode(mode,{rememberPrevious=true}={}){
   if(rememberPrevious)rememberActiveViewSettings();
   viewMode=(mode==='workspace'||mode==='color'||mode==='notan'||mode==='shadow'||mode==='depth')?mode:'workspace';
   if(previous!==viewMode)lookSettingsPanelSuppressed=false;
-  if(viewMode!=='color'){
-    if(paintPolylineState)finishPaintPolyline(true);setColorMeterActive?.(false);
-    paintOverlayInputArmed=false;paintOverlayHoldPointerId=null;
-    if(paintOverlayPointer){const st=paintOverlayPointer;paintOverlayPointer=null;if(st.stroke?.points?.length){paintOverlayStrokes.push(st.stroke);paintOverlayRedo=[];scheduleAutosave();}}
-  }
-
   if(viewMode!=='workspace'){
     // MASS / LIGHT / DEPTH are viewing modes, not selection/editing modes.
     // Leave Select completely and clear the selection as soon as we enter one.
@@ -2757,11 +2722,12 @@ function applyViewMode(mode,{rememberPrevious=true}={}){
     }
   }
 
-  if(viewMode==='workspace'||viewMode==='color'){
-    // Workspace / Color = neutral solid/studio shading. Keep enough hemisphere fill for
-    // all face directions, with only a restrained key light for form separation.
-    // The face color stays visibly grey against MA's white background.
+  if(viewMode==='workspace'){
     Object.assign(lightState,{sunIntensity:0.52,ambientIntensity:0.68,shadowOpacity:0.0,shadowsEnabled:false,hardShadows:true});
+    if(typeof postMat!=='undefined')postMat.uniforms.uThreshold.value=0.5;
+  }else if(viewMode==='color'){
+    // VALUE = flat per-object grayscale, intentionally matching MASS composition reading.
+    Object.assign(lightState,{sunIntensity:0.0,ambientIntensity:0.0,shadowOpacity:0.0,shadowsEnabled:false,hardShadows:true});
     if(typeof postMat!=='undefined')postMat.uniforms.uThreshold.value=0.5;
   }else if(viewMode==='notan'){
     // Masse = all mass reads as solid black silhouettes.
@@ -2779,7 +2745,7 @@ function applyViewMode(mode,{rememberPrevious=true}={}){
   updateAllMassVisuals();
   updateLighting();
   fitShadowCamera(true);
-  groundGrid.visible=!thumbnail && viewMode!=='notan' && viewMode!=='depth';
+  groundGrid.visible=!thumbnail && viewMode!=='notan' && viewMode!=='color' && viewMode!=='depth';
   if(viewMode!=='shadow'){
     const p=document.getElementById('sunDirPanel');
     if(p)p.style.display='none';
@@ -2790,6 +2756,7 @@ function applyViewMode(mode,{rememberPrevious=true}={}){
   }
   if(previous!==viewMode)syncDepthRangeUI();
   syncUnifiedLookSettings();
+  syncValuePalette?.();
   if(typeof updateMobileDrawUI==='function')updateMobileDrawUI();
 }
 function fitShadowCamera(force=false){
@@ -2866,12 +2833,11 @@ const accent=0x65e5a8,fill=0xb8b8b8,outline=0x242424,selectionRoyal=0x5a72c7; //
 let masses=[],nextId=1,nextGroupId=1,selected=null,selectedIds=new Set(),activeTool='select',activeDepth=1.5,drawMode='add',outlinesEnabled=true,thumbnail=false,activeBrushContainerId=null,activeBrushContainerType=null;
 let brushWidthValue=1.5,brushDepthValue=1.5,randomBrushSizeMode=false;
 let streamlineAmount=35;
-let paintOverlayAction='add',paintOverlayColor='#242424',paintOverlaySize=16,paintOverlayTool='brush';
-let paintOverlayStrokes=[],paintOverlayRedo=[],paintOverlayPointer=null;
-let paintOverlayInputArmed=false,paintOverlayHoldPointerId=null;
-let paintToolPickerHeld=false,paintToolPickerSourceId='drawAddHoldBtn',paintToolScrubChoice=null,paintToolScrubHoverButtonId=null;
-let paintPolylineState=null;
-let colorMeterActive=false,colorAdjustState=null;
+const VALUE_LEVEL_COUNT=10;
+let valueLevelSelected=0;
+let valueBucketMode='object';
+let valuePaletteOpen=false;
+let valueModePointer=null;
 let currentProjectName='untitled',autosaveTimer=null;
 let currentLibraryProjectId=null,currentLibraryCreatedAt=null,currentLibraryThumbnail=null;
 let projectLibraryVisible=false,blankProjectTemplate=null;
@@ -2936,10 +2902,8 @@ let pencilSelectManuallyOff=false;
 // longer a hold gesture there; a tap toggles persistent Single / Multi Select.
 let ipadPencilMultiSelect=false;
 let pencilDrawButtonPress=null;
-let pencilPaintButtonPress=null;
 const PENCIL_DRAW_MENU_HOLD_MS=60;
 const PENCIL_DRAW_TOGGLE_HOLD_MS=220;
-const PENCIL_PAINT_MENU_HOLD_MS=180;
 const touchPointers=new Map();let touchNavState=null,touchGesture=null,touchOrbitPivot=null,touchNavRAF=0,touchPanScale=0;
 // v9.56 — iPad palm rejection. Workspace touches that overlap a native Pencil
 // contact are quarantined until those exact fingers/palm contacts lift. UI/dock
@@ -3080,8 +3044,6 @@ const ui={
   streamlinePanel:document.getElementById('streamlinePanel'),
   streamlineRange:document.getElementById('streamlineRange'),
   streamlineValue:document.getElementById('streamlineValue'),
-  paintColorPanel:document.getElementById('paintColorPanel'),
-  paintColorPicker:document.getElementById('paintColorPicker'),
   fovSettingsPanel:document.getElementById('fovSettingsPanel'),
   fovSettingsRange:document.getElementById('fovSettingsRange'),
   fovSettingsValue:document.getElementById('fovSettingsValue'),
@@ -3748,7 +3710,7 @@ function restoreViewRuntimeState(s){
   Object.assign(lightState,s.light);
   if(typeof postMat!=='undefined')postMat.uniforms.uThreshold.value=s.threshold;
   updateAllMassVisuals();updateLighting();fitShadowCamera(true);
-  groundGrid.visible=!thumbnail&&viewMode!=='notan'&&viewMode!=='depth';
+  groundGrid.visible=!thumbnail&&viewMode!=='notan'&&viewMode!=='color'&&viewMode!=='depth';
   syncDepthRangeUI();renderViewport();
 }
 async function renderDetachedViewCanvas(spec,targetLongEdge=4096){
@@ -4937,7 +4899,7 @@ function commitMassGeometry(m,g,{smooth=true}={}){
   m.edges.geometry.dispose();
   m.edges.geometry=outlineGeometryForMass(g,m.type);
   invalidateMassGeometryDerivedState(m,{invalidateManifold:!replaced});
-  syncMassPaintGeometry?.(m);
+  syncMassValueOverlay(m,{resetFaceValues:false});
   updateMassVisual(m);
   markViewPlaneSectionDirty();
   return true;
@@ -5056,7 +5018,7 @@ function outlineGeometryForMass(g,type){
   welded.dispose();
   return edges;
 }
-function materialForMass(type='draw'){return new THREE.MeshLambertMaterial({color:fill,flatShading:!(type==='sphere'||type==='circle'||type==='curve'),side:THREE.FrontSide,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});}
+function materialForMass(type='draw'){return new THREE.MeshLambertMaterial({color:fill,flatShading:!(type==='sphere'||type==='circle'||type==='curve'),vertexColors:false,side:THREE.FrontSide,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});}
 // v8.31 — selection is a simple material tint; geometry remains the source of truth.
 function geometryFromMassData(data,profile,cuts){
   const direct=Array.isArray(data.geometryPositions)&&data.geometryPositions.length>=9?data.geometryPositions:null;
@@ -5084,14 +5046,14 @@ function makeMass(data,addHistory=false){
     g.computeBoundingBox();g.computeBoundingSphere();
   }else{g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();}
   const group=new THREE.Group(),mesh=new THREE.Mesh(g,materialForMass(massType));mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);scene.add(group);
-  const paintGroup=new THREE.Group();paintGroup.name='paintGroup';paintGroup.renderOrder=6;group.add(paintGroup);
   group.position.fromArray(data.position||[0,0,0]);group.quaternion.fromArray(data.quaternion||[0,0,0,1]);group.scale.fromArray(data.scale||[1,1,1]);
-  const id=data.id??nextId++;nextId=Math.max(nextId,id+1);group.userData.massId=id;mesh.userData.massId=id;paintGroup.userData.massId=id;
+  const id=data.id??nextId++;nextId=Math.max(nextId,id+1);group.userData.massId=id;mesh.userData.massId=id;
   const edgeMat=new THREE.LineBasicMaterial({color:outline,transparent:true,opacity:1});const edges=new THREE.LineSegments(outlineGeometryForMass(g,massType),edgeMat);edges.renderOrder=4;edges.userData.massId=id;group.add(edges);
-  const m={id,name:data.name||('MASS '+id),type:massType,profile,depth:data.depth,cuts:baked?[]:cuts,baked,groupId:data.groupId??null,mirrorPairId:data.mirrorPairId??null,mirrorRole:data.mirrorRole||null,group,mesh,edges,paintGroup,paintPages:null,paintMesh:null,paintTriCache:null};
+  const valueLevel=clamp(Math.round(Number.isFinite(+data.valueLevel)?+data.valueLevel:0),0,VALUE_LEVEL_COUNT-1);
+  const m={id,name:data.name||('MASS '+id),type:massType,profile,depth:data.depth,cuts:baked?[]:cuts,baked,groupId:data.groupId??null,mirrorPairId:data.mirrorPairId??null,mirrorRole:data.mirrorRole||null,valueLevel,faceValueLevels:data.faceValueLevels&&typeof data.faceValueLevels==='object'?{...data.faceValueLevels}:null,valueOverlayMesh:null,_valueFaceCache:null,group,mesh,edges};
   if(m.groupId!=null)nextGroupId=Math.max(nextGroupId,(m.groupId|0)+1);
   if(m.mirrorPairId!=null)nextMirrorPairId=Math.max(nextMirrorPairId,(m.mirrorPairId|0)+1);
-  masses.push(m);updateMassVisual(m);if(addHistory)recordHistory();return m;
+  masses.push(m);syncMassValueOverlay(m,{resetFaceValues:false});updateMassVisual(m);if(addHistory)recordHistory();return m;
 }
 function disposeMass(m){
   if(!m||m._disposed)return;
@@ -5101,11 +5063,8 @@ function disposeMass(m){
   // A mass can temporarily live under selectionPivot during Scale/Rotate.
   if(m.group?.parent)m.group.parent.remove(m.group);
 
-  if(m.paintGroup){
-    for(const ch of [...m.paintGroup.children]){ch.geometry?.dispose?.();if(Array.isArray(ch.material)){for(const mat of ch.material)mat?.dispose?.();}else ch.material?.dispose?.();m.paintGroup.remove(ch);}
-  }
-  if(Array.isArray(m.paintPages))for(const page of m.paintPages)page?.texture?.dispose?.();
-  m.paintPages=null;m.paintMesh=null;m.paintTriCache=null;
+  m.valueOverlayMesh?.geometry?.dispose?.();
+  m.valueOverlayMesh?.material?.dispose?.();
   m.mesh?.geometry?.dispose?.();
   m.mesh?.material?.dispose?.();
   m.edges?.geometry?.dispose?.();
@@ -5122,7 +5081,7 @@ function getActiveBrushContainer(tool=null){
   return m;
 }
 
-function serializeMass(m){const geometryPositions=serializeGeometry(m.mesh.geometry),geometryNormals=m.type==='curve'?serializeGeometryNormals(m.mesh.geometry):null;return{id:m.id,name:m.name,type:m.type,groupId:m.groupId??null,mirrorPairId:m.mirrorPairId??null,mirrorRole:m.mirrorRole||null,profile:m.profile.map(p=>({x:p.x,y:p.y})),depth:m.depth,cuts:m.baked?[]:(m.cuts||[]).map(serializeCut),baked:!!m.baked,geometryPositions:m.baked?null:geometryPositions,bakedPositions:m.baked?geometryPositions:null,geometryNormals,position:m.group.position.toArray(),quaternion:m.group.quaternion.toArray(),scale:m.group.scale.toArray()};}
+function serializeMass(m){const geometryPositions=serializeGeometry(m.mesh.geometry),geometryNormals=m.type==='curve'?serializeGeometryNormals(m.mesh.geometry):null;return{id:m.id,name:m.name,type:m.type,groupId:m.groupId??null,mirrorPairId:m.mirrorPairId??null,mirrorRole:m.mirrorRole||null,valueLevel:clamp(Math.round(+m.valueLevel||0),0,VALUE_LEVEL_COUNT-1),profile:m.profile.map(p=>({x:p.x,y:p.y})),depth:m.depth,cuts:m.baked?[]:(m.cuts||[]).map(serializeCut),baked:!!m.baked,geometryPositions:m.baked?null:geometryPositions,bakedPositions:m.baked?geometryPositions:null,geometryNormals,position:m.group.position.toArray(),quaternion:m.group.quaternion.toArray(),scale:m.group.scale.toArray()};}
 function snapshot(){return masses.map(m=>({...serializeMass(m),baked:!!m.baked,geometryPositions:serializeGeometry(m.mesh.geometry)}));}
 function captureSceneView(){
   // A scene is a complete shot snapshot, not only a camera bookmark. Persist the
@@ -5305,8 +5264,7 @@ function serializeProject(){
       viewSettings:serializeViewSettings(),
       safeFrame:{...safeFrameState},
       scenes:{items:savedScenes.map(s=>({id:s.id,name:s.name,view:s.view})),activeSceneId,nextSceneId},
-      settings:{activeDepth,brushWidth:brushWidthValue,brushDepth:brushDepthValue,randomBrushSizeMode,drawMode,outlinesEnabled,mirrorModeX,streamlineAmount,paintOverlaySize,paintOverlayColor,paintOverlayTool},
-      paintOverlay:{strokes:paintOverlayStrokes}
+      settings:{activeDepth,brushWidth:brushWidthValue,brushDepth:brushDepthValue,randomBrushSizeMode,drawMode,outlinesEnabled,mirrorModeX,streamlineAmount,valueLevelSelected}
     }
   };
 }
@@ -5523,7 +5481,7 @@ async function listLibraryProjects(){
           byId.set(item.id,item);
         }
         // Once IndexedDB has woken up, seed the synchronous thumbnail cache so
-        // the next app launch can paint project cards immediately.
+        // the next app launch can render project cards immediately.
         if(item?.id&&item?.thumbnail){
           try{localStorage.setItem(MA_LIBRARY_FALLBACK_THUMB_PREFIX+item.id,item.thumbnail);}catch(_){}
         }
@@ -5588,7 +5546,7 @@ async function writeLibraryProject(record,{routine=false}={}){
   };
 
   // Routine autosaves stay lean: keep only the serialized record in memory.
-  // Hydrating projectJSON here duplicates the entire project/paint history in RAM.
+  // Hydrating projectJSON here duplicates the entire project in RAM.
   sessionLibraryRecords.set(stored.id,routine?stored:hydrateLibraryRecord(stored));
 
   // The synchronous localStorage recovery shadow is intentionally skipped for
@@ -5745,9 +5703,8 @@ function scheduleAutosave(){
   const delay=window.__MA_IS_IPAD__?3200:450;
   const run=async()=>{
     autosaveTimer=null;
-    // Keep iPad autosave off the hot Pencil path. Paint history and WebGL/Canvas
-    // buffers stay live while drawing, so routine persistence must be low-peak.
-    if(paintOverlayPointer||paintMoveRAF||paintMovePending||colorAdjustState||interaction||transformDragging){autosaveTimer=setTimeout(run,1100);return;}
+    // Keep iPad autosave off active Pencil/model interactions so routine persistence stays low-peak.
+    if(valueModePointer||interaction||transformDragging){autosaveTimer=setTimeout(run,1100);return;}
     const ok=await saveAutosaveNow({routine:!!window.__MA_IS_IPAD__});
     if(!ok&&!projectLibraryVisible&&currentLibraryProjectId){autosaveTimer=setTimeout(run,2200);}
   };
@@ -6299,14 +6256,11 @@ function loadProjectObject(project,{fromAutosave=false}={}){
     syncLookJoystickUI?.();
   }
 
-  paintOverlayStrokes=Array.isArray(s.paintOverlay?.strokes)?s.paintOverlay.strokes.filter(x=>paintStrokeHasRenderableData(x)).map(normalizePaintOverlayStroke).filter(Boolean):[];
-  paintOverlayRedo=[];
-  if(s.settings){
-    if(Number.isFinite(+s.settings.paintOverlaySize))paintOverlaySize=clamp(+s.settings.paintOverlaySize,PAINT_SIZE_MIN,96);
-    if(/^#[0-9a-f]{6}$/i.test(String(s.settings.paintOverlayColor||'')))paintOverlayColor=String(s.settings.paintOverlayColor).toLowerCase();
-    paintOverlayTool=normalizePaintTool(s.settings.paintOverlayTool);
+  if(s.settings&&Number.isFinite(+s.settings.valueLevelSelected)){
+    valueLevelSelected=clamp(Math.round(+s.settings.valueLevelSelected),0,VALUE_LEVEL_COUNT-1);
   }
-  requestAnimationFrame(()=>{rebuildAllPaintTextures();});
+  valueBucketMode='object';
+  syncValuePalette?.();
 
   if(s.workplane){
     const wp={
@@ -6335,7 +6289,7 @@ function loadProjectObject(project,{fromAutosave=false}={}){
     syncWorkplaneLockUI();
   }else{workplaneLocked=false;setGroundPlane(false);syncWorkplaneLockUI();}
 
-  groundGrid.visible=!thumbnail&&viewMode!=='notan'&&viewMode!=='depth';
+  groundGrid.visible=!thumbnail&&viewMode!=='notan'&&viewMode!=='color'&&viewMode!=='depth';
   fitShadowCamera(true);
   restoring=false;
   history=[];historyIndex=-1;recordHistory();
@@ -6438,6 +6392,7 @@ function restoreState(s){
     const cur=byId.get(d.id);
     if(cur&&massMatchesHistoryState(cur,d)){
       cur._disposed=false;
+      cur.valueLevel=clamp(Math.round(Number.isFinite(+d.valueLevel)?+d.valueLevel:0),0,VALUE_LEVEL_COUNT-1);
       masses.push(cur);
       reused.add(cur);
       nextId=Math.max(nextId,cur.id+1);
@@ -6458,6 +6413,7 @@ function restoreState(s){
 
   reconcileMassSceneGraph();
   setSelection([]);
+  updateAllMassVisuals();
   restoring=false;
   fitShadowCamera(true);
   updateMobileDrawUI();
@@ -6475,7 +6431,6 @@ function prepareHistoryNavigation(){
   setJoystickKnob?.('view',null);
 }
 function undo(){
-  if(viewMode==='color'&&undoPaintOverlay())return;
   if(historyIndex<=0)return;
   prepareHistoryNavigation();
   historyIndex--;
@@ -6483,7 +6438,6 @@ function undo(){
   showToast('UNDO');
 }
 function redo(){
-  if(viewMode==='color'&&redoPaintOverlay())return;
   if(historyIndex>=history.length-1)return;
   prepareHistoryNavigation();
   historyIndex++;
@@ -6495,24 +6449,25 @@ function selectedMasses(){return masses.filter(m=>selectedIds.has(m.id));}
 function isSelectedMass(m){return !!m&&selectedIds.has(m.id);}
 function groupMembers(m){return !m||m.groupId==null?[m].filter(Boolean):masses.filter(x=>x.groupId===m.groupId);}
 function selectionForMass(m){if(!m)return[];const current=selectedMasses();if(current.length>1&&isSelectedMass(m))return current;return groupMembers(m);}
+function valueLevelGray(level){const n=clamp(Math.round(+level||0),0,VALUE_LEVEL_COUNT-1),v=Math.round(n/(VALUE_LEVEL_COUNT-1)*255);return(v<<16)|(v<<8)|v;}
 function updateMassVisual(m){
-  // v8.32 — selected geometry keeps the normal material/shading and uses a
-  // much lighter neutral grey surface. Outlines remain canonical dark geometry edges. Outlines remain canonical dark geometry edges.
   const sel=isSelectedMass(m);
   let base=0xffffff;
   if(viewMode==='notan')base=0x000000;
-  else if(viewMode==='workspace'||viewMode==='color')base=sel?selectionRoyal:0xe8e8e8;
+  else if(viewMode==='workspace')base=sel?selectionRoyal:0xe8e8e8;
+  else if(viewMode==='color')base=0x000000;
 
+  if(viewMode==='color')syncMassValueOverlay(m,{resetFaceValues:false});
   m.mesh.material.color.set(base);
   if(m.mesh.material.emissive){
     m.mesh.material.emissive.set(0x000000);
     m.mesh.material.emissiveIntensity=1;
   }
+  if(m.valueOverlayMesh)m.valueOverlayMesh.visible=(viewMode==='color');
 
   m.edges.visible=(viewMode==='shadow'||viewMode==='depth')?false:outlinesEnabled;
   m.edges.material.color.set(outline);
   m.edges.material.opacity=1;
-  if(m.paintMesh)m.paintMesh.visible=(viewMode==='color');
 }
 function updateAllMassVisuals(){masses.forEach(updateMassVisual);}
 function setSelection(list=[]){
@@ -6605,601 +6560,38 @@ function raycastPencilSelectionTarget(x,y){
 }
 function massFromHit(hit){return hit?massById(hit.object?.userData?.massId):null;}
 
-// --- Surface texture paint ------------------------------------------------------
-// Current engine: world-space brush sampling rasterized into per-mass texture-atlas pages.
-// Brush radius and texel density are independent of camera angle, camera distance and object size.
-const PAINT_TEXELS_PER_WORLD=window.__MA_IS_IPAD__?120:144;
-const PAINT_PAGE_PAD=10;
-const PAINT_STAMP_SPACING_FACTOR=.26;
-const PAINT_SURFACE_CONTINUITY_DOT=.62;
-const PAINT_FACE_COPLANAR_DOT=.9995;
-const PAINT_BUCKET_OBJECT_HOLD_MS=620;
-const PAINT_BUCKET_MOVE_TOLERANCE_PX=14;
-const PAINT_BUCKET_SWEEP_STEP_PX=7;
-const PAINT_STRAIGHT_HOLD_MS=460;
-const PAINT_STRAIGHT_MIN_PX=18;
-const PAINT_STRAIGHT_MOVE_RESET_PX=3;
-const PAINT_SHAPE_SCREEN_STEP_PX=5;
-const PAINT_POLY_DOUBLE_TAP_MS=340;
-const PAINT_POLY_DOUBLE_TAP_PX=26;
-const PAINT_UPLOAD_INTERVAL_MS=16;
-const PAINT_PAGE_SIZE_CHOICES=window.__MA_IS_IPHONE__?[1024,2048]:(window.__MA_IS_IPAD__?[1024,2048]:[1024,2048,4096]);
-const PAINT_SIZE_MIN=.5;
-const PAINT_WORLD_RADIUS_PER_SIZE=.0125;
-const paintDirtyPages=new Set();
-let paintUploadRAF=0,paintLastUploadTime=0;
-// iPad stability + live-brush performance: keep one shared upload scratch canvas,
-// but track several small dirty regions instead of unioning distant UV islands into one
-// huge bounding box. Large regions are tiled so we never need a giant temporary crop.
-const PAINT_UPLOAD_TILE_SIZE=window.__MA_IS_IPAD__?384:512;
-const PAINT_MAX_DIRTY_RECTS=24;
-const paintUploadScratchCanvas=document.createElement('canvas');
-let paintUploadScratchCtx=null;
-let paintTransparentTexture=null;
-let paintMoveRAF=0,paintMovePending=null;
 
-function normalizePaintTool(tool){return ['brush','texture','bucket','square','circle','polyline'].includes(tool)?tool:'brush';}
-function activePaintToolForAction(action=paintOverlayAction){return normalizePaintTool(paintToolPickerHeld&&paintToolScrubChoice?paintToolScrubChoice:paintOverlayTool);}
-function paintToolLabel(tool){return tool==='bucket'?'BUCKET':tool==='texture'?'TEXTURE':tool==='square'?'SQUARE':tool==='circle'?'CIRCLE':tool==='polyline'?'POLY':'BRUSH';}
-function paintStrokeTool(stroke){return normalizePaintTool(stroke?.tool);}
-function paintStrokeIsFaceFill(stroke){return !!stroke&&stroke.kind==='faceFill'&&Number.isFinite(+stroke.massId);}
-function paintStrokeIsFaceSweep(stroke){return !!stroke&&stroke.kind==='faceSweep'&&Array.isArray(stroke.fills);}
-function paintStrokeIsObjectFill(stroke){return !!stroke&&!paintStrokeIsFaceFill(stroke)&&!paintStrokeIsFaceSweep(stroke)&&(stroke.kind==='fill'||(paintStrokeTool(stroke)==='bucket'&&Number.isFinite(+stroke.massId)&&!Array.isArray(stroke.facePoint)));}
-function paintStrokeIsFill(stroke){return paintStrokeIsFaceFill(stroke)||paintStrokeIsFaceSweep(stroke)||paintStrokeIsObjectFill(stroke);}
-function paintStrokeHasRenderableData(stroke){if(!stroke)return false;if(paintStrokeIsFaceSweep(stroke))return stroke.fills.some(f=>paintStrokeIsFaceFill(f));return Array.isArray(stroke.points)?stroke.points.some(isPaintSample):Number.isFinite(+stroke.massId);}
-function paintStrokeTouchesMass(stroke,massId){if(!stroke)return false;if(paintStrokeIsFaceSweep(stroke))return stroke.fills.some(f=>Math.round(+f.massId)===massId);if(paintStrokeIsFill(stroke))return Math.round(+stroke.massId)===massId;return (stroke.points||[]).some(s=>s?.m===massId);}
-function normalizePaintOverlayStroke(stroke){
-  if(!paintStrokeHasRenderableData(stroke))return null;
-  const mode=stroke?.mode==='erase'?'erase':'add';
-  const color=/^#[0-9a-f]{6}$/i.test(String(stroke?.color||''))?String(stroke.color).toLowerCase():'#242424';
-  const tool=paintStrokeTool(stroke);
-  if(paintStrokeIsFaceSweep(stroke)){const fills=stroke.fills.map(f=>normalizePaintOverlayStroke({...f,kind:'faceFill',tool:'bucket',mode,color})).filter(paintStrokeIsFaceFill);return fills.length?{kind:'faceSweep',tool:'bucket',mode,color,fills}:null;}
-  if(paintStrokeIsFaceFill(stroke))return{kind:'faceFill',tool:'bucket',mode,color,massId:Math.round(+stroke.massId),facePoint:Array.isArray(stroke.facePoint)?stroke.facePoint.slice(0,3):null,faceNormal:Array.isArray(stroke.faceNormal)?stroke.faceNormal.slice(0,3):null,hitTri:Number.isInteger(stroke.hitTri)?stroke.hitTri:null};
-  if(paintStrokeIsObjectFill(stroke))return{kind:'fill',tool:'bucket',mode,color,massId:Math.round(+stroke.massId)};
-  const worldRadius=Math.max(.00001,Number.isFinite(+stroke?.worldRadius)?+stroke.worldRadius:paintWorldRadiusForSize(paintOverlaySize));
-  return{kind:'stroke',tool,mode,color,worldRadius,points:(stroke.points||[]).filter(isPaintSample).map(s=>({m:Math.round(+s.m),p:s.p.slice(0,3),n3:Array.isArray(s.n3)?s.n3.slice(0,3):null,hitTri:Number.isInteger(s.hitTri)?s.hitTri:null}))};
-}
-function setPaintOverlayTool(tool){const next=normalizePaintTool(tool);if(paintPolylineState&&next!=='polyline')finishPaintPolyline(true);paintOverlayTool=next;scheduleAutosave();showToast(paintToolLabel(paintOverlayTool));}
-function paintRoughSeed(ell){let n=((ell.u*104729)+(ell.v*130363)+(ell.ru*65537)+(ell.rv*32771))*100000;return (Math.floor(n)^0x9e3779b9)>>>0;}
-function paintRoughRand(state){state.v=(state.v*1664525+1013904223)>>>0;return state.v/4294967296;}
-function addRoughPaintEllipsePath(ctx,ell,s){
-  const cx=ell.u*s,cy=ell.v*s,ru=Math.max(.65,ell.ru*s),rv=Math.max(.65,ell.rv*s),cr=Math.cos(ell.rot),sr=Math.sin(ell.rot),segments=24,state={v:paintRoughSeed(ell)};
-  for(let i=0;i<=segments;i++){const a=i/segments*Math.PI*2,noise=(paintRoughRand(state)-.5)*.18+(Math.sin(a*5+state.v*.000001)*.035),scale=1+noise,ex=Math.cos(a)*ru*scale,ey=Math.sin(a)*rv*scale,x=cx+ex*cr-ey*sr,y=cy+ex*sr+ey*cr;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}
-  ctx.closePath();
-}
-function paintOverlayViewportRect(){return document.getElementById('viewport')?.getBoundingClientRect?.()||{left:0,top:0,right:1,bottom:1,width:1,height:1};}
-function paintWorldRadiusForSize(size){return Math.max(.001,clamp(+size||16,PAINT_SIZE_MIN,96)*PAINT_WORLD_RADIUS_PER_SIZE);}
-function isPaintSample(sample){return !!sample&&Array.isArray(sample.p)&&sample.p.length>=3;}
-function paintMatrixMinScale(matrix){const e=matrix.elements,sx=Math.hypot(e[0],e[1],e[2]),sy=Math.hypot(e[4],e[5],e[6]),sz=Math.hypot(e[8],e[9],e[10]);return Math.max(1e-6,Math.min(sx,sy,sz));}
-function paintEdgeKey(a,b,tol){const k=v=>`${Math.round(v.x/tol)},${Math.round(v.y/tol)},${Math.round(v.z/tol)}`,ka=k(a),kb=k(b);return ka<kb?`${ka}|${kb}`:`${kb}|${ka}`;}
-
-function disposePaintMaterial(mat){if(Array.isArray(mat)){for(const x of mat)x?.dispose?.();}else mat?.dispose?.();}
-function disposeMassPaintLayer(m){
-  if(!m)return;
-  if(m.paintMesh){m.paintGroup?.remove?.(m.paintMesh);m.paintMesh.geometry?.dispose?.();disposePaintMaterial(m.paintMesh.material);}
-  if(Array.isArray(m.paintPages))for(const p of m.paintPages)p?.texture?.dispose?.();
-  m.paintMesh=null;m.paintPages=null;m.paintTriCache=null;
-}
-function getPaintTransparentTexture(){
-  if(paintTransparentTexture)return paintTransparentTexture;
-  const data=new Uint8Array([0,0,0,0]),texture=new THREE.DataTexture(data,1,1,THREE.RGBAFormat,THREE.UnsignedByteType);
-  texture.colorSpace=THREE.SRGBColorSpace;texture.flipY=false;texture.wrapS=THREE.ClampToEdgeWrapping;texture.wrapT=THREE.ClampToEdgeWrapping;texture.minFilter=THREE.NearestFilter;texture.magFilter=THREE.NearestFilter;texture.generateMipmaps=false;texture.premultiplyAlpha=true;texture.needsUpdate=true;
-  paintTransparentTexture=texture;return texture;
-}
-function createPaintPage(size,index){return{index,size,canvas:null,ctx:null,texture:null,material:null,dirty:false,dirtyRects:[]};}
-function ensurePaintPageAllocated(page){
-  if(!page)return null;if(page.ctx&&page.canvas&&page.texture)return page;
-  const canvas=document.createElement('canvas');canvas.width=page.size;canvas.height=page.size;
-  const ctx=canvas.getContext('2d',{alpha:true});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.clearRect(0,0,page.size,page.size);
-  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.flipY=false;texture.wrapS=THREE.ClampToEdgeWrapping;texture.wrapT=THREE.ClampToEdgeWrapping;texture.minFilter=THREE.LinearFilter;texture.magFilter=THREE.LinearFilter;texture.generateMipmaps=false;texture.premultiplyAlpha=true;texture.needsUpdate=true;
-  page.canvas=canvas;page.ctx=ctx;page.texture=texture;
-  if(page.material){page.material.map=texture;page.material.needsUpdate=true;}
-  return page;
-}
-function normalizePaintDirtyRect(page,rect){
-  if(!page)return null;const s=page.size;
-  const r=rect?{x:Math.max(0,Math.floor(rect.x)),y:Math.max(0,Math.floor(rect.y)),x1:Math.min(s,Math.ceil(rect.x+rect.w)),y1:Math.min(s,Math.ceil(rect.y+rect.h))}:{x:0,y:0,x1:s,y1:s};
-  return r.x1>r.x&&r.y1>r.y?r:null;
-}
-function paintRectsTouch(a,b,pad=3){return !(a.x1+pad<b.x||b.x1+pad<a.x||a.y1+pad<b.y||b.y1+pad<a.y);}
-function paintRectUnion(a,b){return{x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),x1:Math.max(a.x1,b.x1),y1:Math.max(a.y1,b.y1)};}
-function paintRectArea(r){return Math.max(0,r.x1-r.x)*Math.max(0,r.y1-r.y);}
-function addPaintDirtyRect(page,rect){
-  const r=normalizePaintDirtyRect(page,rect);if(!r)return;
-  if(!Array.isArray(page.dirtyRects))page.dirtyRects=[];
-  // Merge only genuinely adjacent regions. Distant UV islands must remain separate;
-  // unioning them is what made v9.51 upload most of the atlas every brush frame.
-  let merged=r;
-  for(let i=page.dirtyRects.length-1;i>=0;i--){const d=page.dirtyRects[i];if(!paintRectsTouch(merged,d))continue;const u=paintRectUnion(merged,d);if(paintRectArea(u)<=1.45*(paintRectArea(merged)+paintRectArea(d))){merged=u;page.dirtyRects.splice(i,1);}}
-  page.dirtyRects.push(merged);
-  // Defensive cap for pathological meshes: merge the cheapest pair, never all regions.
-  while(page.dirtyRects.length>PAINT_MAX_DIRTY_RECTS){let bi=0,bj=1,best=Infinity;for(let i=0;i<page.dirtyRects.length;i++)for(let j=i+1;j<page.dirtyRects.length;j++){const a=page.dirtyRects[i],b=page.dirtyRects[j],u=paintRectUnion(a,b),cost=paintRectArea(u)-paintRectArea(a)-paintRectArea(b);if(cost<best){best=cost;bi=i;bj=j;}}const u=paintRectUnion(page.dirtyRects[bi],page.dirtyRects[bj]);page.dirtyRects.splice(bj,1);page.dirtyRects[bi]=u;}
-}
-function markPaintPageDirty(page,force=false,rect=null){
-  if(!page?.ctx||!page?.texture)return;page.dirty=true;addPaintDirtyRect(page,force?null:rect);paintDirtyPages.add(page);
-  if(force){flushPaintTextureUploads(true);return;}
-  if(!paintUploadRAF)paintUploadRAF=requestAnimationFrame(flushPaintTextureUploads);
-}
-function splitPaintDirtyRect(r,maxSize=PAINT_UPLOAD_TILE_SIZE){
-  const out=[];for(let y=r.y;y<r.y1;y+=maxSize)for(let x=r.x;x<r.x1;x+=maxSize)out.push({x,y,x1:Math.min(r.x1,x+maxSize),y1:Math.min(r.y1,y+maxSize)});return out;
-}
-function uploadPaintRect(page,r,webglTex,gl){
-  const x=r.x|0,y=r.y|0,w=Math.max(1,(r.x1-r.x)|0),h=Math.max(1,(r.y1-r.y)|0);
-  const uc=paintUploadScratchCanvas;if(uc.width!==w)uc.width=w;if(uc.height!==h)uc.height=h;
-  const uctx=paintUploadScratchCtx||(paintUploadScratchCtx=uc.getContext('2d',{alpha:true,willReadFrequently:false}));
-  uctx.setTransform(1,0,0,1,0,0);uctx.globalCompositeOperation='copy';uctx.clearRect(0,0,w,h);uctx.drawImage(page.canvas,x,y,w,h,0,0,w,h);uctx.globalCompositeOperation='source-over';
-  gl.bindTexture(gl.TEXTURE_2D,webglTex);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,true);gl.texSubImage2D(gl.TEXTURE_2D,0,x,y,gl.RGBA,gl.UNSIGNED_BYTE,uc);
-}
-function uploadPaintPageDirtyRegions(page,force=false){
-  if(!page?.ctx||!page?.canvas||!page?.texture)return;const rects=Array.isArray(page?.dirtyRects)?page.dirtyRects.splice(0):[];page.dirty=false;if(!rects.length)return;
-  if(force){page.texture.needsUpdate=true;return;}
-  try{
-    renderer.initTexture?.(page.texture);const props=renderer.properties?.get?.(page.texture),webglTex=props?.__webglTexture;if(!webglTex)throw new Error('paint texture not initialized');
-    const gl=renderer.getContext();for(const r of rects)for(const tile of splitPaintDirtyRect(r))uploadPaintRect(page,tile,webglTex,gl);gl.bindTexture(gl.TEXTURE_2D,null);renderer.resetState?.();
-  }catch(err){page.texture.needsUpdate=true;}
-}
-function flushPaintTextureUploads(forceOrTime=false){
-  const force=forceOrTime===true,now=force?performance.now():(Number.isFinite(forceOrTime)?forceOrTime:performance.now());
-  if(!force&&now-paintLastUploadTime<PAINT_UPLOAD_INTERVAL_MS){paintUploadRAF=requestAnimationFrame(flushPaintTextureUploads);return;}
-  paintUploadRAF=0;paintLastUploadTime=now;
-  for(const page of paintDirtyPages)uploadPaintPageDirtyRegions(page,force);
-  paintDirtyPages.clear();
-}
-function flushPaintTextureUploadsNow(){
-  if(paintUploadRAF){cancelAnimationFrame(paintUploadRAF);paintUploadRAF=0;}
-  paintLastUploadTime=performance.now();
-  for(const page of paintDirtyPages)uploadPaintPageDirtyRegions(page,false);
-  paintDirtyPages.clear();
-}
-
-function paintTriangleWorldCharts(m){
-  let g=m.mesh.geometry.clone();if(g.index){const ni=g.toNonIndexed();g.dispose();g=ni;}const pos=g.getAttribute('position');if(!pos)return{geometry:g,charts:[],density:PAINT_TEXELS_PER_WORLD,pageSize:PAINT_PAGE_SIZE_CHOICES[0]};
-  m.mesh.updateMatrixWorld(true);g.computeBoundingBox();const diag=Math.max(1e-5,g.boundingBox?.getSize(new THREE.Vector3()).length()||1),tol=Math.max(1e-7,diag*2e-6);
-  const charts=[],a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),aw=new THREE.Vector3(),bw=new THREE.Vector3(),cw=new THREE.Vector3(),e1=new THREE.Vector3(),e2=new THREE.Vector3(),n=new THREE.Vector3(),t1=new THREE.Vector3(),t2=new THREE.Vector3();
-  const triCount=Math.floor(pos.count/3);
-  let maxWorldDim=0;
-  for(let t=0;t<triCount;t++){
-    const i=t*3;a.fromBufferAttribute(pos,i);b.fromBufferAttribute(pos,i+1);c.fromBufferAttribute(pos,i+2);aw.copy(a).applyMatrix4(m.mesh.matrixWorld);bw.copy(b).applyMatrix4(m.mesh.matrixWorld);cw.copy(c).applyMatrix4(m.mesh.matrixWorld);
-    e1.subVectors(bw,aw);e2.subVectors(cw,aw);const len1=Math.max(1e-8,e1.length());t1.copy(e1).multiplyScalar(1/len1);n.crossVectors(e1,e2);if(n.lengthSq()<1e-14)n.set(0,0,1);else n.normalize();t2.crossVectors(n,t1).normalize();
-    const q=[[0,0],[len1,0],[e2.dot(t1),e2.dot(t2)]],xs=q.map(v=>v[0]),ys=q.map(v=>v[1]),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),w=Math.max(1e-6,maxX-minX),h=Math.max(1e-6,maxY-minY);
-    maxWorldDim=Math.max(maxWorldDim,w,h);
-    const ca=a.clone(),cb=b.clone(),cc=c.clone();
-    charts.push({index:t,a:ca,b:cb,c:cc,triangle:new THREE.Triangle(ca,cb,cc),n:new THREE.Vector3().crossVectors(cb.clone().sub(ca),cc.clone().sub(ca)).normalize(),center:ca.clone().add(cb).add(cc).multiplyScalar(1/3),q,minX,minY,w,h,neighbors:[],page:0,uv:null});
-  }
-  const maxChoice=PAINT_PAGE_SIZE_CHOICES[PAINT_PAGE_SIZE_CHOICES.length-1],usable=Math.max(64,maxChoice-PAINT_PAGE_PAD*4);let density=PAINT_TEXELS_PER_WORLD;
-  if(maxWorldDim*density>usable)density=Math.max(48,usable/Math.max(1e-6,maxWorldDim));
-  let pageSize=maxChoice;for(const candidate of PAINT_PAGE_SIZE_CHOICES){if(maxWorldDim*density+PAINT_PAGE_PAD*4<=candidate){pageSize=candidate;break;}}
-  return{geometry:g,charts,density,pageSize,tol};
-}
-function packPaintChartsIntoPages(charts,density,pageSize){
-  const pad=PAINT_PAGE_PAD,sorted=[...charts].sort((a,b)=>Math.max(b.h,b.w)-Math.max(a.h,a.w)),pages=[];
-  function newPage(){const p={x:pad,y:pad,rowH:0,index:pages.length};pages.push(p);return p;}
-  let page=newPage();
-  for(const ch of sorted){
-    const w=Math.max(1,Math.ceil(ch.w*density))+pad*2,h=Math.max(1,Math.ceil(ch.h*density))+pad*2;
-    if(page.x+w>pageSize-pad){page.x=pad;page.y+=page.rowH;page.rowH=0;}
-    if(page.y+h>pageSize-pad){page=newPage();}
-    ch.page=page.index;ch.px=page.x+pad;ch.py=page.y+pad;page.x+=w;page.rowH=Math.max(page.rowH,h);
-  }
-  return pages.length;
-}
-function buildPaintAtlasGeometry(m){
-  const info=paintTriangleWorldCharts(m),g=info.geometry,pos=g.getAttribute('position');
-  const pageCount=packPaintChartsIntoPages(info.charts,info.density,info.pageSize),uv=new Float32Array(pos.count*2);g.clearGroups();
-  for(const ch of info.charts){
-    const i=ch.index*3,triUV=[];
-    for(let j=0;j<3;j++){
-      const q=ch.q[j],u=(ch.px+(q[0]-ch.minX)*info.density)/info.pageSize,v=(ch.py+(q[1]-ch.minY)*info.density)/info.pageSize;uv[(i+j)*2]=clamp(u,0,1);uv[(i+j)*2+1]=clamp(v,0,1);triUV.push(new THREE.Vector2(uv[(i+j)*2],uv[(i+j)*2+1]));
-    }
-    ch.uv=triUV;g.addGroup(i,3,ch.page);
-  }
-  g.setAttribute('uv',new THREE.BufferAttribute(uv,2));g.computeBoundingSphere();
-  const edgeMap=new Map();for(const ch of info.charts)for(const [p,q] of [[ch.a,ch.b],[ch.b,ch.c],[ch.c,ch.a]]){const key=paintEdgeKey(p,q,info.tol),arr=edgeMap.get(key)||[];arr.push(ch.index);edgeMap.set(key,arr);}
-  for(const arr of edgeMap.values())if(arr.length>1)for(let i=0;i<arr.length;i++)for(let j=i+1;j<arr.length;j++){info.charts[arr[i]]?.neighbors.push(arr[j]);info.charts[arr[j]]?.neighbors.push(arr[i]);}
-  for(const ch of info.charts)ch.neighbors=[...new Set(ch.neighbors)];
-  return{geometry:g,tris:info.charts,density:info.density,pageSize:info.pageSize,pageCount};
-}
-function paintMaterialForPage(page){
-  return new THREE.MeshBasicMaterial({map:page.texture||getPaintTransparentTexture(),color:0xffffff,transparent:true,premultipliedAlpha:true,alphaTest:0,depthWrite:false,depthTest:true,depthFunc:THREE.LessEqualDepth,side:THREE.FrontSide,polygonOffset:false});
-}
-function ensureMassPaintLayer(m){
-  if(!m)return null;
-  if(m.paintMesh&&Array.isArray(m.paintPages)&&m.paintPages.length)return m;
-  disposeMassPaintLayer(m);
-  const atlas=buildPaintAtlasGeometry(m),pages=[];for(let i=0;i<atlas.pageCount;i++)pages.push(createPaintPage(atlas.pageSize,i));
-  const materials=pages.map(p=>{const mat=paintMaterialForPage(p);p.material=mat;return mat;}),mesh=new THREE.Mesh(atlas.geometry,materials);mesh.renderOrder=6;mesh.userData.massId=m.id;mesh.visible=viewMode==='color';m.paintGroup.add(mesh);
-  m.paintPages=pages;m.paintMesh=mesh;m.paintTriCache={tris:atlas.tris};
-  return m;
-}
-function ensurePaintTriangleCache(m){ensureMassPaintLayer(m);return m.paintTriCache;}
-function syncMassPaintGeometry(m){
-  if(!m)return;const hasPaint=!!m.paintMesh||paintOverlayStrokes.some(st=>paintStrokeTouchesMass(st,m.id));disposeMassPaintLayer(m);if(hasPaint){ensureMassPaintLayer(m);rebuildMassPaintTexture(m);} 
-}
-
-function paintEllipseForTriangle(m,tri,centerWorld,worldRadius){
-  const mw=m.group.matrixWorld,a=tri.a.clone().applyMatrix4(mw),b=tri.b.clone().applyMatrix4(mw),c=tri.c.clone().applyMatrix4(mw),e1=b.clone().sub(a),e2=c.clone().sub(a),len1=e1.length();if(len1<1e-8)return null;
-  const t1=e1.clone().multiplyScalar(1/len1),normal=e1.clone().cross(e2);if(normal.lengthSq()<1e-14)return null;normal.normalize();const t2=normal.clone().cross(t1).normalize(),x2=e2.dot(t1),y2=e2.dot(t2);if(Math.abs(y2)<1e-8)return null;
-  const signed=centerWorld.clone().sub(a).dot(normal),planePoint=centerWorld.clone().addScaledVector(normal,-signed),bary=new THREE.Vector3();THREE.Triangle.getBarycoord(planePoint,a,b,c,bary);if(!Number.isFinite(bary.x)||!Number.isFinite(bary.y)||!Number.isFinite(bary.z))return null;
-  const ua=tri.uv[0].x,va=tri.uv[0].y,ub=tri.uv[1].x,vb=tri.uv[1].y,uc=tri.uv[2].x,vc=tri.uv[2].y,du1=ub-ua,dv1=vb-va,du2=uc-ua,dv2=vc-va,j00=du1/len1,j10=dv1/len1,j01=(du2-j00*x2)/y2,j11=(dv2-j10*x2)/y2;
-  const c00=j00*j00+j01*j01,c01=j00*j10+j01*j11,c11=j10*j10+j11*j11,tr=c00+c11,disc=Math.sqrt(Math.max(0,(c00-c11)*(c00-c11)+4*c01*c01)),l1=Math.max(1e-16,(tr+disc)*.5),l2=Math.max(1e-16,(tr-disc)*.5);
-  return{u:ua*bary.x+ub*bary.y+uc*bary.z,v:va*bary.x+vb*bary.y+vc*bary.z,ru:worldRadius*Math.sqrt(l1),rv:worldRadius*Math.sqrt(l2),rot:.5*Math.atan2(2*c01,c00-c11),a,b,c};
-}
-function trianglesForWorldStamp(m,sample,centerWorld,worldRadius){
-  const cache=ensurePaintTriangleCache(m);if(!cache?.tris?.length)return[];m.group.updateMatrixWorld(true);
-  const inv=m.group.matrixWorld.clone().invert(),localCenter=centerWorld.clone().applyMatrix4(inv),localBound=worldRadius/paintMatrixMinScale(m.group.matrixWorld);
-  let start=Number.isInteger(sample.hitTri)?sample.hitTri:-1,needsNearest=start<0||start>=cache.tris.length;
-  const nearestTmp=new THREE.Vector3();
-  if(!needsNearest){const t=cache.tris[start];(t.triangle||new THREE.Triangle(t.a,t.b,t.c)).closestPointToPoint(localCenter,nearestTmp);needsNearest=nearestTmp.distanceTo(localCenter)>localBound*2.5;}
-  if(needsNearest){let bd=Infinity;for(const tri of cache.tris){(tri.triangle||new THREE.Triangle(tri.a,tri.b,tri.c)).closestPointToPoint(localCenter,nearestTmp);const d=nearestTmp.distanceToSquared(localCenter);if(d<bd){bd=d;start=tri.index;}}}
-  if(start<0)return[];
-  const visited=new Set(),queue=[start],out=[],closestLocal=new THREE.Vector3(),closestWorld=new THREE.Vector3(),worldTri=new THREE.Triangle(),normalMatrix=new THREE.Matrix3().getNormalMatrix(m.group.matrixWorld),sampleNormalWorld=Array.isArray(sample?.n3)?new THREE.Vector3().fromArray(sample.n3).applyMatrix3(normalMatrix).normalize():null;
-  let queueIndex=0;
-  while(queueIndex<queue.length){
-    const ti=queue[queueIndex++];if(visited.has(ti))continue;visited.add(ti);const tri=cache.tris[ti];if(!tri)continue;
-    (tri.triangle||new THREE.Triangle(tri.a,tri.b,tri.c)).closestPointToPoint(localCenter,closestLocal);if(closestLocal.distanceTo(localCenter)>localBound*1.2&&ti!==start)continue;
-    const nWorld=tri.n.clone().applyMatrix3(normalMatrix).normalize();
-    // The sample belongs to one local surface.  It may spread across hidden render
-    // triangles on that surface, but not around a real hard corner into another face.
-    if(sampleNormalWorld&&nWorld.dot(sampleNormalWorld)<PAINT_SURFACE_CONTINUITY_DOT&&ti!==start)continue;
-    const ell=paintEllipseForTriangle(m,tri,centerWorld,worldRadius);if(!ell)continue;worldTri.set(ell.a,ell.b,ell.c);worldTri.closestPointToPoint(centerWorld,closestWorld);if(closestWorld.distanceTo(centerWorld)<=worldRadius*1.03)out.push({tri,ell});
-    for(const ni of tri.neighbors){if(visited.has(ni))continue;const nn=cache.tris[ni]?.n?.clone().applyMatrix3(normalMatrix).normalize();if(!nn||nWorld.dot(nn)<PAINT_SURFACE_CONTINUITY_DOT)continue;if(sampleNormalWorld&&nn.dot(sampleNormalWorld)<PAINT_SURFACE_CONTINUITY_DOT)continue;queue.push(ni);}
-  }
-  return out;
-}
-function paintAtlasSlotClipPath(tri,pageSize){
-  if(tri._paintSlotClipPath&&tri._paintSlotClipPathSize===pageSize)return tri._paintSlotClipPath;
-  // Do NOT clip paint to the triangle silhouette. Canvas anti-aliases clip edges,
-  // which leaves half-transparent texels exactly on hidden render-triangle borders.
-  // Each triangle already owns a padded rectangular atlas slot, so paint can safely
-  // bleed through the whole slot; only the real mesh triangle ever samples it.
-  const xs=tri.uv.map(q=>q.x*pageSize),ys=tri.uv.map(q=>q.y*pageSize),bleed=Math.max(1,PAINT_PAGE_PAD-1);
-  const x0=Math.max(0,Math.floor(Math.min(...xs)-bleed)),y0=Math.max(0,Math.floor(Math.min(...ys)-bleed));
-  const x1=Math.min(pageSize,Math.ceil(Math.max(...xs)+bleed)),y1=Math.min(pageSize,Math.ceil(Math.max(...ys)+bleed));
-  const path=new Path2D();path.rect(x0,y0,Math.max(1,x1-x0),Math.max(1,y1-y0));
-  tri._paintSlotClipPath=path;tri._paintSlotClipPathSize=pageSize;return path;
-}
-function paintEllipsePixelBounds(ell,s){
-  const c=Math.cos(ell.rot),sn=Math.sin(ell.rot),ru=Math.max(.65,ell.ru*s),rv=Math.max(.65,ell.rv*s),ex=Math.sqrt((ru*c)*(ru*c)+(rv*sn)*(rv*sn)),ey=Math.sqrt((ru*sn)*(ru*sn)+(rv*c)*(rv*c)),pad=2;
-  const x=Math.max(0,Math.floor(ell.u*s-ex-pad)),y=Math.max(0,Math.floor(ell.v*s-ey-pad)),x1=Math.min(s,Math.ceil(ell.u*s+ex+pad)),y1=Math.min(s,Math.ceil(ell.v*s+ey+pad));return{x,y,w:Math.max(0,x1-x),h:Math.max(0,y1-y)};
-}
-function drawPaintStampsOnTriangle(stroke,m,tri,ells,markDirty=true){
-  const page=m.paintPages?.[tri.page];if(!page||!ells?.length)return false;ensurePaintPageAllocated(page);
-  const ctx=page.ctx,s=page.size,clipPath=paintAtlasSlotClipPath(tri,s),roughBrush=paintStrokeTool(stroke)==='texture';
-  ctx.save();ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.clip(clipPath);ctx.globalCompositeOperation=stroke.mode==='erase'?'destination-out':'source-over';ctx.globalAlpha=1;ctx.fillStyle=stroke.color||'#242424';ctx.beginPath();let dirty=null;
-  for(const ell of ells){if(roughBrush)addRoughPaintEllipsePath(ctx,ell,s);else{const cx=ell.u*s,cy=ell.v*s,ru=Math.max(.65,ell.ru*s),rv=Math.max(.65,ell.rv*s),cr=Math.cos(ell.rot),sr=Math.sin(ell.rot);ctx.moveTo(cx+ru*cr,cy+ru*sr);ctx.ellipse(cx,cy,ru,rv,ell.rot,0,Math.PI*2);}const r=paintEllipsePixelBounds(ell,s);if(r.w&&r.h){if(!dirty)dirty=r;else{const x0=Math.min(dirty.x,r.x),y0=Math.min(dirty.y,r.y),x1=Math.max(dirty.x+dirty.w,r.x+r.w),y1=Math.max(dirty.y+dirty.h,r.y+r.h);dirty={x:x0,y:y0,w:x1-x0,h:y1-y0};}}}
-  ctx.fill();ctx.restore();if(markDirty&&dirty)markPaintPageDirty(page,false,dirty);return true;
-}
-function paintAtlasSlotPixelBounds(tri,pageSize){
-  const xs=tri.uv.map(q=>q.x*pageSize),ys=tri.uv.map(q=>q.y*pageSize),bleed=Math.max(1,PAINT_PAGE_PAD-1);
-  const x=Math.max(0,Math.floor(Math.min(...xs)-bleed)),y=Math.max(0,Math.floor(Math.min(...ys)-bleed));
-  const x1=Math.min(pageSize,Math.ceil(Math.max(...xs)+bleed)),y1=Math.min(pageSize,Math.ceil(Math.max(...ys)+bleed));
-  return{x,y,w:Math.max(1,x1-x),h:Math.max(1,y1-y)};
-}
-function resolvePaintFaceStartTriangle(m,stroke){
-  const cache=ensurePaintTriangleCache(m);if(!cache?.tris?.length)return null;
-  let start=Number.isInteger(stroke?.hitTri)?stroke.hitTri:-1;
-  if(start>=0&&start<cache.tris.length)return cache.tris[start];
-  if(!Array.isArray(stroke?.facePoint))return null;
-  const p=new THREE.Vector3().fromArray(stroke.facePoint),tmp=new THREE.Vector3();let best=null,bd=Infinity;
-  for(const tri of cache.tris){(tri.triangle||new THREE.Triangle(tri.a,tri.b,tri.c)).closestPointToPoint(p,tmp);const d=tmp.distanceToSquared(p);if(d<bd){bd=d;best=tri;}}
-  return best;
-}
-function paintFaceTrianglesForStroke(m,stroke){
-  const cache=ensurePaintTriangleCache(m),start=resolvePaintFaceStartTriangle(m,stroke);if(!cache?.tris?.length||!start)return[];
-  const refN=Array.isArray(stroke?.faceNormal)?new THREE.Vector3().fromArray(stroke.faceNormal).normalize():start.n.clone().normalize(),queue=[start.index],visited=new Set(),out=[];
-  while(queue.length){const idx=queue.shift();if(visited.has(idx))continue;visited.add(idx);const tri=cache.tris[idx];if(!tri)continue;const n=tri.n.clone().normalize();if(n.dot(refN)<PAINT_FACE_COPLANAR_DOT)continue;out.push(tri);for(const ni of tri.neighbors)if(!visited.has(ni))queue.push(ni);}
-  return out;
-}
-function applyPaintFaceFillTriangles(stroke,m,tris,live=true){
-  if(!m||!tris?.length)return false;ensureMassPaintLayer(m);let ok=false;
-  for(const tri of tris){const page=m.paintPages?.[tri.page];if(!page)continue;ensurePaintPageAllocated(page);const r=paintAtlasSlotPixelBounds(tri,page.size),ctx=page.ctx;ctx.save();ctx.setTransform(1,0,0,1,0,0);if(stroke.mode==='erase')ctx.clearRect(r.x,r.y,r.w,r.h);else{ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;ctx.fillStyle=stroke.color||'#242424';ctx.fillRect(r.x,r.y,r.w,r.h);}ctx.restore();if(live)markPaintPageDirty(page,false,r);ok=true;}
-  return ok;
-}
-function applyPaintFaceFillStroke(stroke,m,live=true){
-  if(!m)return false;ensureMassPaintLayer(m);return applyPaintFaceFillTriangles(stroke,m,paintFaceTrianglesForStroke(m,stroke),live);
-}
-function applyPaintFillStrokeToMass(stroke,m,live=true){
-  if(!m)return false;ensureMassPaintLayer(m);let ok=false;
-  for(const page of m.paintPages||[]){ensurePaintPageAllocated(page);const ctx=page.ctx;ctx.save();ctx.setTransform(1,0,0,1,0,0);if(stroke.mode==='erase'){ctx.clearRect(0,0,page.size,page.size);}else{ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;ctx.fillStyle=stroke.color||'#242424';ctx.fillRect(0,0,page.size,page.size);}ctx.restore();if(live)markPaintPageDirty(page,false,{x:0,y:0,w:page.size,h:page.size});ok=true;}
-  return ok;
-}
-function applyWorldPaintSamplesToTexture(stroke,samples,live=true){
-  if(!samples?.length)return false;const groups=new Map();let ok=false;
-  for(const sample of samples){const m=massById(sample?.m);if(!m||!isPaintSample(sample))continue;ensureMassPaintLayer(m);m.group.updateMatrixWorld(true);const centerWorld=new THREE.Vector3().fromArray(sample.p).applyMatrix4(m.group.matrixWorld),radius=Math.max(.00001,+stroke.worldRadius||paintWorldRadiusForSize(paintOverlaySize)),hits=trianglesForWorldStamp(m,sample,centerWorld,radius);for(const {tri,ell} of hits){const key=m.id+'|'+tri.page+'|'+tri.index;let g=groups.get(key);if(!g){g={m,tri,ells:[]};groups.set(key,g);}g.ells.push(ell);ok=true;}}
-  for(const g of groups.values())drawPaintStampsOnTriangle(stroke,g.m,g.tri,g.ells,live);return ok;
-}
-function applyPaintStrokeToTexture(stroke,live=true,massFilter=null){
-  if(!stroke)return false;
-  if(paintStrokeIsFaceSweep(stroke)){let ok=false;for(const fill of stroke.fills){const mid=Math.round(+fill.massId);if(massFilter&&massFilter.id!==mid)continue;const m=massFilter||massById(mid);if(m)ok=applyPaintFaceFillStroke({...fill,mode:stroke.mode,color:stroke.color},m,live)||ok;}return ok;}
-  if(paintStrokeIsFill(stroke)){const mid=Math.round(+stroke.massId),m=massFilter||massById(mid);if(!m||m.id!==mid)return false;return paintStrokeIsFaceFill(stroke)?applyPaintFaceFillStroke(stroke,m,live):applyPaintFillStrokeToMass(stroke,m,live);}
-  const samples=(stroke.points||[]).filter(sample=>isPaintSample(sample)&&(!massFilter||sample?.m===massFilter.id));
-  return samples.length?applyWorldPaintSamplesToTexture(stroke,samples,live):false;
-}
-function rebuildMassPaintTexture(m){
-  if(!m)return;ensureMassPaintLayer(m);for(const p of m.paintPages){if(!p.ctx)continue;p.ctx.setTransform(1,0,0,1,0,0);p.ctx.clearRect(0,0,p.size,p.size);}
-  for(const stroke of paintOverlayStrokes)applyPaintStrokeToTexture(stroke,false,m);
-  for(const p of m.paintPages)if(p.ctx)markPaintPageDirty(p,true);
-}
-function rebuildAllPaintTextures(){
-  for(const m of masses)for(const p of m.paintPages||[]){if(!p.ctx)continue;p.ctx.setTransform(1,0,0,1,0,0);p.ctx.clearRect(0,0,p.size,p.size);}
-  for(const stroke of paintOverlayStrokes)applyPaintStrokeToTexture(stroke,false,null);
-  for(const m of masses){for(const p of m.paintPages||[])if(p.ctx)markPaintPageDirty(p,true);if(m.paintMesh)m.paintMesh.visible=viewMode==='color';}
-}
-
-function paintOverlayClientInside(x,y){const r=paintOverlayViewportRect();return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;}
-function resetPaintSamplingState(st){if(!st)return;st.lastHit=null;st.lastScreen=null;st.lastStampedWorld=null;st.distanceSinceStamp=0;}
-function renderPaintScreenSegment(st,a,b,includeStart=true){
-  if(!st||!a||!b)return;const d=Math.hypot(b.x-a.x,b.y-a.y),steps=Math.max(1,Math.min(180,Math.ceil(d/PAINT_SHAPE_SCREEN_STEP_PX))),start=includeStart?0:1;
-  for(let i=start;i<=steps;i++){const t=i/steps;processPaintOverlaySegment(st,a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t);}
-}
-function renderPaintScreenPath(st,points,closed=false){
-  if(!st||!Array.isArray(points)||points.length<2)return;resetPaintSamplingState(st);
-  for(let i=0;i<points.length-1;i++)renderPaintScreenSegment(st,points[i],points[i+1],i===0);
-  if(closed)renderPaintScreenSegment(st,points[points.length-1],points[0],false);
-}
-function disposePaintGuide(st){
-  if(st?.guideRAF){cancelAnimationFrame(st.guideRAF);st.guideRAF=0;}if(st)st.pendingGuideEnd=null;
-  const g=st?.guide;if(!g)return;scene.remove(g);g.geometry?.dispose?.();g.material?.dispose?.();st.guide=null;
-}
-function setPaintGuide(st,points,closed=false){
-  if(!st||!Array.isArray(points)||points.length<2)return false;
-  const pts=points.filter(p=>p?.isVector3).map(p=>p.clone());if(pts.length<2)return false;
-  if(!st.guide||!!st.guide.userData.closed!==!!closed||st.guide.userData.shapeRibbon){
-    disposePaintGuide(st);
-    const geometry=new THREE.BufferGeometry().setFromPoints(pts),material=new THREE.LineBasicMaterial({color:st.stroke?.color||paintOverlayColor,transparent:true,opacity:.92,depthTest:false,depthWrite:false});
-    st.guide=closed?new THREE.LineLoop(geometry,material):new THREE.Line(geometry,material);st.guide.userData.closed=!!closed;st.guide.userData.ignoreModelRaycast=true;st.guide.renderOrder=999;st.guide.frustumCulled=false;scene.add(st.guide);
-  }else{
-    const pos=st.guide.geometry?.getAttribute?.('position');
-    if(pos&&pos.count===pts.length){for(let i=0;i<pts.length;i++)pos.setXYZ(i,pts[i].x,pts[i].y,pts[i].z);pos.needsUpdate=true;st.guide.geometry.computeBoundingSphere?.();}
-    else{st.guide.geometry?.dispose?.();st.guide.geometry=new THREE.BufferGeometry().setFromPoints(pts);}
-    st.guide.material?.color?.set?.(st.stroke?.color||paintOverlayColor);
-  }
-  return true;
-}
-function buildPaintRibbonGeometry(points,normal,width,closed=false){
-  const pts=points.filter(p=>p?.isVector3);if(pts.length<2||!normal?.isVector3)return null;
-  const positions=[],radius=Math.max(.0002,width),n=normal.clone().normalize(),count=closed?pts.length:pts.length-1;
-  const pushTri=(a,b,c)=>{positions.push(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z);};
-  for(let i=0;i<count;i++){const a=pts[i],b=pts[(i+1)%pts.length],dir=b.clone().sub(a);if(dir.lengthSq()<1e-12)continue;dir.normalize();const side=n.clone().cross(dir).normalize().multiplyScalar(radius),aL=a.clone().add(side),aR=a.clone().sub(side),bL=b.clone().add(side),bR=b.clone().sub(side);pushTri(aL,aR,bL);pushTri(aR,bR,bL);}
-  const segs=8;for(let i=0;i<pts.length;i++){const c=pts[i],ref=(Math.abs(n.y)<.9?new THREE.Vector3(0,1,0):new THREE.Vector3(1,0,0));let u=ref.clone().addScaledVector(n,-ref.dot(n));if(u.lengthSq()<1e-12)u=new THREE.Vector3(1,0,0);u.normalize();const v=n.clone().cross(u).normalize();for(let j=0;j<segs;j++){const a=j/segs*Math.PI*2,b=(j+1)/segs*Math.PI*2,p1=c.clone().addScaledVector(u,Math.cos(a)*radius).addScaledVector(v,Math.sin(a)*radius),p2=c.clone().addScaledVector(u,Math.cos(b)*radius).addScaledVector(v,Math.sin(b)*radius);pushTri(c,p1,p2);}}
-  if(!positions.length)return null;const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.computeBoundingSphere();return g;
-}
-function setPaintRibbonGuide(st,points,normal,width,closed=false,opacity=.48){
-  if(!st||!Array.isArray(points)||points.length<2||!normal?.isVector3)return false;const n=normal.clone().normalize();if(n.lengthSq()<1e-12)return false;const offset=Math.max(.00015,(width||paintWorldRadiusForSize(paintOverlaySize))*.025),pts=points.map(p=>p.clone().addScaledVector(n,offset)),g=buildPaintRibbonGeometry(pts,n,width||paintWorldRadiusForSize(paintOverlaySize),closed);if(!g)return false;
-  if(!st.guide||!st.guide.userData.shapeRibbon){disposePaintGuide(st);const mat=new THREE.MeshBasicMaterial({color:st.stroke?.color||paintOverlayColor,transparent:true,opacity,depthTest:false,depthWrite:false,side:THREE.DoubleSide});st.guide=new THREE.Mesh(g,mat);st.guide.userData.shapeRibbon=true;st.guide.userData.ignoreModelRaycast=true;st.guide.renderOrder=999;st.guide.frustumCulled=false;scene.add(st.guide);}else{st.guide.geometry?.dispose?.();st.guide.geometry=g;st.guide.material?.color?.set?.(st.stroke?.color||paintOverlayColor);st.guide.material.opacity=opacity;}
-  return true;
-}
-function setPaintShapePreview(st,points,closed=true){
-  if(!st||!Array.isArray(points)||points.length<2||!st.shapeNormalWorld)return false;return setPaintRibbonGuide(st,points,st.shapeNormalWorld,st.stroke?.worldRadius||paintWorldRadiusForSize(paintOverlaySize),closed,.48);
-}
-function paintPreviewNormalFromHit(hit){
-  if(!hit?.face?.normal)return null;const n=hit.face.normal.clone();const obj=hit.object||massById(massFromHit(hit)?.id)?.group;return obj?n.applyMatrix3(new THREE.Matrix3().getNormalMatrix(obj.matrixWorld)).normalize():n.normalize();
-}
-function paintWorldPointToClient(p){const r=paintOverlayViewportRect(),q=p.clone().project(camera);return{x:r.left+(q.x+1)*.5*r.width,y:r.top+(1-q.y)*.5*r.height};}
-
-function paintShapePlaneFromHit(hit){
-  if(!hit?.point||!hit?.face||!hit?.object)return null;hit.object.updateMatrixWorld?.(true);camera.updateMatrixWorld?.(true);
-  const normalLocal=hit.face.normal.clone().normalize(),normalWorld=normalLocal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize();
-  let u=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0);u.addScaledVector(normalWorld,-u.dot(normalWorld));
-  if(u.lengthSq()<1e-10){u=Math.abs(normalWorld.y)<.9?new THREE.Vector3(0,1,0):new THREE.Vector3(1,0,0);u.addScaledVector(normalWorld,-u.dot(normalWorld));}
-  u.normalize();let v=normalWorld.clone().cross(u).normalize();const camUp=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,1);if(v.dot(camUp)<0)v.negate();
-  return{plane:new THREE.Plane().setFromNormalAndCoplanarPoint(normalWorld,hit.point),normalLocal,normalWorld,u,v,start:hit.point.clone()};
-}
-function paintPointOnShapePlane(st,x,y){if(!st?.shapePlane)return null;setPointerXY(x,y);const p=new THREE.Vector3();return ray.ray.intersectPlane(st.shapePlane,p)?p:null;}
-function paintShapeWorldPath(st,endWorld){
-  if(!st?.shapeStartWorld||!endWorld)return[];const start=st.shapeStartWorld,u=st.shapeU,v=st.shapeV,d=endWorld.clone().sub(start);
-  if(st.shapeTool==='circle'){const r=d.length();if(r<1e-6)return[];const seg=Math.max(28,Math.min(72,Math.ceil(r/Math.max(.0001,st.stroke.worldRadius*1.5)))),pts=[];for(let i=0;i<seg;i++){const a=i/seg*Math.PI*2;pts.push(start.clone().addScaledVector(u,Math.cos(a)*r).addScaledVector(v,Math.sin(a)*r));}return pts;}
-  const du=d.dot(u),dv=d.dot(v);if(Math.abs(du)+Math.abs(dv)<1e-6)return[];return[start.clone(),start.clone().addScaledVector(u,du),start.clone().addScaledVector(u,du).addScaledVector(v,dv),start.clone().addScaledVector(v,dv)];
-}
-function renderPaintShapeGuide(st,x,y,immediate=false){
-  if(!st||st.kind!=='shape')return false;const end=paintPointOnShapePlane(st,x,y);if(!end)return false;st.currentScreen={x,y};st.shapeEndWorld=end;st.pendingGuideEnd=end.clone();
-  const draw=()=>{st.guideRAF=0;if(!st.pendingGuideEnd)return false;const latest=st.pendingGuideEnd;st.pendingGuideEnd=null;const pts=paintShapeWorldPath(st,latest);return pts.length?setPaintShapePreview(st,pts,true):false;};
-  if(immediate){if(st.guideRAF){cancelAnimationFrame(st.guideRAF);st.guideRAF=0;}return draw();}
-  if(!st.guideRAF)st.guideRAF=requestAnimationFrame(()=>{if(paintOverlayPointer===st)draw();else{st.guideRAF=0;st.pendingGuideEnd=null;}});return true;
-}
-function renderPaintWorldPath(st,m,points,normalLocal,hitTri,closed=false){
-  if(!st||!m||!Array.isArray(points)||points.length<2)return false;const spacing=Math.max(.00075,st.stroke.worldRadius*PAINT_STAMP_SPACING_FACTOR),batch=[];st.stroke.points.length=0;
-  const addSegment=(a,b,includeStart)=>{const len=a.distanceTo(b),steps=Math.max(1,Math.ceil(len/spacing));for(let i=includeStart?0:1;i<=steps;i++){const t=i/steps,p=a.clone().lerp(b,t);appendPaintOverlayWorldSample(st,m,p,normalLocal,hitTri,batch);}};
-  for(let i=0;i<points.length-1;i++)addSegment(points[i],points[i+1],i===0);if(closed)addSegment(points[points.length-1],points[0],false);
-  if(batch.length)applyWorldPaintSamplesToTexture(st.stroke,batch,true);return !!batch.length;
-}
-function updatePaintStraightGuide(st){
-  if(!st?.straightMode)return false;const ah=st.startHit?.point?st.startHit:raycastMasses(st.startScreen.x,st.startScreen.y),bh=raycastMasses(st.currentScreen.x,st.currentScreen.y),a=ah?.point,b=bh?.point;if(!a||!b)return false;
-  if(MA_DRAW_MOBILE){const n=paintPreviewNormalFromHit(bh||ah);if(n)return setPaintRibbonGuide(st,[a,b],n,st.stroke?.worldRadius||paintWorldRadiusForSize(paintOverlaySize),false,.38);}
-  return setPaintGuide(st,[a,b],false);
-}
-function prepareStraightPaintStroke(st){
-  if(!st||st.kind!=='stroke'||paintStrokeTool(st.stroke)!=='brush'||st.straightMode)return false;const end=st.currentScreen;if(!end||Math.hypot(end.x-st.startScreen.x,end.y-st.startScreen.y)<PAINT_STRAIGHT_MIN_PX)return false;
-  const touched=[...new Set((st.stroke.points||[]).map(s=>s?.m).filter(Number.isFinite))];for(const id of touched){const m=massById(id);if(m)rebuildMassPaintTexture(m);}
-  st.stroke.points.length=0;st.straightMode=true;resetPaintSamplingState(st);updatePaintStraightGuide(st);showToast('STRAIGHT · MOVE END');return true;
-}
-function schedulePaintStraightHold(st){
-  if(!st||paintStrokeTool(st.stroke)!=='brush'||st.straightMode)return;if(st.straightTimer)clearTimeout(st.straightTimer);
-  if(!st.currentScreen||Math.hypot(st.currentScreen.x-st.startScreen.x,st.currentScreen.y-st.startScreen.y)<PAINT_STRAIGHT_MIN_PX)return;
-  st.holdAnchor={...st.currentScreen};st.straightTimer=setTimeout(()=>{st.straightTimer=null;if(paintOverlayPointer===st)prepareStraightPaintStroke(st);},PAINT_STRAIGHT_HOLD_MS);
-}
-function finishPaintPolyline(commit=true){
-  const st=paintPolylineState;if(!st)return false;paintPolylineState=null;if(commit&&st.stroke?.points?.length){paintOverlayStrokes.push(st.stroke);paintOverlayRedo=[];flushPaintTextureUploadsNow();scheduleAutosave();showToast('POLY · DONE');return true;}if(!commit)rebuildAllPaintTextures();return false;
-}
-function beginPaintPolylineTap(e){
-  const now=performance.now(),pt={x:e.clientX,y:e.clientY};
-  if(paintPolylineState&&paintPolylineState.mode===paintOverlayAction&&paintPolylineState.color===paintOverlayColor){const d=Math.hypot(pt.x-paintPolylineState.lastTap.x,pt.y-paintPolylineState.lastTap.y);if(now-paintPolylineState.lastTapTime<=PAINT_POLY_DOUBLE_TAP_MS&&d<=PAINT_POLY_DOUBLE_TAP_PX){finishPaintPolyline(true);return true;}}
-  if(paintPolylineState&&(paintPolylineState.mode!==paintOverlayAction||paintPolylineState.color!==paintOverlayColor))finishPaintPolyline(true);
-  if(!paintPolylineState){const stroke={kind:'stroke',tool:'polyline',mode:paintOverlayAction,color:paintOverlayColor,worldRadius:paintWorldRadiusForSize(paintOverlaySize),points:[]};const st=paintPolylineState={kind:'polyline',stroke,mode:paintOverlayAction,color:paintOverlayColor,lastPoint:pt,lastTap:pt,lastTapTime:now,lastHit:null,lastScreen:null,lastStampedWorld:null,distanceSinceStamp:0};processPaintOverlaySegment(st,pt.x,pt.y);showToast('POLY · TAP POINTS · DOUBLE TAP = DONE');return true;}
-  renderPaintScreenSegment(paintPolylineState,paintPolylineState.lastPoint,pt,false);paintPolylineState.lastPoint=pt;paintPolylineState.lastTap=pt;paintPolylineState.lastTapTime=now;return true;
-}
-function appendPaintOverlayWorldSample(st,m,worldPoint,nLocal,hitTri,batch=null){
-  if(!st||!m||!worldPoint)return false;ensureMassPaintLayer(m);m.group.updateMatrixWorld(true);const inv=m.group.matrixWorld.clone().invert(),lp=worldPoint.clone().applyMatrix4(inv),nn=nLocal?.clone?.().normalize?.()||new THREE.Vector3(0,0,1),sample={m:m.id,p:lp.toArray(),n3:nn.toArray(),hitTri:Number.isInteger(hitTri)?hitTri:null};st.stroke.points.push(sample);if(batch)batch.push(sample);else applyWorldPaintSamplesToTexture(st.stroke,[sample],true);st.lastStampedWorld=worldPoint.clone();return true;
-}
-function appendPaintOverlayHit(st,hit,batch=null){const m=massFromHit(hit);if(!hit||!m||!hit.point||!hit.face)return false;return appendPaintOverlayWorldSample(st,m,hit.point,hit.face.normal,Number.isInteger(hit.faceIndex)?hit.faceIndex:null,batch);}
-function paintHitMatchesSide(hit,massId,refNormal){
-  const m=massFromHit(hit);if(!hit?.point||!hit?.face||!m||m.id!==massId)return false;
-  const n=hit.face.normal.clone().normalize();return n.dot(refNormal)>=PAINT_SURFACE_CONTINUITY_DOT;
-}
-function findPaintEdgeTransition(st,fromHit,toHit,toScreen){
-  const fromScreen=st.lastScreen;if(!fromScreen||!toScreen||!fromHit?.face||!toHit?.face)return null;
-  const m=massFromHit(fromHit);if(!m||massFromHit(toHit)?.id!==m.id)return null;
-  const n0=fromHit.face.normal.clone().normalize();let lo={x:fromScreen.x,y:fromScreen.y,hit:fromHit},hi={x:toScreen.x,y:toScreen.y,hit:toHit};
-  // Edge crossings are rare, so spend a few raycasts here to solve the actual handoff
-  // instead of guessing with a 3D chord between two different face planes.
-  for(let i=0;i<9;i++){
-    const mx=(lo.x+hi.x)*.5,my=(lo.y+hi.y)*.5,mh=raycastMasses(mx,my);
-    if(paintHitMatchesSide(mh,m.id,n0))lo={x:mx,y:my,hit:mh};else hi={x:mx,y:my,hit:mh||hi.hit};
-  }
-  const oldHit=lo.hit,newHit=hi.hit;
-  if(!oldHit?.point||!oldHit?.face||!newHit?.point||!newHit?.face)return null;
-  return{oldHit,newHit};
-}
-function resamplePaintHitSegment(st,m,aHit,bHit,spacing,batch,forceEnd=false){
-  if(!aHit?.point||!bHit?.point||!aHit?.face||!bHit?.face)return;
-  const a=aHit.point,b=bHit.point,segLen=a.distanceTo(b);
-  if(segLen>1e-8){
-    const n0=aHit.face.normal.clone().normalize(),n1=bHit.face.normal.clone().normalize();
-    let travelled=spacing-Math.min(spacing,Math.max(0,st.distanceSinceStamp||0)),lastPlaced=-1;
-    while(travelled<=segLen+1e-9){
-      const t=Math.min(1,travelled/segLen),p=a.clone().lerp(b,t),useCurrent=t>=.5,baseFace=useCurrent?bHit:aHit,n=n0.clone().lerp(n1,t);
-      if(n.lengthSq()<1e-12)n.copy(baseFace.face.normal);else n.normalize();
-      appendPaintOverlayWorldSample(st,m,p,n,Number.isInteger(baseFace.faceIndex)?baseFace.faceIndex:null,batch);lastPlaced=travelled;travelled+=spacing;
-    }
-    st.distanceSinceStamp=lastPlaced>=0?Math.max(0,segLen-lastPlaced):Math.min(spacing,(st.distanceSinceStamp||0)+segLen);
-  }
-  if(forceEnd){
-    const cap=Math.max(.00035,spacing*.22);
-    if(!st.lastStampedWorld||st.lastStampedWorld.distanceTo(bHit.point)>cap)appendPaintOverlayHit(st,bHit,batch);
-    st.distanceSinceStamp=0;
-  }
-}
-function processPaintOverlaySegment(st,x,y){
-  const f={x,y},hit=raycastMasses(x,y);if(!hit?.point||!hit?.face){st.lastHit=null;st.lastScreen=f;st.distanceSinceStamp=0;return;}
-  const m=massFromHit(hit),prev=st.lastHit,prevMass=massFromHit(prev),spacing=Math.max(.00075,st.stroke.worldRadius*PAINT_STAMP_SPACING_FACTOR),batch=[];if(!m||(Number.isFinite(st.lockMassId)&&m.id!==st.lockMassId)){st.lastHit=null;st.lastScreen=f;st.distanceSinceStamp=0;return;}
-  if(!prev?.point||!prev?.face||!prevMass||prevMass.id!==m.id){appendPaintOverlayHit(st,hit,batch);applyWorldPaintSamplesToTexture(st.stroke,batch,true);st.lastHit=hit;st.lastScreen=f;st.distanceSinceStamp=0;return;}
-  // One raycast per ordinary pointer event. At a real hard edge we do a tiny binary
-  // search in screen space to find the handoff point, then finish face A and start face B
-  // at that edge. This keeps the stroke seamless without wrapping one stamp around it.
-  const n0=prev.face.normal.clone().normalize(),n1=hit.face.normal.clone().normalize(),faceChanged=Number.isInteger(prev.faceIndex)&&Number.isInteger(hit.faceIndex)&&prev.faceIndex!==hit.faceIndex,hardEdge=faceChanged&&n0.dot(n1)<PAINT_SURFACE_CONTINUITY_DOT;
-  if(hardEdge){
-    const edge=findPaintEdgeTransition(st,prev,hit,f);
-    if(edge){
-      resamplePaintHitSegment(st,m,prev,edge.oldHit,spacing,batch,true);
-      // Place the matching half-stamp on the new face at the same visual edge. Each
-      // stamp is clipped to its own surface, so together they read as one continuous brush.
-      appendPaintOverlayHit(st,edge.newHit,batch);st.distanceSinceStamp=0;
-      resamplePaintHitSegment(st,m,edge.newHit,hit,spacing,batch,false);
-    }else{
-      // Conservative fallback: never leave the old face unfinished.
-      resamplePaintHitSegment(st,m,prev,prev,spacing,batch,true);appendPaintOverlayHit(st,hit,batch);st.distanceSinceStamp=0;
-    }
-    if(batch.length)applyWorldPaintSamplesToTexture(st.stroke,batch,true);st.lastHit=hit;st.lastScreen=f;return;
-  }
-  resamplePaintHitSegment(st,m,prev,hit,spacing,batch,false);
-  if(batch.length)applyWorldPaintSamplesToTexture(st.stroke,batch,true);st.lastHit=hit;st.lastScreen=f;
-}
-function paintOverlayPointerCanPaint(e){if(!paintOverlayInputArmed)return false;if(MA_IS_IPAD&&ipadPencilMode)return e.pointerType==='pen';if(MA_DRAW_MOBILE)return e.pointerType==='touch'&&e.pointerId!==paintOverlayHoldPointerId;return e.pointerType==='mouse'&&e.button===0;}
-function makePaintFaceFillStroke(hit,m,mode=paintOverlayAction,color=paintOverlayColor){
-  if(!hit?.point||!hit?.face||!m)return null;m.group.updateMatrixWorld(true);const inv=m.group.matrixWorld.clone().invert(),lp=hit.point.clone().applyMatrix4(inv);
-  return{kind:'faceFill',tool:'bucket',mode:mode==='erase'?'erase':'add',color:color||paintOverlayColor,massId:m.id,facePoint:lp.toArray(),faceNormal:hit.face.normal.clone().normalize().toArray(),hitTri:Number.isInteger(hit.faceIndex)?hit.faceIndex:null};
-}
-function commitPaintBucketStroke(stroke,toastText){if(!stroke)return false;if(!applyPaintStrokeToTexture(stroke,true,null))return false;paintOverlayStrokes.push(stroke);paintOverlayRedo=[];flushPaintTextureUploads(true);scheduleAutosave();if(toastText)showToast(toastText);return true;}
-function paintBucketFaceRegionKey(m,stroke,tris=null){const region=tris||paintFaceTrianglesForStroke(m,stroke);if(!region.length)return null;let min=Infinity;for(const tri of region)min=Math.min(min,tri.index);return `${m.id}:${min}`;}
-function paintBucketSweepVisit(st,hit){
-  const m=massFromHit(hit);if(!st||!hit?.point||!hit?.face||!m)return false;const stroke=makePaintFaceFillStroke(hit,m,st.mode,st.color);if(!stroke)return false;const tris=paintFaceTrianglesForStroke(m,stroke),key=paintBucketFaceRegionKey(m,stroke,tris);if(!key||st.faceKeys.has(key))return false;
-  st.faceKeys.add(key);st.fills.push(stroke);applyPaintFaceFillTriangles(stroke,m,tris,true);return true;
-}
-function paintBucketSweepSegment(st,x,y){
-  if(!st)return false;const x0=Number.isFinite(st.lastX)?st.lastX:st.startX,y0=Number.isFinite(st.lastY)?st.lastY:st.startY,dist=Math.hypot(x-x0,y-y0),steps=Math.max(1,Math.min(28,Math.ceil(dist/PAINT_BUCKET_SWEEP_STEP_PX)));let changed=false;
-  for(let i=1;i<=steps;i++){const t=i/steps,hit=raycastMasses(x0+(x-x0)*t,y0+(y-y0)*t);if(paintBucketSweepVisit(st,hit))changed=true;}
-  st.lastX=x;st.lastY=y;return changed;
-}
-function commitPaintBucketSweep(st){
-  if(!st?.fills?.length)return false;const stroke={kind:'faceSweep',tool:'bucket',mode:st.mode==='erase'?'erase':'add',color:st.color||paintOverlayColor,fills:st.fills.map(f=>({...f}))};paintOverlayStrokes.push(stroke);paintOverlayRedo=[];flushPaintTextureUploads(true);scheduleAutosave();showToast(`${st.fills.length} FACES ${stroke.mode==='erase'?'CLEARED':'FILLED'}`);return true;
-}
-function firePaintBucketObjectHold(st){
-  if(!st||paintOverlayPointer!==st||st.kind!=='bucket'||st.longFired)return false;
-  const m=massById(st.massId);if(!m)return false;const stroke={kind:'fill',tool:'bucket',mode:st.mode==='erase'?'erase':'add',color:st.color||paintOverlayColor,massId:m.id};
-  st.longFired=commitPaintBucketStroke(stroke,stroke.mode==='erase'?'OBJECT CLEARED':'OBJECT FILLED');return st.longFired;
-}
-function paintHexFromRGB(r,g,b){return '#'+[r,g,b].map(v=>Math.max(0,Math.min(255,v|0)).toString(16).padStart(2,'0')).join('');}
-function paintFallbackColorForHit(hit){const mat=Array.isArray(hit?.object?.material)?hit.object.material[hit?.face?.materialIndex||0]:hit?.object?.material;return mat?.color?.isColor?'#'+mat.color.getHexString():'#b8b8b8';}
-function samplePaintColorFromHit(hit){
-  const m=massFromHit(hit);if(!hit?.point||!hit?.face||!m)return null;ensureMassPaintLayer(m);const cache=ensurePaintTriangleCache(m);let tri=Number.isInteger(hit.faceIndex)?cache?.tris?.[hit.faceIndex]:null;
-  if(!tri){const local=hit.point.clone().applyMatrix4(m.group.matrixWorld.clone().invert()),tmp=new THREE.Vector3();let bd=Infinity;for(const t of cache?.tris||[]){(t.triangle||new THREE.Triangle(t.a,t.b,t.c)).closestPointToPoint(local,tmp);const d=tmp.distanceToSquared(local);if(d<bd){bd=d;tri=t;}}}
-  if(tri){const uvInfo=paintEllipseForTriangle(m,tri,hit.point,1);const page=uvInfo?m.paintPages?.[tri.page]:null;if(uvInfo&&page?.ctx){const x=Math.max(0,Math.min(page.size-1,Math.floor(uvInfo.u*page.size))),y=Math.max(0,Math.min(page.size-1,Math.floor(uvInfo.v*page.size)));try{const d=page.ctx.getImageData(x,y,1,1).data;if(d[3]>8)return paintHexFromRGB(d[0],d[1],d[2]);}catch(_){}}}
-  return paintFallbackColorForHit(hit);
-}
-function samplePaintColorAtClient(x,y){const hit=raycastMasses(x,y),color=samplePaintColorFromHit(hit);if(!color)return false;setPaintOverlayColor(color);showToast('PIPETTE · '+color.toUpperCase());return true;}
-function queuePaintOverlayMove(e){
-  paintMovePending={pointerId:e.pointerId,clientX:e.clientX,clientY:e.clientY,pointerType:e.pointerType};
-  if(!paintMoveRAF)paintMoveRAF=requestAnimationFrame(()=>{paintMoveRAF=0;const pending=paintMovePending;paintMovePending=null;if(pending&&paintOverlayPointer?.pointerId===pending.pointerId)updatePaintOverlayStroke(pending);});
-}
-function flushPendingPaintOverlayMove(pointerId){
-  if(!paintMovePending||paintMovePending.pointerId!==pointerId)return;
-  const pending=paintMovePending;paintMovePending=null;if(paintMoveRAF){cancelAnimationFrame(paintMoveRAF);paintMoveRAF=0;}if(paintOverlayPointer?.pointerId===pointerId)updatePaintOverlayStroke(pending);
-}
-function beginPaintOverlayStroke(e){
-  if(viewMode!=='color'||paintOverlayPointer||!paintOverlayClientInside(e.clientX,e.clientY)||!paintOverlayPointerCanPaint(e))return false;
-  const tool=activePaintToolForAction(paintOverlayAction);
-  if(tool==='polyline')return beginPaintPolylineTap(e);
-  if(tool==='bucket'){
-    const hit=raycastMasses(e.clientX,e.clientY),m=massFromHit(hit);if(!hit?.point||!hit?.face||!m)return false;
-    const st=paintOverlayPointer={pointerId:e.pointerId,kind:'bucket',massId:m.id,hit,startX:e.clientX,startY:e.clientY,lastX:e.clientX,lastY:e.clientY,longFired:false,moved:false,sweep:false,mode:paintOverlayAction,color:paintOverlayColor,timer:null,fills:[],faceKeys:new Set()};
-    st.timer=setTimeout(()=>firePaintBucketObjectHold(st),PAINT_BUCKET_OBJECT_HOLD_MS);return true;
-  }
-  const stroke={kind:'stroke',tool,mode:paintOverlayAction,color:paintOverlayColor,worldRadius:paintWorldRadiusForSize(paintOverlaySize),points:[]};
-  if(tool==='square'||tool==='circle'){
-    const hit=raycastMasses(e.clientX,e.clientY),m=massFromHit(hit),basis=paintShapePlaneFromHit(hit);if(!m||!basis)return false;
-    paintOverlayPointer={pointerId:e.pointerId,kind:'shape',shapeTool:tool,stroke,shapeMass:m,shapeMassId:m.id,lockMassId:m.id,startHit:hit,startScreen:{x:e.clientX,y:e.clientY},currentScreen:{x:e.clientX,y:e.clientY},shapePlane:basis.plane,shapeNormalLocal:basis.normalLocal,shapeNormalWorld:basis.normalWorld,shapeU:basis.u,shapeV:basis.v,shapeStartWorld:basis.start,shapeEndWorld:basis.start.clone(),shapeHitTri:Number.isInteger(hit.faceIndex)?hit.faceIndex:null,guide:null,lastHit:null,lastScreen:null,lastStampedWorld:null,distanceSinceStamp:0};return true;
-  }
-  const startHit=raycastMasses(e.clientX,e.clientY);const st=paintOverlayPointer={pointerId:e.pointerId,kind:'stroke',stroke,startScreen:{x:e.clientX,y:e.clientY},currentScreen:{x:e.clientX,y:e.clientY},startHit,holdAnchor:{x:e.clientX,y:e.clientY},straightMode:false,straightTimer:null,guide:null,lastHit:null,lastScreen:null,lastStampedWorld:null,distanceSinceStamp:0};processPaintOverlaySegment(st,e.clientX,e.clientY);return true;
-}
-function updatePaintOverlayStroke(e){
-  const st=paintOverlayPointer;if(!st||st.pointerId!==e.pointerId)return false;
-  if(st.kind==='bucket'){
-    if(st.longFired)return true;
-    if(!st.sweep&&Math.hypot(e.clientX-st.startX,e.clientY-st.startY)>PAINT_BUCKET_MOVE_TOLERANCE_PX){st.moved=true;st.sweep=true;if(st.timer){clearTimeout(st.timer);st.timer=null;}paintBucketSweepVisit(st,st.hit);}
-    if(st.sweep)paintBucketSweepSegment(st,e.clientX,e.clientY);
-    return true;
-  }
-  if(st.kind==='shape')return renderPaintShapeGuide(st,e.clientX,e.clientY);
-  st.currentScreen={x:e.clientX,y:e.clientY};
-  if(st.straightMode){updatePaintStraightGuide(st);return true;}
-  processPaintOverlaySegment(st,e.clientX,e.clientY);
-  if(paintStrokeTool(st.stroke)==='brush'){const a=st.holdAnchor||st.startScreen;if(Math.hypot(st.currentScreen.x-a.x,st.currentScreen.y-a.y)>=PAINT_STRAIGHT_MOVE_RESET_PX)schedulePaintStraightHold(st);}
-  return true;
-}
-function endPaintOverlayStroke(e,cancel=false){
-  const st=paintOverlayPointer;if(!st||st.pointerId!==e.pointerId)return false;
-  if(st.kind==='bucket'){
-    if(st.timer)clearTimeout(st.timer);st.timer=null;paintOverlayPointer=null;
-    if(cancel){if(st.sweep&&!st.longFired)rebuildAllPaintTextures();return true;}
-    if(st.longFired)return true;
-    if(st.sweep){paintBucketSweepSegment(st,e.clientX,e.clientY);commitPaintBucketSweep(st);return true;}
-    const stroke=makePaintFaceFillStroke(st.hit,massById(st.massId),st.mode,st.color);commitPaintBucketStroke(stroke,stroke?.mode==='erase'?'FACE CLEARED':'FACE FILLED');return true;
-  }
-  if(st.straightTimer){clearTimeout(st.straightTimer);st.straightTimer=null;}
-  if(st.kind==='shape'){
-    if(!cancel)renderPaintShapeGuide(st,e.clientX,e.clientY,true);const pts=!cancel?paintShapeWorldPath(st,st.shapeEndWorld):[];disposePaintGuide(st);paintOverlayPointer=null;if(cancel)return true;
-    if(pts.length){st.stroke.points.length=0;resetPaintSamplingState(st);const screenPts=pts.map(paintWorldPointToClient);renderPaintScreenPath(st,screenPts,true);if(st.stroke.points.length){paintOverlayStrokes.push(st.stroke);paintOverlayRedo=[];flushPaintTextureUploadsNow();scheduleAutosave();}}return true;
-  }
-  if(cancel){disposePaintGuide(st);paintOverlayPointer=null;rebuildAllPaintTextures();flushPaintTextureUploads(true);return true;}
-  if(st.straightMode){st.currentScreen={x:e.clientX,y:e.clientY};disposePaintGuide(st);st.stroke.points.length=0;resetPaintSamplingState(st);renderPaintScreenPath(st,[st.startScreen,st.currentScreen],false);}
-  else{const hit=raycastMasses(e.clientX,e.clientY),m=massFromHit(hit);if(hit?.point&&hit?.face&&m){const minCap=Math.max(.0005,st.stroke.worldRadius*PAINT_STAMP_SPACING_FACTOR*.35);if(!st.lastStampedWorld||st.lastStampedWorld.distanceTo(hit.point)>minCap)appendPaintOverlayHit(st,hit);}disposePaintGuide(st);}
-  paintOverlayPointer=null;if(st.stroke.points.length){paintOverlayStrokes.push(st.stroke);paintOverlayRedo=[];flushPaintTextureUploadsNow();scheduleAutosave();}return true;
-}
-function undoPaintOverlay(){if(paintPolylineState)finishPaintPolyline(true);if(!paintOverlayStrokes.length)return false;paintOverlayRedo.push(paintOverlayStrokes.pop());rebuildAllPaintTextures();scheduleAutosave();showToast('UNDO');return true;}
-function redoPaintOverlay(){if(paintPolylineState)finishPaintPolyline(true);if(!paintOverlayRedo.length)return false;paintOverlayStrokes.push(paintOverlayRedo.pop());rebuildAllPaintTextures();scheduleAutosave();showToast('REDO');return true;}
-function openPaintColorPanel(open=true){if(!ui.paintColorPanel)return;ui.paintColorPanel.style.display=open?'block':'none';if(open&&ui.paintColorPicker)ui.paintColorPicker.value=paintOverlayColor;}
-function setPaintOverlayColor(color,{autosave=true}={}){if(!/^#[0-9a-f]{6}$/i.test(String(color||'')))return;if(paintPolylineState&&String(color).toLowerCase()!==paintOverlayColor)finishPaintPolyline(true);paintOverlayColor=String(color).toLowerCase();if(ui.paintColorPicker)ui.paintColorPicker.value=paintOverlayColor;syncPrimaryDockUI?.();syncPaintColorMeterVisuals?.();if(autosave)scheduleAutosave();}
-function paintHexToHSV(hex){const h=String(hex||'#242424').replace('#',''),r=parseInt(h.slice(0,2),16)/255,g=parseInt(h.slice(2,4),16)/255,b=parseInt(h.slice(4,6),16)/255,max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;let hue=0;if(d){if(max===r)hue=((g-b)/d)%6;else if(max===g)hue=(b-r)/d+2;else hue=(r-g)/d+4;hue/=6;if(hue<0)hue+=1;}return{h:hue,s:max?d/max:0,v:max};}
-function paintHSVToHex(h,s,v){h=((h%1)+1)%1;s=clamp(s,0,1);v=clamp(v,0,1);const i=Math.floor(h*6),f=h*6-i,p=v*(1-s),q=v*(1-f*s),t=v*(1-(1-f)*s);let r,g,b;switch(i%6){case 0:r=v;g=t;b=p;break;case 1:r=q;g=v;b=p;break;case 2:r=p;g=v;b=t;break;case 3:r=p;g=q;b=v;break;case 4:r=t;g=p;b=v;break;default:r=v;g=p;b=q;}return paintHexFromRGB(Math.round(r*255),Math.round(g*255),Math.round(b*255));}
-function syncPaintColorMeterVisuals(){const dock=document.getElementById('maBottomDock');if(!dock)return;dock.classList.toggle('colorMeterMode',!!colorMeterActive);const hsv=paintHexToHSV(paintOverlayColor);dock.style.setProperty('--paint-hue-pos',`${hsv.h*100}%`);dock.style.filter=colorMeterActive?`brightness(${.18+.82*hsv.v})`:'';}
-function setColorMeterActive(active){colorMeterActive=!!active;if(!colorMeterActive)colorAdjustState=null;syncPaintColorMeterVisuals();updateMobileDrawUI?.();}
-function updatePaintColorDrag(e){if(e.pointerId!==colorButtonPointerId||!colorAdjustState)return false;const st=colorAdjustState,dist=Math.hypot(e.clientX-st.startX,e.clientY-st.startY);if(!st.active&&dist<8)return false;if(!st.active){st.active=true;colorMeterActive=true;openPaintColorPanel(false);syncPaintColorMeterVisuals();}
-  const dock=document.getElementById('maBottomDock'),r=dock?.getBoundingClientRect?.();if(!r)return true;const vertical=dock.classList.contains('dock-vertical'),insideDock=e.clientX>=r.left-8&&e.clientX<=r.right+8&&e.clientY>=r.top-8&&e.clientY<=r.bottom+8;
-  if(insideDock){const pos=vertical?clamp((r.bottom-e.clientY)/Math.max(1,r.height),0,1):clamp((e.clientX-r.left)/Math.max(1,r.width),0,1);st.h=pos;st.s=1;st.valueAnchorY=null;}else if(paintOverlayClientInside(e.clientX,e.clientY)){const vr=paintOverlayViewportRect(),bottom=Math.min(vr.bottom,r.top),span=Math.max(1,bottom-vr.top);st.v=clamp((bottom-e.clientY)/span,.025,1);}
-  const color=paintHSVToHex(st.h,Math.max(.02,st.s),st.v);setPaintOverlayColor(color,{autosave:false});return true;
-}
-
-
+function createMassValueOverlayMaterial(){return new THREE.MeshBasicMaterial({color:0xffffff,vertexColors:true,side:THREE.FrontSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1,depthWrite:true,depthTest:true});}
+function clearMassFaceValues(m){if(!m)return false;const had=!!(m.faceValueLevels&&Object.keys(m.faceValueLevels).length);m.faceValueLevels=null;return had;}
+function normalizeMassFaceValueLevels(m){if(!m?.faceValueLevels)return null;const out={};for(const [k,v] of Object.entries(m.faceValueLevels)){const idx=Math.max(0,Math.round(+k||0)),lvl=clamp(Math.round(+v||0),0,VALUE_LEVEL_COUNT-1);out[idx]=lvl;}m.faceValueLevels=Object.keys(out).length?out:null;return m.faceValueLevels;}
+function buildMassValueFaceCache(geometry){const g=geometry.index?geometry.toNonIndexed():geometry.clone(),pos=g.getAttribute('position');if(!pos)return{geometry:g,triangleGroupIds:new Int32Array(0),groupCount:0};const triCount=Math.floor(pos.count/3),triangleGroupIds=new Int32Array(triCount);triangleGroupIds.fill(-1);const edgeMap=new Map(),triNormals=new Array(triCount),planeKeys=new Array(triCount),vA=new THREE.Vector3(),vB=new THREE.Vector3(),vC=new THREE.Vector3(),ab=new THREE.Vector3(),ac=new THREE.Vector3();const q=1e-4;const qv=v=>`${Math.round(v.x/q)},${Math.round(v.y/q)},${Math.round(v.z/q)}`;for(let t=0;t<triCount;t++){vA.fromBufferAttribute(pos,t*3);vB.fromBufferAttribute(pos,t*3+1);vC.fromBufferAttribute(pos,t*3+2);ab.subVectors(vB,vA);ac.subVectors(vC,vA);const n=new THREE.Vector3().crossVectors(ab,ac);if(n.lengthSq()<1e-12)n.set(0,0,1);else n.normalize();if(Math.abs(n.x)+Math.abs(n.y)+Math.abs(n.z)>0){const ax=Math.abs(n.x),ay=Math.abs(n.y),az=Math.abs(n.z);if(ax>=ay&&ax>=az&&n.x<0)n.multiplyScalar(-1);else if(ay>=ax&&ay>=az&&n.y<0)n.multiplyScalar(-1);else if(az>=ax&&az>=ay&&n.z<0)n.multiplyScalar(-1);}triNormals[t]=n.clone();const d=n.dot(vA);planeKeys[t]=`${Math.round(n.x*1000)},${Math.round(n.y*1000)},${Math.round(n.z*1000)},${Math.round(d*1000)}`;const keys=[qv(vA),qv(vB),qv(vC)];for(const [i0,i1] of [[0,1],[1,2],[2,0]]){const ek=keys[i0]<keys[i1]?`${keys[i0]}|${keys[i1]}`:`${keys[i1]}|${keys[i0]}`;const arr=edgeMap.get(ek)||[];arr.push(t);edgeMap.set(ek,arr);}}let groupCount=0;for(let t=0;t<triCount;t++){if(triangleGroupIds[t]!==-1)continue;const gid=groupCount++,stack=[t];triangleGroupIds[t]=gid;while(stack.length){const cur=stack.pop(),baseKey=planeKeys[cur];vA.fromBufferAttribute(pos,cur*3);vB.fromBufferAttribute(pos,cur*3+1);vC.fromBufferAttribute(pos,cur*3+2);const keys=[qv(vA),qv(vB),qv(vC)];for(const [i0,i1] of [[0,1],[1,2],[2,0]]){const ek=keys[i0]<keys[i1]?`${keys[i0]}|${keys[i1]}`:`${keys[i1]}|${keys[i0]}`;for(const other of edgeMap.get(ek)||[]){if(triangleGroupIds[other]!==-1||planeKeys[other]!==baseKey)continue;triangleGroupIds[other]=gid;stack.push(other);}}}}return{geometry:g,triangleGroupIds,groupCount};}
+function applyMassValueOverlayColors(m){if(!m?.valueOverlayMesh)return false;normalizeMassFaceValueLevels(m);const g=m.valueOverlayMesh.geometry,pos=g.getAttribute('position');if(!pos)return false;let colors=g.getAttribute('color');if(!colors||colors.count!==pos.count){colors=new THREE.Float32BufferAttribute(pos.count*3,3);g.setAttribute('color',colors);}const arr=colors.array,cache=m._valueFaceCache,triCount=Math.floor(pos.count/3);for(let t=0;t<triCount;t++){const gid=cache?.triangleGroupIds?.[t]??-1;const faceLevel=gid>=0&&m.faceValueLevels&&m.faceValueLevels[gid]!=null?m.faceValueLevels[gid]:m.valueLevel;const v=valueLevelByte(faceLevel)/255;const base=(t*3)*3;for(let i=0;i<9;i+=3){arr[base+i]=v;arr[base+i+1]=v;arr[base+i+2]=v;}}colors.needsUpdate=true;g.computeVertexNormals();return true;}
+function syncMassValueOverlay(m,{resetFaceValues=false}={}){if(!m||m._disposed)return false;if(resetFaceValues)clearMassFaceValues(m);const baseGeom=m.mesh?.geometry;if(!baseGeom)return false;const currentVersion=m.mesh.geometry.uuid;if(m.valueOverlayMesh&&m._valueFaceCache?.sourceUuid===currentVersion){applyMassValueOverlayColors(m);m.valueOverlayMesh.visible=viewMode==='color';return true;}const cache=buildMassValueFaceCache(baseGeom);cache.sourceUuid=currentVersion;m._valueFaceCache=cache;if(m.valueOverlayMesh){m.group.remove(m.valueOverlayMesh);m.valueOverlayMesh.geometry?.dispose?.();m.valueOverlayMesh.material?.dispose?.();}const overlay=new THREE.Mesh(cache.geometry,createMassValueOverlayMaterial());overlay.renderOrder=2;overlay.userData.massId=m.id;overlay.userData.valueModeOnly=true;overlay.userData.ignoreModelRaycast=true;overlay.visible=viewMode==='color';overlay.castShadow=false;overlay.receiveShadow=false;m.valueOverlayMesh=overlay;m.group.add(overlay);m.group.remove(m.edges);m.group.add(m.edges);applyMassValueOverlayColors(m);return true;}
+function setMassFaceValueLevelFromHit(m,hit,level=valueLevelSelected,{history=true,announce=true}={}){if(!m||m._disposed||!hit)return false;syncMassValueOverlay(m,{resetFaceValues:false});const triIndex=Math.max(0,Math.floor(hit.faceIndex??-1)),gid=m._valueFaceCache?.triangleGroupIds?.[triIndex];if(gid==null||gid<0)return false;const next=clamp(Math.round(+level||0),0,VALUE_LEVEL_COUNT-1);normalizeMassFaceValueLevels(m);const current=m.faceValueLevels&&m.faceValueLevels[gid]!=null?m.faceValueLevels[gid]:m.valueLevel;if(current===next){if(announce)showToast(`FACE · VALUE ${next+1}/10`);return false;}if(next===m.valueLevel){if(m.faceValueLevels)delete m.faceValueLevels[gid];if(m.faceValueLevels&&!Object.keys(m.faceValueLevels).length)m.faceValueLevels=null;}else{if(!m.faceValueLevels)m.faceValueLevels={};m.faceValueLevels[gid]=next;}applyMassValueOverlayColors(m);if(history)recordHistory();if(announce)showToast(`FACE · VALUE ${next+1}/10`);return true;}
+// --- Object value mode ----------------------------------------------------------
+const VALUE_TAP_MOVE_PX=10;
+function valueLevelByte(level){return Math.round(clamp(Math.round(+level||0),0,VALUE_LEVEL_COUNT-1)/(VALUE_LEVEL_COUNT-1)*255);}
+function valueLevelHex(level){const v=valueLevelByte(level).toString(16).padStart(2,'0');return `#${v}${v}${v}`;}
+function valueModeEnabled(){return viewMode==='color'&&typeof primaryDockMode==='function'&&primaryDockMode()==='base';}
+function setValueBucketMode(mode,{announce=true,autosave=true}={}){valueBucketMode='object';valuePaletteOpen=false;syncValuePalette();updateMobileDrawUI?.();if(autosave)scheduleAutosave();if(announce)showToast('VALUE');}
+function syncValueToneButton(){}
+function syncValuePalette(){const dock=document.getElementById('maBottomDock'),palette=document.getElementById('valuePalette');const active=valueModeEnabled();dock?.classList.toggle('valueMode',!!active);if(palette){palette.setAttribute('aria-hidden',String(!active));for(const btn of palette.querySelectorAll('[data-value-level]')){const level=clamp(Math.round(+btn.dataset.valueLevel||0),0,VALUE_LEVEL_COUNT-1);btn.classList.toggle('active',level===valueLevelSelected);btn.setAttribute('aria-pressed',String(level===valueLevelSelected));}}}
+function openValuePalette(){syncValuePalette();}
+function closeValuePalette(){}
+function toggleValuePalette(){}
+function setSelectedValueLevel(level,{announce=true,autosave=true,closePalette=true}={}){valueLevelSelected=clamp(Math.round(+level||0),0,VALUE_LEVEL_COUNT-1);syncValuePalette();updateAllMassVisuals();if(autosave)scheduleAutosave();if(announce)showToast(`VALUE ${valueLevelSelected+1}/10`);}
+function setMassValueLevel(m,level=valueLevelSelected,{history=true,announce=true}={}){if(!m||m._disposed)return false;const next=clamp(Math.round(+level||0),0,VALUE_LEVEL_COUNT-1);const hadFace=clearMassFaceValues(m);if(m.valueLevel===next&&!hadFace){if(announce)showToast(`VALUE ${next+1}/10`);return false;}m.valueLevel=next;syncMassValueOverlay(m,{resetFaceValues:false});updateMassVisual(m);if(history)recordHistory();if(announce)showToast(`VALUE ${next+1}/10`);return true;}
+function valueModePointerIsUI(e){const t=e?.target;return !!(t instanceof Element&&t.closest('#projectLibrary,#maBottomDock,#valuePalette,#viewJoystick,#lookJoystick,#dockDragHandle,#mainMenuButton,#sunDirPanel,#depthRangePanel,#safeFramePanel,#shortcutPanel,#streamlinePanel,#fovSettingsPanel,#brushPalettePanel'));}
+function valueModePointerCanBucket(e){if(viewMode!=='color'||primaryDockMode()!=='base'||valueModePointerIsUI(e))return false;if(!valueModeClientInside(e.clientX,e.clientY))return false;if(!MA_DRAW_MOBILE)return e.pointerType==='mouse'?e.button===0:e.pointerType==='pen';if(MA_IS_IPAD&&ipadPencilMode)return e.pointerType==='pen';return e.pointerType==='touch'||e.pointerType==='pen';}
+function valueModeClientInside(x,y){const r=document.getElementById('viewport')?.getBoundingClientRect?.();return !!r&&x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;}
+function beginValueModePointer(e){if(valueModePointer){if(e.pointerId!==valueModePointer.pointerId)valueModePointer.moved=true;return false;}if(!valueModePointerCanBucket(e))return false;const hit=raycastMasses(e.clientX,e.clientY),m=massFromHit(hit);if(!m)return false;valueModePointer={pointerId:e.pointerId,startX:e.clientX,startY:e.clientY,massId:m.id,moved:false};return true;}
+function updateValueModePointer(e){const st=valueModePointer;if(!st||st.pointerId!==e.pointerId)return false;if(Math.hypot(e.clientX-st.startX,e.clientY-st.startY)>VALUE_TAP_MOVE_PX)st.moved=true;return true;}
+function endValueModePointer(e,cancel=false){const st=valueModePointer;if(!st||st.pointerId!==e.pointerId)return false;valueModePointer=null;if(cancel||st.moved)return true;const hit=raycastMasses(e.clientX,e.clientY),m=massFromHit(hit)||massById(st.massId);if(!m)return true;setMassValueLevel(m,valueLevelSelected,{history:true,announce:true});return true;}
+for(const btn of document.querySelectorAll('#valuePalette [data-value-level]')){btn.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();unifiedUIPointers.add(e.pointerId);setSelectedValueLevel(+btn.dataset.valueLevel,{closePalette:true});},{passive:false});}
+window.addEventListener('pointerdown',e=>{beginValueModePointer(e);},{capture:true,passive:true});
+window.addEventListener('pointermove',e=>{updateValueModePointer(e);},{capture:true,passive:true});
+window.addEventListener('pointerup',e=>{endValueModePointer(e,false);},{capture:true,passive:true});
+window.addEventListener('pointercancel',e=>{endValueModePointer(e,true);},{capture:true,passive:true});
 // --- Surface workplanes ---------------------------------------------------------
 function pointSegmentDistance2D(p,a,b){const ab=b.clone().sub(a),den=ab.lengthSq();if(den<1e-12)return p.distanceTo(a);const t=clamp(p.clone().sub(a).dot(ab)/den,0,1);return p.distanceTo(a.clone().addScaledVector(ab,t));}
 // --- Baked face kernel ---------------------------------------------------------
@@ -7253,6 +6645,7 @@ function setMobileDrawKind(kind){
   }
   setTool(mobileDrawTool());
   updateBrushSizeButton();
+  syncValuePalette?.();
   updateMobileDrawUI();
   showToast(mobileDrawKindLabel(next));
 }
@@ -7286,40 +6679,6 @@ function iphonePrimaryDrawPaletteMap(sourceId=drawPaletteSourceId||'drawAddHoldB
   orderedButtons.forEach((id,index)=>{map[id]=orderedKinds[index]||mobileDrawKind;});
   return map;
 }
-const ALL_PRIMARY_PAINT_TOOLS=['brush','texture','bucket','square','circle','polyline'];
-function iphonePrimaryPaintPaletteMap(sourceId=paintToolPickerSourceId||'drawAddHoldBtn'){
-  const anchor=IPHONE_DRAW_DOCK_IDS.includes(sourceId)?sourceId:'drawAddHoldBtn';
-  const current=normalizePaintTool(paintOverlayTool),orderedTools=[current,...ALL_PRIMARY_PAINT_TOOLS.filter(t=>t!==current)];
-  const orderedButtons=[anchor,...IPHONE_DRAW_DOCK_IDS.filter(id=>id!==anchor)],map={};
-  orderedButtons.forEach((id,index)=>{map[id]=orderedTools[index]||null;});
-  return map;
-}
-function primaryPaintToolForButton(id,sourceId=paintToolPickerSourceId){return iphonePrimaryPaintPaletteMap(sourceId)[id]||null;}
-function updatePaintToolScrubSelectionFromPoint(x,y){
-  if(!paintToolPickerHeld)return false;
-  const buttons=IPHONE_DRAW_DOCK_IDS.map(id=>document.getElementById(id)).filter(Boolean);if(!buttons.length)return false;
-  const candidates=buttons.map(btn=>{const r=btn.getBoundingClientRect(),cx=(r.left+r.right)*.5,cy=(r.top+r.bottom)*.5,radius=Math.max(r.width,r.height)*.5;return{id:btn.id,cx,cy,radius,distance:Math.hypot(x-cx,y-cy)};});
-  if(paintToolScrubHoverButtonId){const current=candidates.find(c=>c.id===paintToolScrubHoverButtonId);if(current&&current.distance<=current.radius+9){const tool=primaryPaintToolForButton(current.id);paintToolScrubChoice=tool;return !!tool;}}
-  candidates.sort((a,b)=>a.distance-b.distance);const nearest=candidates[0],hit=nearest&&nearest.distance<=nearest.radius+14?nearest.id:null,next=hit?primaryPaintToolForButton(hit):null;
-  if(hit!==paintToolScrubHoverButtonId||next!==paintToolScrubChoice){paintToolScrubHoverButtonId=hit;paintToolScrubChoice=next;updateMobileDrawUI();}
-  return !!next;
-}
-function commitPaintToolScrubSelection(){const next=paintToolScrubChoice;paintToolScrubChoice=null;paintToolScrubHoverButtonId=null;if(next){setPaintOverlayTool(next);return true;}updateMobileDrawUI();return false;}
-function beginPaintToolPickerHold(e,erase=false){
-  const nextAction=erase?'erase':'add';if(paintPolylineState&&paintPolylineState.mode!==nextAction)finishPaintPolyline(true);
-  paintOverlayAction=nextAction;paintOverlayInputArmed=true;paintOverlayHoldPointerId=e.pointerId;paintToolPickerHeld=true;paintToolPickerSourceId=e?.currentTarget?.id||'drawAddHoldBtn';paintToolScrubChoice=null;paintToolScrubHoverButtonId=null;
-  try{e.currentTarget?.setPointerCapture?.(e.pointerId);}catch(_){}updateMobileDrawUI();showToast(erase?'ERASE · HOLD':'ADD · HOLD');
-}
-function finishPaintToolPickerHold(e,cancel=false){
-  if(!paintToolPickerHeld||paintOverlayHoldPointerId!==e.pointerId)return false;
-  if(!cancel){updatePaintToolScrubSelectionFromPoint(e.clientX,e.clientY);commitPaintToolScrubSelection();}
-  if(paintPolylineState&&!(MA_IS_IPAD&&ipadPencilMode))finishPaintPolyline(!cancel);
-  paintToolPickerHeld=false;paintToolScrubChoice=null;paintToolScrubHoverButtonId=null;
-  const keepArmed=(MA_IS_IPAD&&ipadPencilMode)||(!MA_DRAW_MOBILE&&e.pointerType==='mouse');paintOverlayHoldPointerId=null;if(!keepArmed)paintOverlayInputArmed=false;
-  if(paintOverlayPointer){const st=paintOverlayPointer;paintOverlayPointer=null;if(st.stroke?.points?.length){paintOverlayStrokes.push(st.stroke);paintOverlayRedo=[];flushPaintTextureUploads(true);scheduleAutosave();}}
-  updateMobileDrawUI();try{e.currentTarget?.releasePointerCapture?.(e.pointerId);}catch(_){}return true;
-}
-
 function primaryDrawKindForButton(id,sourceId=drawPaletteSourceId){
   if(primaryBrushPickerUsesMainDock())return iphonePrimaryDrawPaletteMap(sourceId)[id]||mobileDrawKind;
   return document.getElementById(id)?.dataset?.brushKind||null;
@@ -7390,11 +6749,16 @@ function commitDrawKindScrubSelection(){
 }
 function syncIPhoneBrushChoiceVisuals(){
   const view=document.getElementById('viewJoystick'),look=document.getElementById('lookJoystick'),modeBar=document.getElementById('maModeBar');
-  const drawActive=!!(primaryBrushPickerUsesMainDock()&&drawModeHeld&&!maMenuDockOpen&&!safeFrameDockOpen&&!sceneDockOpen&&!exportDockOpen),paintActive=!!(paintToolPickerHeld&&!maMenuDockOpen&&!safeFrameDockOpen&&!sceneDockOpen&&!exportDockOpen),active=drawActive||paintActive;
+  const active=!!(primaryBrushPickerUsesMainDock()&&drawModeHeld&&!maMenuDockOpen&&!safeFrameDockOpen&&!sceneDockOpen&&!exportDockOpen);
   modeBar?.classList.toggle('brushChoiceDockMode',active);
-  const drawMap=drawActive?iphonePrimaryDrawPaletteMap(drawPaletteSourceId):null,paintMap=paintActive?iphonePrimaryPaintPaletteMap(paintToolPickerSourceId):null;
-  const shownDraw=drawKindScrubTracking&&drawKindScrubChoice?drawKindScrubChoice:mobileDrawKind,shownPaint=paintToolScrubChoice||normalizePaintTool(paintOverlayTool);
-  for(const root of [view,look]){if(!root)continue;root.classList.toggle('iphoneBrushChoiceMode',active);if(active){const value=paintActive?paintMap[root.id]:drawMap[root.id];root.dataset.brushLabel=paintActive?(value?paintToolLabel(value):''):primaryDrawKindText(value);root.classList.toggle('brushChoiceActive',value===(paintActive?shownPaint:shownDraw));}else{delete root.dataset.brushLabel;root.classList.remove('brushChoiceActive');}}
+  const drawMap=active?iphonePrimaryDrawPaletteMap(drawPaletteSourceId):null;
+  const shown=drawKindScrubTracking&&drawKindScrubChoice?drawKindScrubChoice:mobileDrawKind;
+  for(const root of [view,look]){
+    if(!root)continue;
+    root.classList.toggle('iphoneBrushChoiceMode',active);
+    if(active){const value=drawMap[root.id];root.dataset.brushLabel=primaryDrawKindText(value);root.classList.toggle('brushChoiceActive',value===shown);}
+    else{delete root.dataset.brushLabel;root.classList.remove('brushChoiceActive');}
+  }
 }
 function syncBrushPalettePanel(){
   const panel=document.getElementById('brushPalettePanel');
@@ -7446,7 +6810,7 @@ function sceneHasSelectableGeometry(){
   return masses.some(m=>m&&!m._disposed);
 }
 function selectModeAvailable(){
-  return viewMode==='workspace'&&sceneHasSelectableGeometry();
+  return (viewMode==='workspace'||viewMode==='color')&&sceneHasSelectableGeometry();
 }
 function currentAppMode(){
   if(drawModeHeld||desktopShapeArmed)return 'draw';
@@ -7463,7 +6827,7 @@ function updateBrushSizeButton(){
   if(!circle)return;
   // Keep the preview's layout size fixed and animate only the compositor transform.
   // This avoids repeated layout/reflow while scrubbing SIZE on iPad.
-  const d=viewMode==='color'?clamp(paintOverlaySize*1.5,3,34):brushSizePreviewDiameter();
+  const d=brushSizePreviewDiameter();
   circle.style.transform=`scale(${(d/32).toFixed(4)})`;
 }
 
@@ -7473,13 +6837,8 @@ function primaryDockMode(){
   if(exportDockOpen)return 'export';
   if(sceneDockOpen)return 'scenes';
   if(safeFrameDockOpen)return 'safeFrame';
-  // v9.16 — COLOR is a normal view state, not a separate dock state.
-  // Keep both joysticks and the standard middle controls visible while painting.
-  // ADD / ERASE hold temporarily owns all six dock circles on iPhone/iPad.
-  // Once a brush is chosen, the picker closes and the chosen ADD/ERASE tool
-  // stays latched in the normal dock until another main function is chosen.
-  if(paintToolPickerHeld)return 'paint';
   if(drawModeHeld||(!primaryBrushPickerUsesMainDock()&&desktopShapeArmed))return 'draw';
+  if(viewMode==='color')return 'base';
   if(selectModeActive&&selectedMasses().length>0)return 'select';
   return 'base';
 }
@@ -7581,7 +6940,7 @@ function syncSceneDockVisuals(){
   if(look){
     look.classList.remove('sceneDockMode','sceneMoodSlot','sceneSlotFilled','sceneSlotActive','sceneSlotDirty');
     delete look.dataset.sceneLabel;
-    look.setAttribute('aria-label','Look joystick. Tap toggles outlines. Left Color/Draw, up Light, right Depth Fog, down Workspace.');
+    look.setAttribute('aria-label','Look joystick. Tap toggles outlines. Left Value, up Light, right Depth Fog, down Workspace.');
   }
 }
 function setSceneDockOpen(open){
@@ -7712,8 +7071,12 @@ function syncPrimaryDockUI(){
     syncSettingsDockVisuals();
     return;
   }
-  // COLOR uses the normal base dock; no PENCIL/COLOR/DONE remap.
   if(slot5){slot5.style.removeProperty('background');slot5.style.removeProperty('color');}
+
+  if(viewMode==='color'&&mode==='base'){
+    syncValuePalette();
+    return;
+  }
 
   if(mode==='export'){
     const viewPsdLabel=viewPsdBuildInProgress?'BUILDING':'VIEW PSD';
@@ -7741,13 +7104,6 @@ function syncPrimaryDockUI(){
     setPrimaryDockButtonVisual(slot4,'S4',{active:+activeSceneId===4});
     setPrimaryDockButtonVisual(slot5,'S5',{active:+activeSceneId===5});
     syncSceneDockVisuals();
-    return;
-  }
-
-  if(mode==='paint'){
-    const palette=iphonePrimaryPaintPaletteMap(paintToolPickerSourceId),shown=paintToolScrubChoice||normalizePaintTool(paintOverlayTool);
-    for(const btn of [b1,b2,b3,b4]){const tool=palette[btn?.id];setPrimaryDockButtonVisual(btn,tool?paintToolLabel(tool):'',{active:!!tool&&tool===shown});}
-    syncIPhoneBrushChoiceVisuals();
     return;
   }
 
@@ -7782,16 +7138,12 @@ function syncPrimaryDockUI(){
     return;
   }
 
-  const colorPaint=viewMode==='color';
-  setPrimaryDockButtonVisual(b1,'ADD',{active:colorPaint&&paintOverlayInputArmed&&paintOverlayAction==='add'||(!colorPaint&&currentAppMode()==='draw'&&drawHoldAction==='add')});
-  setPrimaryDockButtonVisual(b2,'ERASE',{active:colorPaint&&paintOverlayInputArmed&&paintOverlayAction==='erase'||(!colorPaint&&currentAppMode()==='draw'&&drawHoldAction==='erase')});
+  setPrimaryDockButtonVisual(b1,'ADD',{active:currentAppMode()==='draw'&&drawHoldAction==='add'});
+  setPrimaryDockButtonVisual(b2,'ERASE',{active:currentAppMode()==='draw'&&drawHoldAction==='erase'});
   setPrimaryDockButtonVisual(b3,'',{size:true});
-  setPrimaryDockButtonVisual(b4,colorPaint?'COLOR':'SELECT',{active:!colorPaint&&(selectModeActive||selectModeHeld)});
-  if(colorPaint&&b4){
-    b4.style.background=paintOverlayColor;
-    const rgb=parseInt(paintOverlayColor.slice(1),16),r=(rgb>>16)&255,g=(rgb>>8)&255,b=rgb&255;
-    b4.style.color=(r*.299+g*.587+b*.114)>150?'#2d2d2b':'#fff';
-  }else if(b4){b4.style.removeProperty('background');b4.style.removeProperty('color');}
+  setPrimaryDockButtonVisual(b4,'SELECT',{active:selectModeActive||selectModeHeld});
+  if(b4){b4.style.removeProperty('background');b4.style.removeProperty('color');}
+  syncValuePalette?.();
 }
 function updateMobileDrawUI(){
   if(!MA_UNIFIED_UI)return;
@@ -7837,18 +7189,14 @@ function updateMobileDrawUI(){
         dockMode==='select' ||
         (dockMode==='draw' && !primaryBrushPickerUsesMainDock())
       );
-    // v9.16 — in COLOR this physical circle is COLOR, not SELECT. Never let
-    // Workspace-only Select availability disable the actual HTML button,
-    // otherwise iOS suppresses every pointer/click event before COLOR can open.
     const disabled=physicalButtonIsSelect&&!canSelect;
     selectBtn.disabled=disabled;
     selectBtn.setAttribute('aria-disabled',String(disabled));
   }
 
-  const colorPaint=viewMode==='color';
-  addBtn?.classList.toggle('active',dockMode==='base'&&((colorPaint&&paintOverlayInputArmed&&paintOverlayAction==='add')||(!colorPaint&&mode==='draw'&&drawHoldAction==='add')));
-  eraseBtn?.classList.toggle('active',dockMode==='base'&&((colorPaint&&paintOverlayInputArmed&&paintOverlayAction==='erase')||(!colorPaint&&mode==='draw'&&drawHoldAction==='erase')));
-  eraseBtn?.classList.toggle('eraseActive',dockMode==='base'&&colorPaint&&paintOverlayInputArmed&&paintOverlayAction==='erase'||dockMode==='base'&&!colorPaint&&mode==='draw'&&drawHoldAction==='erase');
+  addBtn?.classList.toggle('active',dockMode==='base'&&viewMode!=='color'&&mode==='draw'&&drawHoldAction==='add');
+  eraseBtn?.classList.toggle('active',dockMode==='base'&&viewMode!=='color'&&mode==='draw'&&drawHoldAction==='erase');
+  eraseBtn?.classList.toggle('eraseActive',dockMode==='base'&&viewMode!=='color'&&mode==='draw'&&drawHoldAction==='erase');
   selectBtn?.classList.toggle(
     'active',
     viewMode!=='color'&&
@@ -7870,6 +7218,7 @@ function updateMobileDrawUI(){
   mobileSizeBtn?.setAttribute('aria-pressed',String(!!(randomBrushSizeMode&&dockMode==='base')));
 
   syncPrimaryDockUI();
+  syncValuePalette?.();
   syncIPhoneBrushChoiceVisuals();
   syncSafeFrameDockVisuals();
   syncSceneDockVisuals();
@@ -10516,7 +9865,6 @@ function endSelectionTransform(){
   if(interaction&&(interaction.kind==='rotate'||interaction.kind==='scale')){
     const finishedKind=interaction.kind;
     finalizeRotatePivot(false);
-    if(finishedKind==='scale')for(const m of selectedMasses())syncMassPaintGeometry?.(m);
     interaction=null;
     recordHistory();
   }
@@ -10626,6 +9974,8 @@ function applySerializedMassDataInPlace(m,d){
   m.groupId=d.groupId??null;
   m.mirrorPairId=d.mirrorPairId??null;
   m.mirrorRole=d.mirrorRole||null;
+  m.valueLevel=clamp(Math.round(Number.isFinite(+d.valueLevel)?+d.valueLevel:0),0,VALUE_LEVEL_COUNT-1);
+  m.faceValueLevels=d.faceValueLevels&&typeof d.faceValueLevels==='object'?{...d.faceValueLevels}:null;
   m.group.position.fromArray(d.position||[0,0,0]);
   m.group.quaternion.fromArray(d.quaternion||[0,0,0,1]);
   m.group.scale.fromArray(d.scale||[1,1,1]);
@@ -10633,7 +9983,7 @@ function applySerializedMassDataInPlace(m,d){
   m.edges.geometry.dispose();
   m.edges.geometry=outlineGeometryForMass(g,massType);
   invalidateMassGeometryDerivedState(m,{invalidateManifold:true});
-  syncMassPaintGeometry?.(m);
+  syncMassValueOverlay(m,{resetFaceValues:false});
   updateMassVisual(m);
   markViewPlaneSectionDirty();
   if(m.groupId!=null)nextGroupId=Math.max(nextGroupId,(m.groupId|0)+1);
@@ -11392,9 +10742,6 @@ if(ui.fovSettingsRange){
   ui.fovSettingsRange.addEventListener('input',()=>{setPerspectiveFOV(+ui.fovSettingsRange.value||DEFAULT_PERSPECTIVE_FOV);syncFOVSettingsUI();});
 }
 document.getElementById('streamlineClose')?.addEventListener('click',()=>openStreamlinePanel(false));
-if(ui.paintColorPicker)ui.paintColorPicker.addEventListener('input',()=>setPaintOverlayColor(ui.paintColorPicker.value));
-document.getElementById('paintColorClose')?.addEventListener('click',()=>openPaintColorPanel(false));
-document.querySelectorAll('#paintColorSwatches [data-paint-color]').forEach(btn=>btn.addEventListener('click',()=>{setPaintOverlayColor(btn.dataset.paintColor);openPaintColorPanel(false);}));
 
 const maControlsDock=document.getElementById('maBottomDock');
 const dockDragHandle=document.getElementById('dockDragHandle');
@@ -11991,10 +11338,10 @@ if(mainMenuButton){
 // A resting palm can arrive as a normal touch pointer just before/while Pencil draws.
 // If that touch starts navigation it can keep workspace state alive and make the next
 // Pencil contact look unresponsive. Quarantine only workspace touches; dock/UI touches
-// remain valid so a finger can still hold a tool while Pencil paints.
+// remain valid while Pencil owns the workspace.
 function palmTouchIsUI(e){
   const t=e?.target;
-  return !!(t instanceof Element&&t.closest('#projectLibrary,#maBottomDock,#maModeBar,#viewJoystick,#lookJoystick,#dockDragHandle,#mainMenuButton,#paintColorPanel,#sunDirPanel,#depthRangePanel,#safeFramePanel,#shortcutPanel,#streamlinePanel,#fovSettingsPanel,#brushPalettePanel'));
+  return !!(t instanceof Element&&t.closest('#projectLibrary,#maBottomDock,#maModeBar,#viewJoystick,#lookJoystick,#dockDragHandle,#mainMenuButton,#sunDirPanel,#depthRangePanel,#safeFramePanel,#shortcutPanel,#streamlinePanel,#fovSettingsPanel,#brushPalettePanel'));
 }
 function clearWorkspaceTouchStateForPencil(){
   if(!MA_IS_IPAD)return;
@@ -12052,54 +11399,12 @@ function finishPalmRejectedPointer(e){
 window.addEventListener('pointerup',finishPalmRejectedPointer,{capture:true,passive:false});
 window.addEventListener('pointercancel',finishPalmRejectedPointer,{capture:true,passive:false});
 
-// COLOR drag: horizontal motion over the dock selects hue; vertical motion in the workspace changes value.
-window.addEventListener('pointermove',e=>{if(e.pointerId===colorButtonPointerId&&updatePaintColorDrag(e)){e.preventDefault();e.stopImmediatePropagation();}},{capture:true,passive:false});
-
-// Once COLOR adjustment is latched, the next workspace tap returns to normal paint/draw controls.
-window.addEventListener('pointerdown',e=>{
-  if(!colorMeterActive||colorButtonPointerId!=null)return;const t=e.target;if(t instanceof Element&&t.closest('#maBottomDock,#mainMenuButton,#paintColorPanel,#projectLibrary,#sunDirPanel,#depthRangePanel,#safeFramePanel,#shortcutPanel,#streamlinePanel,#fovSettingsPanel,#brushPalettePanel'))return;if(!paintOverlayClientInside(e.clientX,e.clientY))return;setColorMeterActive(false);openPaintColorPanel(false);showToast('DRAW');e.preventDefault();e.stopImmediatePropagation();
-},{capture:true,passive:false});
-
-// Holding COLOR turns a second workspace tap into an eyedropper.
-window.addEventListener('pointerdown',e=>{
-  if(viewMode!=='color'||colorButtonPointerId==null||e.pointerId===colorButtonPointerId)return;
-  const t=e.target;if(t instanceof Element&&t.closest('#maBottomDock,#mainMenuButton,#paintColorPanel,#projectLibrary,#sunDirPanel,#depthRangePanel,#safeFramePanel,#shortcutPanel,#streamlinePanel,#fovSettingsPanel,#brushPalettePanel'))return;
-  if(!paintOverlayClientInside(e.clientX,e.clientY))return;
-  if(samplePaintColorAtClient(e.clientX,e.clientY)){colorButtonEyedropperUsed=true;e.preventDefault();e.stopImmediatePropagation();}
-},{capture:true,passive:false});
-
-// Texture paint only owns the workspace pointer while ADD/ERASE is armed.
-// Otherwise Draw mode remains normal NAVI, so orbit/pan/zoom keep working.
-window.addEventListener('pointerdown',e=>{
-  const paintDockMode=primaryDockMode();
-  if(viewMode!=='color'||(paintDockMode!=='base'&&paintDockMode!=='paint')||!paintOverlayInputArmed)return;
-  const t=e.target;if(t instanceof Element&&t.closest('#maBottomDock,#mainMenuButton,#paintColorPanel,#projectLibrary,#sunDirPanel,#depthRangePanel,#safeFramePanel,#shortcutPanel,#streamlinePanel,#fovSettingsPanel,#brushPalettePanel'))return;
-  if(!paintOverlayClientInside(e.clientX,e.clientY))return;
-  if(paintOverlayPointer){e.preventDefault();e.stopImmediatePropagation();return;}
-  if(beginPaintOverlayStroke(e)){e.preventDefault();e.stopImmediatePropagation();}
-},{capture:true,passive:false});
-window.addEventListener('pointermove',e=>{
-  if(!paintOverlayPointer)return;
-  if(e.pointerId!==paintOverlayPointer.pointerId){if(MA_IS_IPAD&&e.pointerType==='pen'){e.preventDefault();e.stopImmediatePropagation();}return;}
-  e.preventDefault();e.stopImmediatePropagation();const st=paintOverlayPointer;if((window.__MA_IS_IPAD__||window.__MA_IS_IPHONE__)&&st.kind==='stroke')queuePaintOverlayMove(e);else updatePaintOverlayStroke(e);
-},{capture:true,passive:false});
-window.addEventListener('pointerup',e=>{
-  if(!paintOverlayPointer)return;
-  if(e.pointerId!==paintOverlayPointer.pointerId){if(MA_IS_IPAD&&e.pointerType==='pen'){e.preventDefault();e.stopImmediatePropagation();}return;}
-  e.preventDefault();e.stopImmediatePropagation();flushPendingPaintOverlayMove(e.pointerId);endPaintOverlayStroke(e,false);
-},{capture:true,passive:false});
-window.addEventListener('pointercancel',e=>{
-  if(!paintOverlayPointer)return;
-  if(e.pointerId!==paintOverlayPointer.pointerId){if(MA_IS_IPAD&&e.pointerType==='pen'){e.preventDefault();e.stopImmediatePropagation();}return;}
-  e.preventDefault();e.stopImmediatePropagation();paintMovePending=null;if(paintMoveRAF){cancelAnimationFrame(paintMoveRAF);paintMoveRAF=0;}endPaintOverlayStroke(e,true);
-},{capture:true,passive:false});
-
 // A pointer that begins on the dock/UI is permanently UI-only until release.
 // This prevents the DRAW-hold finger from ever leaking into the modelling path.
 window.addEventListener('pointerdown',e=>{
   if(!MA_UNIFIED_UI)return;
   const t=e.target;
-  if(t instanceof Element && t.closest('#projectLibrary,#maBottomDock,#maModeBar,#viewJoystick,#lookJoystick,#dockDragHandle,#mainMenuButton,#paintColorPanel,#sunDirPanel,#depthRangePanel,#safeFramePanel,#shortcutPanel,#streamlinePanel,#fovSettingsPanel,#brushPalettePanel')){
+  if(t instanceof Element && t.closest('#projectLibrary,#maBottomDock,#maModeBar,#viewJoystick,#lookJoystick,#dockDragHandle,#mainMenuButton,#sunDirPanel,#depthRangePanel,#safeFramePanel,#shortcutPanel,#streamlinePanel,#fovSettingsPanel,#brushPalettePanel')){
     unifiedUIPointers.add(e.pointerId);
   }
 },{capture:true,passive:true});
@@ -12169,12 +11474,12 @@ function syncLookJoystickUI(){
     );
   }else{
     if(up)up.textContent='L';
-    if(left)left.textContent='C';
+    if(left)left.textContent='V';
     if(right)right.textContent='D';
     if(down)down.textContent='W';
     root.setAttribute(
       'aria-label',
-      'Look joystick. Left Color/Draw, up Light, right Depth Fog, down Workspace.'
+      'Look joystick. Left Value, up Light, right Depth Fog, down Workspace.'
     );
   }
 }
@@ -12252,7 +11557,7 @@ function setJoystickKnob(kind,dir){
     }else{
       const map=kind==='view'
         ?{left:'x',right:'y',up:'z',down:'perspective'}
-        :{left:'paint',right:'depth',up:'shadow',down:'workspace'};
+        :{left:'color',right:'depth',up:'shadow',down:'workspace'};
       const attr=kind==='view'?'data-joy-view':'data-joy-mode';
       root.querySelector(`[${attr}="${map[dir]}"]`)?.classList.add('target');
     }
@@ -12419,7 +11724,6 @@ function endLookJoystick(e,cancel=false){
   }else if(!cancel&&!st.dir&&moodJoystickTapCanToggleOutlines(st)){
     toggleOutlinesFromMoodJoystick();
   }else if(!cancel&&mode){
-    if(mode==='color'){applyViewMode('color');updateMobileDrawUI();return;}
     const sameSettingsMood=(mode===viewMode&&(mode==='shadow'||mode==='depth'));
     if(sameSettingsMood){
       lookSettingsPanelSuppressed=!lookSettingsPanelSuppressed;
@@ -12431,7 +11735,7 @@ function endLookJoystick(e,cancel=false){
       markSceneViewDirty();
       scheduleAutosave();
       showToast(
-        mode==='color'?'COLOR':
+        mode==='color'?'VALUE':
         mode==='notan'?'MASS':
         mode==='shadow'?'LIGHT':
         mode==='depth'?'DEPTH / FOG':'WORKSPACE'
@@ -12462,7 +11766,6 @@ setupJoystick('lookJoystick','look');
 // the exact directional action; center clicks keep their existing toggle action.
 function desktopActivateLookMode(mode){
   if(!mode)return;
-  if(mode==='color'){applyViewMode('color');updateMobileDrawUI();return;}
   const sameSettingsMood=(mode===viewMode&&(mode==='shadow'||mode==='depth'));
   if(sameSettingsMood){
     lookSettingsPanelSuppressed=!lookSettingsPanelSuppressed;
@@ -12473,7 +11776,7 @@ function desktopActivateLookMode(mode){
     syncUnifiedLookSettings();
     markSceneViewDirty();
     scheduleAutosave();
-    showToast(mode==='color'?'COLOR':mode==='notan'?'MASS':mode==='shadow'?'LIGHT':mode==='depth'?'DEPTH / FOG':'WORKSPACE');
+    showToast(mode==='color'?'VALUE':mode==='notan'?'MASS':mode==='shadow'?'LIGHT':mode==='depth'?'DEPTH / FOG':'WORKSPACE');
   }
   updateMobileDrawUI();
 }
@@ -12835,8 +12138,6 @@ function enterIPadFingerMode({announce=true}={}){
   // Pencil-specific tool state surviving the mode switch.
   if(pencilDrawButtonPress?.timer)clearTimeout(pencilDrawButtonPress.timer);
   pencilDrawButtonPress=null;
-  if(pencilPaintButtonPress?.timer)clearTimeout(pencilPaintButtonPress.timer);
-  pencilPaintButtonPress=null;
   clearDrawHoldCancelTimer();
   clearSelectHoldCancelTimer();
   clearTransformHoldCancelTimer();
@@ -13114,23 +12415,6 @@ function setupDrawHoldButton(id,erase=false){
 
     const dockMode=primaryDockMode();
 
-    // v9.14 — in COLOR, the normal ADD / ERASE circles are paint controls.
-    // Keep the rest of the base dock untouched so both joysticks remain usable.
-    if(dockMode==='base'&&viewMode==='color'){
-      openPaintColorPanel(false);
-      if(MA_IS_IPAD&&ipadPencilMode&&e.pointerType==='touch'){
-        if(pencilPaintButtonPress)return;
-        const action=erase?'erase':'add',press=pencilPaintButtonPress={pointerId:e.pointerId,erase,action,event:syntheticHoldEvent(e),held:false,toggleOff:paintOverlayInputArmed&&paintOverlayAction===action,timer:null};
-        press.timer=setTimeout(()=>{if(pencilPaintButtonPress!==press)return;press.held=true;beginPaintToolPickerHold(press.event,erase);},PENCIL_PAINT_MENU_HOLD_MS);
-        try{btn.setPointerCapture?.(e.pointerId);}catch(_){}
-        return;
-      }
-      const wantsPicker=e.pointerType==='touch'||(!MA_DRAW_MOBILE&&e.pointerType==='mouse'&&e.button===2);
-      if(wantsPicker){beginPaintToolPickerHold(e,erase);return;}
-      paintOverlayAction=erase?'erase':'add';paintOverlayInputArmed=true;paintOverlayHoldPointerId=null;updateMobileDrawUI();showToast(`${erase?'ERASE':'ADD'} · ${paintToolLabel(activePaintToolForAction(erase?'erase':'add'))}`);
-      return;
-    }
-
     if(dockMode==='select'){
       beginSelectionTransformHold(transformKind,e);
       try{btn.setPointerCapture?.(e.pointerId);}catch(_){}
@@ -13188,19 +12472,6 @@ function setupDrawHoldButton(id,erase=false){
   },{passive:false});
 
   btn.addEventListener('pointerup',e=>{
-    if(MA_IS_IPAD&&ipadPencilMode&&viewMode==='color'&&pencilPaintButtonPress?.pointerId===e.pointerId){
-      e.preventDefault();e.stopPropagation();const press=pencilPaintButtonPress;pencilPaintButtonPress=null;if(press.timer)clearTimeout(press.timer);
-      if(press.held){if(paintToolPickerHeld&&paintOverlayHoldPointerId===e.pointerId)finishPaintToolPickerHold(e,false);}
-      else if(press.toggleOff){paintOverlayInputArmed=false;paintOverlayHoldPointerId=null;if(paintPolylineState)finishPaintPolyline(true);updateMobileDrawUI();showToast('DRAW · OFF');}
-      else{paintOverlayAction=press.action;paintOverlayInputArmed=true;paintOverlayHoldPointerId=null;updateMobileDrawUI();showToast(`${press.erase?'ERASE':'ADD'} · ${paintToolLabel(activePaintToolForAction(press.action))}`);}
-      try{btn.releasePointerCapture?.(e.pointerId);}catch(_){}return;
-    }
-    if(viewMode==='color'&&paintToolPickerHeld&&paintOverlayHoldPointerId===e.pointerId){e.preventDefault();e.stopPropagation();finishPaintToolPickerHold(e,false);return;}
-    if(viewMode==='color'&&paintOverlayHoldPointerId===e.pointerId){
-      e.preventDefault();e.stopPropagation();paintOverlayInputArmed=false;paintOverlayHoldPointerId=null;
-      if(paintOverlayPointer){const st=paintOverlayPointer;paintOverlayPointer=null;if(st.stroke.points.length){paintOverlayStrokes.push(st.stroke);paintOverlayRedo=[];scheduleAutosave();}}
-      updateMobileDrawUI();try{btn.releasePointerCapture?.(e.pointerId);}catch(_){}return;
-    }
     if(releasePrimaryTransform(transformKind,e,false))return;
 
     if(MA_IS_IPAD&&pencilDrawButtonPress?.pointerId===e.pointerId){
@@ -13241,15 +12512,6 @@ function setupDrawHoldButton(id,erase=false){
   },{passive:false});
 
   btn.addEventListener('pointercancel',e=>{
-    if(MA_IS_IPAD&&viewMode==='color'&&pencilPaintButtonPress?.pointerId===e.pointerId){
-      e.preventDefault();e.stopPropagation();const press=pencilPaintButtonPress;pencilPaintButtonPress=null;if(press.timer)clearTimeout(press.timer);if(press.held&&paintToolPickerHeld&&paintOverlayHoldPointerId===e.pointerId)finishPaintToolPickerHold(e,true);return;
-    }
-    if(viewMode==='color'&&paintToolPickerHeld&&paintOverlayHoldPointerId===e.pointerId){e.preventDefault();e.stopPropagation();finishPaintToolPickerHold(e,true);return;}
-    if(viewMode==='color'&&paintOverlayHoldPointerId===e.pointerId){
-      e.preventDefault();e.stopPropagation();paintOverlayInputArmed=false;paintOverlayHoldPointerId=null;
-      if(paintOverlayPointer){const st=paintOverlayPointer;paintOverlayPointer=null;if(st.stroke.points.length){paintOverlayStrokes.push(st.stroke);paintOverlayRedo=[];scheduleAutosave();}}
-      updateMobileDrawUI();return;
-    }
     if(MA_IS_IPAD&&pencilDrawButtonPress?.pointerId===e.pointerId){
       e.preventDefault();e.stopPropagation();
       const press=pencilDrawButtonPress;
@@ -13292,6 +12554,10 @@ function setupDrawHoldButton(id,erase=false){
     }
   },{passive:false});
 }
+const valueObjectBtn=document.getElementById('drawAddHoldBtn');
+const valueFaceBtn=document.getElementById('drawEraseHoldBtn');
+if(valueObjectBtn){valueObjectBtn.addEventListener('pointerdown',e=>{if(viewMode!=='color')return;e.preventDefault();e.stopImmediatePropagation();unifiedUIPointers.add(e.pointerId);},{capture:true,passive:false});}
+if(valueFaceBtn){valueFaceBtn.addEventListener('pointerdown',e=>{if(viewMode!=='color')return;e.preventDefault();e.stopImmediatePropagation();unifiedUIPointers.add(e.pointerId);},{capture:true,passive:false});}
 setupDrawHoldButton('drawAddHoldBtn',false);
 setupDrawHoldButton('drawEraseHoldBtn',true);
 
@@ -13336,22 +12602,11 @@ function promoteIPhoneSelectPressToMulti(){
   return true;
 }
 
-let colorButtonPointerId=null,colorButtonEyedropperUsed=false;
 const selectHoldBtn=document.getElementById('selectHoldBtn');
 if(selectHoldBtn){
   selectHoldBtn.addEventListener('pointerdown',e=>{
     e.preventDefault();e.stopPropagation();
     unifiedUIPointers.add(e.pointerId);
-
-    // v9.16 — in COLOR this physical slot is exclusively COLOR.
-    // Own the pointer here, but open the panel on pointer-up so iOS sees one
-    // clean button gesture and none of the SELECT release logic can run.
-    if(viewMode==='color'&&primaryDockMode()==='base'){
-      colorButtonPointerId=e.pointerId;colorButtonEyedropperUsed=false;const hsv=paintHexToHSV(paintOverlayColor);colorAdjustState={startX:e.clientX,startY:e.clientY,active:false,h:hsv.h,s:Math.max(.02,hsv.s),v:hsv.v,valueAnchorY:null,valueAnchorV:hsv.v};
-      try{selectHoldBtn.setPointerCapture?.(e.pointerId);}catch(_){}
-      showToast('COLOR · DRAG = HUE / VALUE · HOLD + TAP = PIPETTE');
-      return;
-    }
 
     // v8.46 — iPad Pencil mode: SELECT is a persistent Single/Multi toggle.
     // Fingers still never select in the viewport; they only press this UI control
@@ -13484,14 +12739,6 @@ if(selectHoldBtn){
   },{passive:false});
 
   const finishSelectButton=e=>{
-    if(e.pointerId===colorButtonPointerId){
-      e.preventDefault();e.stopPropagation();
-      const usedEyedropper=colorButtonEyedropperUsed,usedMeter=!!colorAdjustState?.active;colorButtonPointerId=null;colorButtonEyedropperUsed=false;
-      try{selectHoldBtn.releasePointerCapture?.(e.pointerId);}catch(_){}
-      if(usedMeter){colorMeterActive=true;syncPaintColorMeterVisuals();scheduleAutosave();showToast('COLOR · TAP WORKSPACE = DRAW');}
-      else if(!usedEyedropper)openPaintColorPanel(true);
-      colorAdjustState=null;return;
-    }
     const press=selectButtonPress;
     if(!press||press.pointerId!==e.pointerId)return;
     e.preventDefault();e.stopPropagation();
@@ -13563,11 +12810,6 @@ if(selectHoldBtn){
 
   selectHoldBtn.addEventListener('pointerup',finishSelectButton,{passive:false});
   selectHoldBtn.addEventListener('pointercancel',e=>{
-    if(e.pointerId===colorButtonPointerId){
-      colorButtonPointerId=null;colorButtonEyedropperUsed=false;colorAdjustState=null;
-      try{selectHoldBtn.releasePointerCapture?.(e.pointerId);}catch(_){}
-      return;
-    }
     const press=selectButtonPress;
     if(!press||press.pointerId!==e.pointerId)return;
     if(press.timer)clearTimeout(press.timer);
@@ -13701,7 +12943,6 @@ function endSelectionTransformHold(fromButtonRelease=true){
   if(fromButtonRelease&&moveArmed)showToast('MOVE · ACTIVE');
 }
 window.addEventListener('pointermove',e=>{
-  if(paintToolPickerHeld&&e.pointerId===paintOverlayHoldPointerId)updatePaintToolScrubSelectionFromPoint(e.clientX,e.clientY);
   if(drawModeHeld&&e.pointerType==='touch'&&e.pointerId===drawModeHoldPointerId)updateDrawKindScrubSelectionFromPoint(e.clientX,e.clientY);
 },{passive:false});
 
@@ -13709,7 +12950,6 @@ window.addEventListener('pointermove',e=>{
 // finger; if the finger releases between buttons, this fallback commits the
 // current hover and ends the hold.
 window.addEventListener('pointerup',e=>{
-  if(paintToolPickerHeld&&e.pointerId===paintOverlayHoldPointerId){finishPaintToolPickerHold(e,false);return;}
   if(drawModeHeld&&e.pointerType==='touch'&&e.pointerId===drawModeHoldPointerId){
     const heldErase=drawHoldAction==='erase';
     updateDrawKindScrubSelectionFromPoint(e.clientX,e.clientY);
@@ -13720,7 +12960,6 @@ window.addEventListener('pointerup',e=>{
 },{passive:false});
 
 window.addEventListener('pointercancel',e=>{
-  if(paintToolPickerHeld&&e.pointerId===paintOverlayHoldPointerId){finishPaintToolPickerHold(e,true);return;}
   if(drawModeHeld&&e.pointerType==='touch'&&e.pointerId===drawModeHoldPointerId){
     if(MA_IS_IPAD&&ipadPencilMode){
       const heldErase=drawHoldAction==='erase';
@@ -13772,8 +13011,7 @@ if(mobileSizeBtn){
       startX:e.clientX,
       startY:e.clientY,
       side:maControlsDock?.dataset.side||dockPosition?.side||'left',
-      startSize:viewMode==='color'?paintOverlaySize:((mobileDrawKind==='boxbrush'||mobileDrawKind==='roundbrush')?brushSize():brushDepth()),
-      colorPaint:viewMode==='color',
+      startSize:(mobileDrawKind==='boxbrush'||mobileDrawKind==='roundbrush')?brushSize():brushDepth(),
       dragStarted:false
     };
     mobileSizeBtn.setPointerCapture?.(e.pointerId);
@@ -13793,10 +13031,7 @@ if(mobileSizeBtn){
       if(Math.hypot(dx,dy)<7)return;
       unifiedSizeDrag.dragStarted=true;
     }
-
-    if(unifiedSizeDrag.colorPaint){
-      paintOverlaySize=clamp(unifiedSizeDrag.startSize+travel*.22,PAINT_SIZE_MIN,96);updateBrushSizeButton();
-    }else{
+    {
       const sensitivity=vertical?.009:.012;
       const next=unifiedSizeDrag.startSize*Math.exp(travel*sensitivity);
       if(mobileDrawKind==='boxbrush'||mobileDrawKind==='roundbrush')setBrushSize(next);
@@ -13811,7 +13046,7 @@ if(mobileSizeBtn){
     unifiedSizeDrag=null;
     try{mobileSizeBtn.releasePointerCapture?.(e.pointerId);}catch(_){}
 
-    if(!cancel&&!st.dragStarted&&primaryDockMode()==='base'&&!st.colorPaint){
+    if(!cancel&&!st.dragStarted&&primaryDockMode()==='base'){
       randomBrushSizeMode=!randomBrushSizeMode;
       updateMobileDrawUI();
       scheduleAutosave();
@@ -14343,7 +13578,7 @@ const stylusRangeFallbackIds=new Map();
 const stylusUIFallbackIds=new Map();
 const PENCIL_UI_ROOT_SELECTOR=[
   '#projectLibrary','#maBottomDock','#viewJoystick','#lookJoystick',
-  '#dockDragHandle','#mainMenuButton','#paintModeButton','#paintColorPanel','#sunDirPanel','#depthRangePanel',
+  '#dockDragHandle','#mainMenuButton','#sunDirPanel','#depthRangePanel',
   '#safeFramePanel','#shortcutPanel','#streamlinePanel','#fovSettingsPanel','#brushPalettePanel'
 ].join(',');
 
@@ -14514,14 +13749,8 @@ function dispatchStylusPointerToUI(type,touch,target){
 }
 function cancelSyntheticWorkspacePencilForNative(){
   if(!MA_IS_IPAD)return;
-  // A synthetic modelling pointer uses the reserved 1,000,000+ id range. If a real
-  // native Pencil pointer arrives afterwards, cancel the synthetic owner immediately
-  // so it cannot block the native stream until TouchEvent cleanup eventually runs.
-  const st=paintOverlayPointer;
-  if(st&&Number.isFinite(+st.pointerId)&&+st.pointerId>=1000000){
-    const fake={pointerId:st.pointerId,clientX:st.currentScreen?.x??st.startScreen?.x??0,clientY:st.currentScreen?.y??st.startScreen?.y??0};
-    try{endPaintOverlayStroke(fake,true);}catch(_){paintOverlayPointer=null;}
-  }
+  // Native PointerEvents are authoritative once Pencil is seen. Drop only the
+  // legacy TouchEvent fallback ids; Value mode has no separate stroke owner.
   stylusTouchFallbackIds.clear();
 }
 function stylusTouchesFromEvent(e){
@@ -15851,8 +15080,6 @@ function resetTouchNavigationRuntime(){
   lastNativePenPointerAt=0;
   if(pencilDrawButtonPress?.timer)clearTimeout(pencilDrawButtonPress.timer);
   pencilDrawButtonPress=null;
-  if(pencilPaintButtonPress?.timer)clearTimeout(pencilPaintButtonPress.timer);
-  pencilPaintButtonPress=null;
   touchPointers.clear();
   touchGesture=null;touchNavState=null;touchOrbitPivot=null;touchPanScale=0;cancelTouchFovArm();
   ipadStraightHeld=false;
