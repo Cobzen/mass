@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="ma-build" content="9.01">
+<meta name="ma-build" content="9.70">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -11,10 +11,10 @@
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <!-- MA 3D · object value mode -->
-<title>MA 3D · v9.63</title>
+<title>MA 3D · v9.70</title>
 <script>
 (() => {
-  const CURRENT_BUILD = '9.13';
+  const CURRENT_BUILD = '9.70';
   const CHECK_INTERVAL = 30000;
   let lastCheck = 0;
   let checking = false;
@@ -2877,6 +2877,9 @@ let selectHoldCancelTimer=null,selectHoldPointerCancelledForPen=false;
 let transformHoldCancelTimer=null,transformHoldPointerCancelledForPen=false;
 let selectModeHeld=false,selectModeHoldPointerId=null,selectModeHoldPointerType=null,desktopSelectArmed=false;
 let selectModeActive=false,selectButtonPress=null,desktopWindowSelectArmed=false;
+let selectElementMode='object';
+let selectElementPickerHeld=false,selectElementPickerPointerId=null,selectElementPickerChoice=null;
+let selectedGeometryParts=new Map();
 let iphoneSelectPressPreview=false; // v8.51 — dark whenever the iPhone SELECT button is physically down
 const SELECT_BUTTON_HOLD_MS=280;
 const IPHONE_SELECT_HOLD_MS=160; // quicker temporary Multi Select on iPhone
@@ -5264,7 +5267,7 @@ function serializeProject(){
       viewSettings:serializeViewSettings(),
       safeFrame:{...safeFrameState},
       scenes:{items:savedScenes.map(s=>({id:s.id,name:s.name,view:s.view})),activeSceneId,nextSceneId},
-      settings:{activeDepth,brushWidth:brushWidthValue,brushDepth:brushDepthValue,randomBrushSizeMode,drawMode,outlinesEnabled,mirrorModeX,streamlineAmount,valueLevelSelected}
+      settings:{activeDepth,brushWidth:brushWidthValue,brushDepth:brushDepthValue,randomBrushSizeMode,drawMode,outlinesEnabled,mirrorModeX,streamlineAmount,valueLevelSelected,selectElementMode}
     }
   };
 }
@@ -6260,6 +6263,8 @@ function loadProjectObject(project,{fromAutosave=false}={}){
     valueLevelSelected=clamp(Math.round(+s.settings.valueLevelSelected),0,VALUE_LEVEL_COUNT-1);
   }
   valueBucketMode='object';
+  if(s.settings&&['vertex','line','face','object'].includes(s.settings.selectElementMode))selectElementMode=s.settings.selectElementMode;
+  else selectElementMode='object';
   syncValuePalette?.();
 
   if(s.workplane){
@@ -6454,7 +6459,7 @@ function updateMassVisual(m){
   const sel=isSelectedMass(m);
   let base=0xffffff;
   if(viewMode==='notan')base=0x000000;
-  else if(viewMode==='workspace')base=sel?selectionRoyal:0xe8e8e8;
+  else if(viewMode==='workspace')base=(sel&&selectElementMode==='object')?selectionRoyal:0xe8e8e8;
   else if(viewMode==='color')base=0x000000;
 
   if(viewMode==='color')syncMassValueOverlay(m,{resetFaceValues:false});
@@ -6496,7 +6501,7 @@ function setSelection(list=[]){
   updateAllMassVisuals();const sel=selectedMasses();
   if(sel.length===1)selected=sel[0];
   syncRotateGizmo();
-  if(!sel.length)setSelectionGizmosEnabled(false);
+  if(!sel.length){setSelectionGizmosEnabled(false);if(selectedGeometryParts.size){selectedGeometryParts.clear();clearSelectGeometryHighlight();}}
   updateUnifiedSelectionUI();
 }
 function selectMass(m){setSelection(m?[m]:[]);}
@@ -6507,8 +6512,248 @@ function selectInteractive(m,additive=false){
   const ids=new Set(cur.map(x=>x.id)),allIn=members.every(x=>ids.has(x.id));
   for(const x of members){if(allIn)ids.delete(x.id);else ids.add(x.id);}setSelection(masses.filter(x=>ids.has(x.id)));
 }
-function groupSelected(){const sel=selectedMasses();if(sel.length<2)return;const gid=nextGroupId++;for(const m of sel)m.groupId=gid;setSelection(sel);recordHistory();}
-function ungroupSelected(){const sel=selectedMasses();if(!sel.length)return;let changed=false;for(const m of sel){if(m.groupId!=null){m.groupId=null;changed=true;}}if(changed){setSelection(sel);recordHistory();}}
+
+const selectGeometryHighlightGroup=new THREE.Group();
+selectGeometryHighlightGroup.renderOrder=1800;
+scene.add(selectGeometryHighlightGroup);
+const selectVertexHighlightMaterial=new THREE.PointsMaterial({color:accent,size:13,sizeAttenuation:false,depthTest:false,depthWrite:false});
+const selectLineHighlightMaterial=new THREE.LineBasicMaterial({color:accent,depthTest:false,depthWrite:false,transparent:true,opacity:.95});
+const selectFaceHighlightMaterial=new THREE.MeshBasicMaterial({color:accent,transparent:true,opacity:.22,side:THREE.DoubleSide,depthTest:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+
+function selectElementModeLabel(mode=selectElementMode){return mode==='vertex'?'VERTEX':mode==='line'?'LINE':mode==='face'?'FACE':'OBJECT';}
+function clearSelectGeometryHighlight(){
+  while(selectGeometryHighlightGroup.children.length){
+    const o=selectGeometryHighlightGroup.children.pop();
+    o.parent=null;
+    o.geometry?.dispose?.();
+  }
+}
+function selectTopology(m){
+  const topo=modifyTopology(m);if(!topo)return null;
+  if(topo._selectTopologyReady)return topo;
+  topo._selectTopologyReady=true;
+  topo.repGroups=new Map();
+  for(const rec of topo.groups.values()){
+    rec.rep=Math.min(...rec.indices);
+    topo.repGroups.set(rec.rep,rec);
+  }
+  topo.edgeById=new Map();
+  const endpointIncidence=new Map();
+  for(const e of topo.edges){
+    const ra=topo.groups.get(e.ka)?.rep,rb=topo.groups.get(e.kb)?.rep;
+    if(ra==null||rb==null)continue;
+    e.id=ra<rb?`${ra}|${rb}`:`${rb}|${ra}`;
+    topo.edgeById.set(e.id,e);
+    const da=e.b.clone().sub(e.a).normalize(),db=da.clone().multiplyScalar(-1);
+    if(!endpointIncidence.has(ra))endpointIncidence.set(ra,[]);
+    if(!endpointIncidence.has(rb))endpointIncidence.set(rb,[]);
+    endpointIncidence.get(ra).push(da);endpointIncidence.get(rb).push(db);
+  }
+  // Vertex Select means endpoints of real visible lines, not every mesh vertex.
+  // A degree-2 point on an almost-straight visible chain is only a tessellation /
+  // continuation point and is intentionally hidden from Vertex mode.
+  topo.vertexEndpointReps=new Set();
+  const straightDot=-Math.cos(THREE.MathUtils.degToRad(18));
+  for(const [rep,dirs] of endpointIncidence){
+    if(dirs.length!==2){topo.vertexEndpointReps.add(rep);continue;}
+    if(dirs[0].dot(dirs[1])>straightDot)topo.vertexEndpointReps.add(rep);
+  }
+  const g=m.mesh.geometry,pos=g.attributes.position,index=g.index;
+  const triCount=Math.floor((index?index.count:pos.count)/3);
+  const triReps=new Array(triCount),edgeToTris=new Map();
+  const local=new THREE.Vector3();
+  for(let t=0;t<triCount;t++){
+    const reps=[];
+    for(let k=0;k<3;k++){
+      const vi=index?index.getX(t*3+k):t*3+k;
+      local.fromBufferAttribute(pos,vi);
+      const key=quantKey3(local,topo.tol),rec=topo.groups.get(key);
+      reps.push(rec?.rep??vi);
+    }
+    triReps[t]=reps;
+    for(const [a,b] of [[0,1],[1,2],[2,0]]){
+      const ra=reps[a],rb=reps[b],eid=ra<rb?`${ra}|${rb}`:`${rb}|${ra}`;
+      const arr=edgeToTris.get(eid)||[];arr.push(t);edgeToTris.set(eid,arr);
+    }
+  }
+  const visibleEdgeIds=new Set(topo.edgeById.keys());
+  const faceIds=new Int32Array(triCount);faceIds.fill(-1);
+  const faces=[];
+  for(let t=0;t<triCount;t++){
+    if(faceIds[t]!==-1)continue;
+    const id=faces.length,stack=[t],triangles=[],reps=new Set();
+    faceIds[t]=id;
+    while(stack.length){
+      const cur=stack.pop();triangles.push(cur);
+      const r=triReps[cur];r.forEach(v=>reps.add(v));
+      for(const [a,b] of [[0,1],[1,2],[2,0]]){
+        const ra=r[a],rb=r[b],eid=ra<rb?`${ra}|${rb}`:`${rb}|${ra}`;
+        if(visibleEdgeIds.has(eid))continue;
+        for(const other of edgeToTris.get(eid)||[]){
+          if(faceIds[other]!==-1)continue;
+          faceIds[other]=id;stack.push(other);
+        }
+      }
+    }
+    faces.push({id,triangles,reps});
+  }
+  topo.triReps=triReps;topo.faceIds=faceIds;topo.faces=faces;
+  return topo;
+}
+function geometryPartIndices(m,part){
+  const topo=selectTopology(m);if(!topo||!part)return new Set();
+  const out=new Set();
+  if(part.mode==='vertex'){
+    for(const id of part.elements){const rec=topo.repGroups.get(+id);if(rec)rec.indices.forEach(i=>out.add(i));}
+  }else if(part.mode==='line'){
+    for(const id of part.elements){const e=topo.edgeById.get(id);if(!e)continue;for(const key of [e.ka,e.kb])topo.groups.get(key)?.indices?.forEach(i=>out.add(i));}
+  }else if(part.mode==='face'){
+    for(const id of part.elements){const f=topo.faces[+id];if(!f)continue;for(const rep of f.reps)topo.repGroups.get(rep)?.indices?.forEach(i=>out.add(i));}
+  }
+  return out;
+}
+function refreshSelectedGeometryPartIndices(){
+  for(const [massId,part] of [...selectedGeometryParts]){
+    const m=massById(massId);if(!m){selectedGeometryParts.delete(massId);continue;}
+    part.indices=geometryPartIndices(m,part);
+    if(!part.indices.size)selectedGeometryParts.delete(massId);
+  }
+}
+function syncSelectGeometryHighlight(){
+  clearSelectGeometryHighlight();
+  if(selectElementMode==='object'||!selectedGeometryParts.size)return;
+  refreshSelectedGeometryPartIndices();
+  const pts=[],lines=[],faces=[];
+  for(const [massId,part] of selectedGeometryParts){
+    const m=massById(massId),topo=m&&selectTopology(m);if(!m||!topo)continue;
+    m.mesh.updateWorldMatrix(true,false);
+    if(part.mode==='vertex'){
+      for(const id of part.elements){const rec=topo.repGroups.get(+id);if(!rec)continue;const w=m.mesh.localToWorld(rec.local.clone());pts.push(w.x,w.y,w.z);}
+    }else if(part.mode==='line'){
+      for(const id of part.elements){const e=topo.edgeById.get(id);if(!e)continue;const a=m.mesh.localToWorld(e.a.clone()),b=m.mesh.localToWorld(e.b.clone());lines.push(a.x,a.y,a.z,b.x,b.y,b.z);}
+    }else if(part.mode==='face'){
+      const pos=m.mesh.geometry.attributes.position,index=m.mesh.geometry.index;
+      for(const id of part.elements){const f=topo.faces[+id];if(!f)continue;for(const t of f.triangles){for(let k=0;k<3;k++){const vi=index?index.getX(t*3+k):t*3+k;const w=new THREE.Vector3().fromBufferAttribute(pos,vi).applyMatrix4(m.mesh.matrixWorld);faces.push(w.x,w.y,w.z);}}}
+    }
+  }
+  if(faces.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(faces,3));const o=new THREE.Mesh(g,selectFaceHighlightMaterial);o.renderOrder=1798;selectGeometryHighlightGroup.add(o);}
+  if(lines.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(lines,3));const o=new THREE.LineSegments(g,selectLineHighlightMaterial);o.renderOrder=1800;selectGeometryHighlightGroup.add(o);}
+  if(pts.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));const o=new THREE.Points(g,selectVertexHighlightMaterial);o.renderOrder=1801;selectGeometryHighlightGroup.add(o);}
+}
+function clearSelectedGeometryParts({keepMassSelection=false}={}){
+  selectedGeometryParts.clear();clearSelectGeometryHighlight();
+  if(!keepMassSelection&&selectedMasses().length)setSelection([]);
+}
+function setSelectElementMode(mode,{announce=true,autosave=true}={}){
+  const next=['vertex','line','face','object'].includes(mode)?mode:'object';
+  if(next!==selectElementMode){
+    selectElementMode=next;
+    selectedGeometryParts.clear();clearSelectGeometryHighlight();
+    if(selectedMasses().length)setSelection([]);
+    transformHoldMode=null;desktopTransformArmed=false;transformHoldReleasePending=false;
+    finalizeRotatePivot(false);setSelectionGizmosEnabled(false);
+  }
+  selectElementPickerChoice=next;
+  if(autosave)scheduleAutosave();
+  updateMobileDrawUI();
+  if(announce)showToast(`SELECT · ${selectElementModeLabel(next)}`);
+}
+function nearestSelectComponent(x,y,m,mode=selectElementMode){
+  if(!m)return null;const topo=selectTopology(m);if(!topo)return null;
+  m.group.updateMatrixWorld(true);const mouse=vec2(x,y);let best=null,bestPx=Infinity;
+  if(mode==='vertex'){
+    for(const rep of topo.vertexEndpointReps||[]){const rec=topo.repGroups.get(rep);if(!rec)continue;const wp=m.group.localToWorld(rec.local.clone()),d=worldToClient(wp).distanceTo(mouse);if(d<18&&d<bestPx&&visibleOnMass(wp,m)){best={mode:'vertex',id:String(rec.rep),point:wp};bestPx=d;}}
+    return best;
+  }
+  if(mode==='line'){
+    for(const e of topo.edges){const a=m.group.localToWorld(e.a.clone()),b=m.group.localToWorld(e.b.clone()),wp=closestPointOnWorldEdgeFromCursor(x,y,a,b),d=worldToClient(wp).distanceTo(mouse);if(d<19&&d<bestPx&&visibleOnMass(wp,m)){best={mode:'line',id:e.id,point:wp.clone()};bestPx=d;}}
+    return best;
+  }
+  if(mode==='face'){
+    const hit=raycastMasses(x,y);if(!hit||massFromHit(hit)?.id!==m.id)return null;const fid=topo.faceIds?.[Math.max(0,hit.faceIndex??0)];if(fid==null||fid<0)return null;return{mode:'face',id:String(fid),point:hit.point.clone()};
+  }
+  return{mode:'object',id:String(m.id),point:null};
+}
+function geometryComponentIsSelected(m,component){
+  if(!m||!component||component.mode==='object')return isSelectedMass(m);
+  const part=selectedGeometryParts.get(m.id);return !!(part&&part.mode===component.mode&&part.elements.has(String(component.id)));
+}
+function selectGeometryComponent(m,component,{additive=false}={}){
+  if(!m||!component)return false;
+  if(component.mode==='object'){selectedGeometryParts.clear();clearSelectGeometryHighlight();selectInteractive(m,additive);return true;}
+  if(!additive)selectedGeometryParts.clear();
+  let part=selectedGeometryParts.get(m.id);
+  if(!part||part.mode!==component.mode){part={mode:component.mode,elements:new Set(),indices:new Set()};selectedGeometryParts.set(m.id,part);}
+  const id=String(component.id);
+  if(additive&&part.elements.has(id))part.elements.delete(id);else part.elements.add(id);
+  if(!part.elements.size)selectedGeometryParts.delete(m.id);
+  refreshSelectedGeometryPartIndices();
+  setSelection(masses.filter(x=>selectedGeometryParts.has(x.id)));
+  syncSelectGeometryHighlight();
+  moveArmed=selectedGeometryParts.size>0;
+  selectTransformMode=moveArmed?'move':'select';
+  updateMobileDrawUI();
+  return true;
+}
+function selectByElementModeAt(m,x,y,additive=false){
+  if(!m)return false;
+  if(selectElementMode==='object'){selectedGeometryParts.clear();clearSelectGeometryHighlight();selectInteractive(m,additive);return true;}
+  const component=nearestSelectComponent(x,y,m,selectElementMode);if(!component)return false;
+  return selectGeometryComponent(m,component,{additive});
+}
+function selectedGeometryIndicesByMass(){refreshSelectedGeometryPartIndices();const out=new Map();for(const [id,part] of selectedGeometryParts)if(part.indices?.size)out.set(id,new Set(part.indices));return out;}
+function selectedGeometryWorldCenter(){
+  const byMass=selectedGeometryIndicesByMass();const box=new THREE.Box3(),p=new THREE.Vector3();let any=false;
+  for(const [id,indices] of byMass){const m=massById(id),pos=m?.mesh?.geometry?.attributes?.position;if(!m||!pos)continue;m.mesh.updateWorldMatrix(true,false);for(const i of indices){p.fromBufferAttribute(pos,i).applyMatrix4(m.mesh.matrixWorld);box.expandByPoint(p);any=true;}}
+  return any?box.getCenter(new THREE.Vector3()):null;
+}
+
+const SELECT_ELEMENT_PICKER_SLOTS=[
+  ['mobileSizeDrag','vertex'],
+  ['drawAddHoldBtn','line'],
+  ['drawEraseHoldBtn','face'],
+  ['selectHoldBtn','object']
+];
+function selectElementPickerChoiceAt(x,y){
+  let best=null,bestD=Infinity;
+  for(const [id,mode] of SELECT_ELEMENT_PICKER_SLOTS){
+    const el=document.getElementById(id);if(!el)continue;const r=el.getBoundingClientRect();
+    const cx=(r.left+r.right)/2,cy=(r.top+r.bottom)/2,d=Math.hypot(x-cx,y-cy);
+    if(d<bestD){bestD=d;best=mode;}
+  }
+  return bestD<=Math.max(52,(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ma-control-size'))||58)*1.05)?best:null;
+}
+function beginSelectElementPicker(e){
+  if(!selectModeAvailable())return false;
+  if(!selectModeActive)activateSelectMode();
+  selectElementPickerHeld=true;
+  selectElementPickerPointerId=e?.pointerId??null;
+  selectElementPickerChoice=selectElementMode;
+  selectModeHeld=false;selectModeHoldPointerId=null;selectModeHoldPointerType=null;
+  clearSelectHoldCancelTimer();selectHoldPointerCancelledForPen=false;
+  updateMobileDrawUI();
+  showToast(`SELECT TYPE · ${selectElementModeLabel(selectElementMode)}`);
+  return true;
+}
+function updateSelectElementPicker(e){
+  if(!selectElementPickerHeld)return false;
+  if(selectElementPickerPointerId!=null&&e?.pointerId!=null&&e.pointerId!==selectElementPickerPointerId)return false;
+  const choice=selectElementPickerChoiceAt(e.clientX,e.clientY);
+  if(choice&&choice!==selectElementPickerChoice){selectElementPickerChoice=choice;updateMobileDrawUI();}
+  return true;
+}
+function endSelectElementPicker(e=null,cancel=false){
+  if(!selectElementPickerHeld)return false;
+  if(e&&selectElementPickerPointerId!=null&&e.pointerId!==selectElementPickerPointerId)return false;
+  if(e)updateSelectElementPicker(e);
+  const choice=cancel?selectElementMode:(selectElementPickerChoice||selectElementMode);
+  selectElementPickerHeld=false;selectElementPickerPointerId=null;selectElementPickerChoice=null;
+  setSelectElementMode(choice,{announce:!cancel,autosave:!cancel});
+  updateMobileDrawUI();
+  return true;
+}
+function groupSelected(){if(selectElementMode!=='object'&&selectedGeometryParts.size){showToast('GROUP · OBJECT MODE');return;}const sel=selectedMasses();if(sel.length<2)return;const gid=nextGroupId++;for(const m of sel)m.groupId=gid;setSelection(sel);recordHistory();}
+function ungroupSelected(){if(selectElementMode!=='object'&&selectedGeometryParts.size){showToast('UNGROUP · OBJECT MODE');return;}const sel=selectedMasses();if(!sel.length)return;let changed=false;for(const m of sel){if(m.groupId!=null){m.groupId=null;changed=true;}}if(changed){setSelection(sel);recordHistory();}}
 function raycastMasses(x,y,ignore=null){setPointerXY(x,y);const ignored=ignore instanceof Set?ignore:new Set(ignore?[ignore]:[]);const meshes=masses.filter(m=>!ignored.has(m)).map(m=>m.mesh);return ray.intersectObjects(meshes,false)[0]||null;}
 function raycastSelectedMasses(x,y){
   const sel=selectedMasses();
@@ -6810,7 +7055,7 @@ function sceneHasSelectableGeometry(){
   return masses.some(m=>m&&!m._disposed);
 }
 function selectModeAvailable(){
-  return (viewMode==='workspace'||viewMode==='color')&&sceneHasSelectableGeometry();
+  return viewMode==='workspace'&&sceneHasSelectableGeometry();
 }
 function currentAppMode(){
   if(drawModeHeld||desktopShapeArmed)return 'draw';
@@ -7128,20 +7373,29 @@ function syncPrimaryDockUI(){
     return;
   }
 
+  if(selectElementPickerHeld){
+    const shown=selectElementPickerChoice||selectElementMode;
+    setPrimaryDockButtonVisual(b3,'VERTEX',{active:shown==='vertex'});
+    setPrimaryDockButtonVisual(b1,'LINE',{active:shown==='line'});
+    setPrimaryDockButtonVisual(b2,'FACE',{active:shown==='face'});
+    setPrimaryDockButtonVisual(b4,'OBJECT',{active:shown==='object'});
+    return;
+  }
+
   if(mode==='select'){
     setPrimaryDockButtonVisual(b1,'SCALE',{active:transformHoldMode==='scale'});
     setPrimaryDockButtonVisual(b2,'ROTATE',{active:transformHoldMode==='rotate'});
     setPrimaryDockButtonVisual(b3,'DUP');
     // In iPad Pencil mode SELECT is a Single/Multi mode toggle, not an active
     // modelling tool. Multi is shown by the dedicated grey state below.
-    setPrimaryDockButtonVisual(b4,'SELECT',{active:!(MA_IS_IPHONE||(MA_IS_IPAD&&ipadPencilMode))});
+    setPrimaryDockButtonVisual(b4,selectElementModeLabel(),{active:!(MA_IS_IPHONE||(MA_IS_IPAD&&ipadPencilMode))});
     return;
   }
 
   setPrimaryDockButtonVisual(b1,'ADD',{active:currentAppMode()==='draw'&&drawHoldAction==='add'});
   setPrimaryDockButtonVisual(b2,'ERASE',{active:currentAppMode()==='draw'&&drawHoldAction==='erase'});
   setPrimaryDockButtonVisual(b3,'',{size:true});
-  setPrimaryDockButtonVisual(b4,'SELECT',{active:selectModeActive||selectModeHeld});
+  setPrimaryDockButtonVisual(b4,selectModeActive?selectElementModeLabel():'SELECT',{active:selectModeActive||selectModeHeld});
   if(b4){b4.style.removeProperty('background');b4.style.removeProperty('color');}
   syncValuePalette?.();
 }
@@ -7443,7 +7697,9 @@ function deactivateSelectMode(clearSelection=true){
   setSelectionGizmosEnabled(false);
   finalizeRotatePivot(false);
 
+  if(selectedGeometryParts.size){selectedGeometryParts.clear();clearSelectGeometryHighlight();}
   if(clearSelection&&selectedMasses().length)setSelection([]);
+  updateAllMassVisuals();
   setTool('select');
   updateMobileDrawUI();
 }
@@ -9156,13 +9412,33 @@ function updateMoveSourceHover(x,y){if(activeTool!=='move'||interaction||transfo
 function updateSelectMoveHover(x,y){
   if(activeTool!=='select'||interaction||transformDragging){if(!interaction)clearSnapVisual();return;}
   const hit=raycastMoveTarget(x,y),m=massFromHit(hit);
-  if(!m||!isSelectedMass(m)){clearSnapVisual();return;}
+  if(!m){clearSnapVisual();return;}
+  if(selectElementMode!=='object'){
+    const component=nearestSelectComponent(x,y,m,selectElementMode);
+    if(!component){clearSnapVisual();return;}
+    if(component.mode==='vertex'){showSnapVisual({kind:'vertex',point:component.point});return;}
+    if(component.mode==='line'){
+      const topo=selectTopology(m),e=topo?.edgeById?.get(component.id);
+      if(e){const a=m.group.localToWorld(e.a.clone()),b=m.group.localToWorld(e.b.clone());showSnapVisual({kind:'edge',point:component.point,a,b});return;}
+    }
+    clearSnapVisual();showInference('FACE');return;
+  }
+  if(!isSelectedMass(m)){clearSnapVisual();return;}
   const own=nearestOwnMoveSnap(x,y,m);
   if(own)showSnapVisual(own);else clearSnapVisual();
 }
 function beginMove(e){const hit=raycastMoveTarget(e.clientX,e.clientY),m=massFromHit(hit);if(!m)return;const members=selectionForMass(m);setSelection(members);const own=nearestOwnMoveSnap(e.clientX,e.clientY,m),grab=own?own.point.clone():hit.point.clone();const plane=new THREE.Plane().setFromNormalAndCoplanarPoint(workplane.n,grab),start=new THREE.Vector3();setPointerXY(e.clientX,e.clientY);ray.ray.intersectPlane(plane,start);const starts=new Map(members.map(x=>[x.id,x.group.position.clone()])),ignored=new Set(members);
   interaction={kind:'move',pointerId:e.pointerId,m,members,ignored,before:snapshot(),grab,startPlane:start.clone(),movePlane:plane,startPos:m.group.position.clone(),startPositions:starts,startClient:vec2(e.clientX,e.clientY),lastClient:vec2(e.clientX,e.clientY),sourceSnap:own,moveSnapCache:buildMoveSnapCache(ignored),autoAxis:null,moved:false};if(own)showSnapVisual(own);renderer.domElement.setPointerCapture?.(e.pointerId);}
 function beginAxisLockedMoveAnywhere(e,axis){
+  if(selectElementMode!=='object'&&selectedGeometryParts.size){
+    const grab=selectedGeometryWorldCenter();if(!grab||!(axis==='x'||axis==='y'||axis==='z'))return false;
+    const byMass=selectedGeometryIndicesByMass(),parts=new Map();
+    for(const [id,indices] of byMass){const m=massById(id),pos=m?.mesh?.geometry?.attributes?.position;if(!m||!pos)continue;parts.set(id,{m,indices:[...indices],startPositions:new Float32Array(pos.array)});}
+    if(!parts.size)return false;
+    const n=new THREE.Vector3();camera.getWorldDirection(n).normalize();const plane=new THREE.Plane().setFromNormalAndCoplanarPoint(n,grab);
+    interaction={kind:'geometryMove',pointerId:e.pointerId,parts,startClient:vec2(e.clientX,e.clientY),grab:grab.clone(),movePlane:plane,startPlane:grab.clone(),before:snapshot(),autoAxis:null,changed:false,axisHoldMove:true,axisHoldAxis:axis};
+    axisLock=axis;clearSelectGeometryHighlight();if(e.pointerType==='touch')mobileMovePointerId=e.pointerId;if(e.pointerType==='pen')penActive=true;renderer.domElement.setPointerCapture?.(e.pointerId);showMoveAxisGuide(interaction,axis,new THREE.Vector3());updateMobileDrawUI();return true;
+  }
   const members=selectedMasses();
   if(!members.length||!(axis==='x'||axis==='y'||axis==='z'))return false;
 
@@ -9432,6 +9708,73 @@ function endMove(){
   if(st.moved)recordHistory();
 }
 
+
+// --- Select sub-elements: move selected vertex / line / face geometry ----------
+let pendingGeometryMove=null,rafGeometryMove=0;
+function beginSelectedGeometryMove(e){
+  if(selectElementMode==='object'||!selectedGeometryParts.size)return false;
+  const hit=raycastMasses(e.clientX,e.clientY),m=massFromHit(hit);if(!m)return false;
+  const component=nearestSelectComponent(e.clientX,e.clientY,m,selectElementMode);
+  if(!component||!geometryComponentIsSelected(m,component))return false;
+  const byMass=selectedGeometryIndicesByMass();if(!byMass.size)return false;
+  const viewNormal=new THREE.Vector3();camera.getWorldDirection(viewNormal);
+  const grab=component.point?.clone()||hit.point.clone();
+  const movePlane=new THREE.Plane().setFromNormalAndCoplanarPoint(viewNormal,grab);
+  setPointerXY(e.clientX,e.clientY);const startPlane=ray.ray.intersectPlane(movePlane,new THREE.Vector3())||grab.clone();
+  const parts=new Map();
+  for(const [id,indices] of byMass){const mm=massById(id),pos=mm?.mesh?.geometry?.attributes?.position;if(!mm||!pos)continue;parts.set(id,{m:mm,indices:[...indices],startPositions:new Float32Array(pos.array)});}
+  if(!parts.size)return false;
+  interaction={kind:'geometryMove',pointerId:e.pointerId,parts,startClient:vec2(e.clientX,e.clientY),grab,movePlane,startPlane:startPlane.clone(),before:snapshot(),autoAxis:null,changed:false};
+  clearSelectGeometryHighlight();showMoveAxisDots(interaction);
+  renderer.domElement.setPointerCapture?.(e.pointerId);
+  return true;
+}
+function applySelectedGeometryMove(st,worldDelta){
+  for(const rec of st.parts.values()){
+    const m=rec.m,g=m.mesh.geometry,pos=g.attributes.position;
+    const p0=m.group.worldToLocal(st.grab.clone()),p1=m.group.worldToLocal(st.grab.clone().add(worldDelta)),dl=p1.sub(p0),src=rec.startPositions;
+    for(const i of rec.indices)pos.setXYZ(i,src[i*3]+dl.x,src[i*3+1]+dl.y,src[i*3+2]+dl.z);
+    pos.needsUpdate=true;g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();
+    m.edges.geometry.dispose();m.edges.geometry=outlineGeometryForMass(g,m.type);
+    invalidateMassGeometryDerivedState(m,{invalidateManifold:true});
+  }
+  st.changed=st.changed||worldDelta.lengthSq()>1e-10;
+}
+function updateSelectedGeometryMoveAt(x,y){
+  const st=interaction;if(!st||st.kind!=='geometryMove')return;
+  const lock=axisLock;let delta;
+  if(lock){st.autoAxis=null;delta=axisMoveDelta(st,x,y,lock);showMoveAxisGuide(st,lock,delta);}
+  else{const inferred=inferMoveAxis(st,x,y);if(inferred){delta=axisMoveDelta(st,x,y,inferred);showMoveAxisGuide(st,inferred,delta);}else{clearSnapVisual();setPointerXY(x,y);const p=ray.ray.intersectPlane(st.movePlane,new THREE.Vector3());if(!p)return;delta=p.sub(st.startPlane);showInference('FREE');}}
+  applySelectedGeometryMove(st,delta);
+}
+function scheduleSelectedGeometryMove(x,y){pendingGeometryMove={x,y};if(rafGeometryMove)return;rafGeometryMove=requestAnimationFrame(()=>{rafGeometryMove=0;const p=pendingGeometryMove;pendingGeometryMove=null;if(p)updateSelectedGeometryMoveAt(p.x,p.y);});}
+function rebuildSelectedGeometryElementsFromIndices(){
+  for(const [id,part] of selectedGeometryParts){
+    const m=massById(id),topo=m&&selectTopology(m);if(!m||!topo)continue;const selected=new Set(part.indices||[]),els=new Set();
+    if(part.mode==='vertex'){for(const rep of topo.vertexEndpointReps||[]){const rec=topo.repGroups.get(rep);if(rec?.indices.some(i=>selected.has(i)))els.add(String(rec.rep));}}
+    else if(part.mode==='line'){for(const e of topo.edges){const a=topo.groups.get(e.ka),b=topo.groups.get(e.kb);if(a?.indices.some(i=>selected.has(i))&&b?.indices.some(i=>selected.has(i)))els.add(e.id);}}
+    else if(part.mode==='face'){for(const f of topo.faces){let any=false,all=true;for(const rep of f.reps){const rec=topo.repGroups.get(rep),has=!!rec?.indices.some(i=>selected.has(i));any=any||has;all=all&&has;}if(any&&all)els.add(String(f.id));}}
+    part.elements=els;
+  }
+}
+function endSelectedGeometryMove(){
+  const st=interaction;if(!st||st.kind!=='geometryMove')return;
+  if(rafGeometryMove){cancelAnimationFrame(rafGeometryMove);rafGeometryMove=0;}if(pendingGeometryMove){const p=pendingGeometryMove;pendingGeometryMove=null;updateSelectedGeometryMoveAt(p.x,p.y);}
+  mobileMovePointerId=null;penActive=false;
+  if(st.changed&&[...st.parts.values()].some(rec=>!geometryTrianglesValid(rec.m.mesh.geometry))){
+    interaction=null;clearSnapVisual();clearMoveAxisDots();axisLock=null;restoreState(st.before);showToast('MOVE FAILED · RESTORED');return;
+  }
+  if(st.changed){
+    for(const rec of st.parts.values()){
+      const m=rec.m,finalPositions=serializeGeometry(m.mesh.geometry),oldCount=rec.startPositions.length/3;setMassGeometry(m,geometryFromPositions(finalPositions),true);
+      const part=selectedGeometryParts.get(m.id);
+      if(part&&m.mesh.geometry.attributes.position.count===oldCount)part.indices=new Set(rec.indices);else if(part)selectedGeometryParts.delete(m.id);
+    }
+    rebuildSelectedGeometryElementsFromIndices();recordHistory();
+  }
+  interaction=null;clearSnapVisual();clearMoveAxisDots();axisLock=null;syncSelectGeometryHighlight();syncRotateGizmo();updateMobileDrawUI();
+  if(st.changed)showToast(`${selectElementModeLabel()} MOVED`);
+}
 // --- Modify: move real geometry corners / edges ---------------------------------
 let pendingModify=null,rafModify=0;
 
@@ -9763,6 +10106,31 @@ function syncRotateGizmo(){
 
   if(MA_UNIFIED_UI){
     const kind=transformHoldMode;
+    if(selectElementMode!=='object'&&selectedGeometryParts.size){
+      const center=selectedGeometryWorldCenter();
+      if(!center||!(kind==='scale'||kind==='rotate')){
+        if(!transformDragging)finalizeRotatePivot(false);
+        setSelectionGizmosEnabled(false);
+        return;
+      }
+      if(transformDragging)return;
+      finalizeRotatePivot(false);
+      selectionPivot.position.copy(center);
+      selectionPivot.quaternion.identity();
+      if(selectedGeometryParts.size===1){
+        const onlyId=[...selectedGeometryParts.keys()][0],m=massById(onlyId);
+        if(m){m.group.updateMatrixWorld(true);m.group.getWorldQuaternion(selectionPivot.quaternion);}
+      }
+      selectionPivot.scale.set(1,1,1);selectionPivot.updateMatrixWorld(true);
+      if(kind==='scale'){
+        transform.setMode('scale');transform.setSpace('local');transform.attach(selectionPivot);transformHelper.visible=true;
+      }else{
+        rotateTransform.setMode('rotate');rotateTransform.setSpace('local');rotateTransform.attach(selectionPivot);rotateTransformHelper.visible=true;
+      }
+      setSelectionGizmosEnabled(true);
+      return;
+    }
+
     if(!sel.length||!(kind==='scale'||kind==='rotate')){
       if(!transformDragging)finalizeRotatePivot(false);
       setSelectionGizmosEnabled(false);
@@ -9858,15 +10226,49 @@ function beginSelectionTransform(kind){
     return false;
   }
   transformDragging=true;
+  if(selectElementMode!=='object'&&selectedGeometryParts.size){
+    const byMass=selectedGeometryIndicesByMass(),parts=new Map();
+    for(const [id,indices] of byMass){const m=massById(id),pos=m?.mesh?.geometry?.attributes?.position;if(!m||!pos)continue;m.mesh.updateWorldMatrix(true,false);parts.set(id,{m,indices:[...indices],startPositions:new Float32Array(pos.array),startWorld:m.mesh.matrixWorld.clone(),startWorldInv:m.mesh.matrixWorld.clone().invert()});}
+    selectionPivot.updateMatrixWorld(true);
+    interaction={kind,before:snapshot(),subGeometry:true,parts,startPivotMatrix:selectionPivot.matrixWorld.clone()};
+    clearSelectGeometryHighlight();
+    return true;
+  }
   interaction={kind,before:snapshot()};
+  return true;
+}
+function applySelectedGeometryTransform(){
+  const st=interaction;if(!transformDragging||!st?.subGeometry)return;
+  selectionPivot.updateMatrixWorld(true);
+  const delta=selectionPivot.matrixWorld.clone().multiply(st.startPivotMatrix.clone().invert());
+  const local=new THREE.Vector3(),world=new THREE.Vector3();
+  for(const rec of st.parts.values()){
+    const m=rec.m,g=m.mesh.geometry,pos=g.attributes.position,src=rec.startPositions;
+    for(const i of rec.indices){local.set(src[i*3],src[i*3+1],src[i*3+2]);world.copy(local).applyMatrix4(rec.startWorld).applyMatrix4(delta).applyMatrix4(rec.startWorldInv);pos.setXYZ(i,world.x,world.y,world.z);}
+    pos.needsUpdate=true;g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();
+    m.edges.geometry.dispose();m.edges.geometry=outlineGeometryForMass(g,m.type);
+    invalidateMassGeometryDerivedState(m,{invalidateManifold:true});syncMassValueOverlay(m,{resetFaceValues:true});
+  }
 }
 function endSelectionTransform(){
   transformDragging=false;
   if(interaction&&(interaction.kind==='rotate'||interaction.kind==='scale')){
-    const finishedKind=interaction.kind;
+    const st=interaction;
+    if(st.subGeometry&&[...st.parts.values()].some(rec=>!geometryTrianglesValid(rec.m.mesh.geometry))){
+      interaction=null;finalizeRotatePivot(false);restoreState(st.before);showToast('TRANSFORM FAILED · RESTORED');return;
+    }
+    if(st.subGeometry){
+      for(const rec of st.parts.values()){
+        const m=rec.m,finalPositions=serializeGeometry(m.mesh.geometry),oldCount=rec.startPositions.length/3;setMassGeometry(m,geometryFromPositions(finalPositions),true);
+        const part=selectedGeometryParts.get(m.id);
+        if(part&&m.mesh.geometry.attributes.position.count===oldCount)part.indices=new Set(rec.indices);else if(part)selectedGeometryParts.delete(m.id);
+      }
+      rebuildSelectedGeometryElementsFromIndices();
+    }
     finalizeRotatePivot(false);
     interaction=null;
     recordHistory();
+    if(st.subGeometry)syncSelectGeometryHighlight();
   }
 
   // Touch may perform several gizmo gestures while the Scale/Rotate button is
@@ -9880,6 +10282,8 @@ function endSelectionTransform(){
   syncRotateGizmo();
   updateMobileDrawUI();
 }
+transform.addEventListener('objectChange',applySelectedGeometryTransform);
+rotateTransform.addEventListener('objectChange',applySelectedGeometryTransform);
 transform.addEventListener('mouseDown',()=>beginSelectionTransform('scale'));
 transform.addEventListener('mouseUp',endSelectionTransform);
 rotateTransform.addEventListener('mouseDown',()=>beginSelectionTransform('rotate'));
@@ -9888,6 +10292,7 @@ rotateTransform.addEventListener('mouseUp',endSelectionTransform);
 
 // --- Selection / editing --------------------------------------------------------
 function duplicateSelected(){
+  if(selectElementMode!=='object'&&selectedGeometryParts.size){showToast('DUPLICATE · OBJECT MODE');return;}
   const sel=selectedMasses();if(!sel.length)return;
 
   // Capture the authoritative scene BEFORE the copy is created. Duplicate is
@@ -10083,7 +10488,7 @@ function syncMirrorStateBeforeCommit(){
     syncRotateGizmo?.();
   }finally{mirrorSyncing=false;}
 }
-function deleteSelected(){const sel=selectedMasses();if(!sel.length)return;const wasSelectMode=!!selectModeActive;if(sel.some(m=>m.id===activeBrushContainerId))clearActiveBrushContainer();setSelection([]);for(const m of sel){const i=masses.indexOf(m);if(i>=0)masses.splice(i,1);disposeMass(m);}setSelectionGizmosEnabled(false);if(wasSelectMode)deactivateSelectMode(false);recordHistory();showToast('DELETED');}
+function deleteSelected(){if(selectElementMode!=='object'&&selectedGeometryParts.size){showToast('DELETE · OBJECT MODE');return;}const sel=selectedMasses();if(!sel.length)return;const wasSelectMode=!!selectModeActive;if(sel.some(m=>m.id===activeBrushContainerId))clearActiveBrushContainer();setSelection([]);for(const m of sel){const i=masses.indexOf(m);if(i>=0)masses.splice(i,1);disposeMass(m);}setSelectionGizmosEnabled(false);if(wasSelectMode)deactivateSelectMode(false);recordHistory();showToast('DELETED');}
 function deleteAllGeometry(){
   if(!masses.length)return;
   if(!window.confirm('Delete all geometry?'))return;
@@ -10448,7 +10853,7 @@ function lockWorkplaneFromHover(){
 }
 
 function cancelInteraction(restore=false){
-  if(restore&&interaction?.before)restoreState(interaction.before);interaction=null;pendingMove=null;pendingModify=null;if(rafMove){cancelAnimationFrame(rafMove);rafMove=0;}if(rafModify){cancelAnimationFrame(rafModify);rafModify=0;}clearPreview();clearSnapVisual();clearMoveAxisDots();clearSpherePreview();hideMarquee();axisLock=null;mobileMovePointerId=null;mobileSelectTap=null;
+  if(restore&&interaction?.before)restoreState(interaction.before);interaction=null;pendingMove=null;pendingModify=null;pendingGeometryMove=null;if(rafMove){cancelAnimationFrame(rafMove);rafMove=0;}if(rafModify){cancelAnimationFrame(rafModify);rafModify=0;}if(rafGeometryMove){cancelAnimationFrame(rafGeometryMove);rafGeometryMove=0;}clearPreview();clearSnapVisual();clearMoveAxisDots();clearSpherePreview();hideMarquee();axisLock=null;mobileMovePointerId=null;mobileSelectTap=null;
 }
 
 // --- Marquee selection ----------------------------------------------------------
@@ -10543,7 +10948,42 @@ function projectedGeometryIntersectsMarquee(m,r){
   }
   return false;
 }
+function projectedSelectElementsInMarquee(m,r,mode=selectElementMode){
+  const topo=selectTopology(m);if(!topo)return new Set();
+  m.mesh.updateWorldMatrix(true,false);camera.updateMatrixWorld(true);
+  const picked=new Set(),rectCorners=[{x:r.minX,y:r.minY},{x:r.maxX,y:r.minY},{x:r.maxX,y:r.maxY},{x:r.minX,y:r.maxY}];
+  const segmentHitsRect=(a,b)=>pointInRect2D(a,r)||pointInRect2D(b,r)||[[rectCorners[0],rectCorners[1]],[rectCorners[1],rectCorners[2]],[rectCorners[2],rectCorners[3]],[rectCorners[3],rectCorners[0]]].some(([c,d])=>segmentsIntersect2D(a,b,c,d));
+  if(mode==='vertex'){
+    for(const rep of topo.vertexEndpointReps||[]){const rec=topo.repGroups.get(rep);if(!rec)continue;const p=worldToClient(m.mesh.localToWorld(rec.local.clone()));if(pointInRect2D(p,r))picked.add(String(rec.rep));}
+    return picked;
+  }
+  if(mode==='line'){
+    for(const e of topo.edges){const a=worldToClient(m.mesh.localToWorld(e.a.clone())),b=worldToClient(m.mesh.localToWorld(e.b.clone()));if(segmentHitsRect(a,b))picked.add(e.id);}
+    return picked;
+  }
+  if(mode==='face'){
+    const g=m.mesh.geometry,pos=g.attributes.position,index=g.index;
+    for(const f of topo.faces){let hit=false;for(const t of f.triangles){const pts=[];for(let k=0;k<3;k++){const vi=index?index.getX(t*3+k):t*3+k;pts.push(worldToClient(new THREE.Vector3().fromBufferAttribute(pos,vi).applyMatrix4(m.mesh.matrixWorld)));}if(triangleIntersectsMarquee2D(pts[0],pts[1],pts[2],r)){hit=true;break;}}if(hit)picked.add(String(f.id));}
+  }
+  return picked;
+}
+function marqueeGeometrySelection(a,b,{additive=false,toggle=false}={}){
+  const r=marqueeRect(a,b);
+  if(!additive&&!toggle)selectedGeometryParts.clear();
+  for(const m of masses){
+    const elements=projectedSelectElementsInMarquee(m,r,selectElementMode);if(!elements.size)continue;
+    let part=selectedGeometryParts.get(m.id);if(!part||part.mode!==selectElementMode){part={mode:selectElementMode,elements:new Set(),indices:new Set()};selectedGeometryParts.set(m.id,part);}
+    for(const id of elements){if(toggle&&part.elements.has(id))part.elements.delete(id);else part.elements.add(id);}
+    if(!part.elements.size)selectedGeometryParts.delete(m.id);
+  }
+  refreshSelectedGeometryPartIndices();
+  setSelection(masses.filter(m=>selectedGeometryParts.has(m.id)));
+  syncSelectGeometryHighlight();
+  moveArmed=selectedGeometryParts.size>0;selectTransformMode=moveArmed?'move':'select';updateMobileDrawUI();
+}
+
 function marqueeSelection(a,b,{additive=false,toggle=false}={}){
+  if(selectElementMode!=='object')return marqueeGeometrySelection(a,b,{additive,toggle});
   // Always normalize both corners. Window Select therefore has identical
   // geometry whether the gesture goes ↘, ↙, ↗ or ↖.
   const r=marqueeRect(a,b);
@@ -12607,27 +13047,16 @@ if(selectHoldBtn){
   selectHoldBtn.addEventListener('pointerdown',e=>{
     e.preventDefault();e.stopPropagation();
     unifiedUIPointers.add(e.pointerId);
+    try{selectHoldBtn.setPointerCapture?.(e.pointerId);}catch(_){}
 
-    // v8.46 — iPad Pencil mode: SELECT is a persistent Single/Multi toggle.
-    // Fingers still never select in the viewport; they only press this UI control
-    // or navigate. Pencil performs all actual picking.
+    // iPad Pencil: tap keeps Single/Multi behavior; hold opens the selection-type picker.
     if(MA_IS_IPAD&&ipadPencilMode&&e.pointerType==='touch'){
-      if(!selectModeAvailable()){
-        updateMobileDrawUI();
-        return;
-      }
-      if(interaction||marqueeState)cancelInteraction(true);
-      clearLatchedDrawForFunctionSwitch();
-      selectModeHeld=false;
-      selectModeHoldPointerId=null;
-      selectModeHoldPointerType=null;
-      selectHoldPointerCancelledForPen=false;
-      clearSelectHoldCancelTimer();
-      ipadPencilMultiSelect=!ipadPencilMultiSelect;
-      pencilSelectManuallyOff=false;
-      activateSelectMode();
-      updateMobileDrawUI();
-      showToast(ipadPencilMultiSelect?'MULTI SELECT':'SINGLE SELECT');
+      if(!selectModeAvailable()){updateMobileDrawUI();return;}
+      if(selectButtonPress)return;
+      try{selectHoldBtn.setPointerCapture?.(e.pointerId);}catch(_){}
+      const press=selectButtonPress={pointerId:e.pointerId,pointerType:e.pointerType,held:false,startedActive:!!selectModeActive,timer:null,event:syntheticHoldEvent(e),ipadPencil:true};
+      iphoneSelectPressPreview=true;updateMobileDrawUI();
+      press.timer=setTimeout(()=>{if(selectButtonPress!==press)return;press.held=true;iphoneSelectPressPreview=false;beginSelectElementPicker(e);},SELECT_BUTTON_HOLD_MS);
       return;
     }
 
@@ -12664,8 +13093,8 @@ if(selectHoldBtn){
         updateMobileDrawUI();
         press.timer=setTimeout(()=>{
           if(selectButtonPress!==press)return;
-          promoteIPhoneSelectPressToMulti();
-        },IPHONE_SELECT_HOLD_MS);
+          press.held=true;iphoneSelectPressPreview=false;beginSelectElementPicker(e);
+        },SELECT_BUTTON_HOLD_MS);
       }else{
         // v8.51 — an already-active SELECT also goes dark immediately on
         // pointer-down. If the press becomes a Multi hold, the dedicated hold
@@ -12674,22 +13103,15 @@ if(selectHoldBtn){
         updateMobileDrawUI();
         press.timer=setTimeout(()=>{
           if(selectButtonPress!==press)return;
-          promoteIPhoneSelectPressToMulti();
-        },IPHONE_SELECT_HOLD_MS);
+          press.held=true;iphoneSelectPressPreview=false;beginSelectElementPicker(e);
+        },SELECT_BUTTON_HOLD_MS);
       }
       return;
     }
 
-    // Desktop hold-equivalent: right-click SELECT arms one Window Select drag.
+    // Desktop hold-equivalent: right-click SELECT opens the selection-type picker.
     if(!MA_DRAW_MOBILE&&e.pointerType==='mouse'&&e.button===2){
-      if(selectModeAvailable()){
-        activateSelectMode();
-        desktopWindowSelectArmed=true;
-        moveArmed=false;
-        selectTransformMode='select';
-        updateMobileDrawUI();
-        showToast('WINDOW SELECT · NEXT DRAG');
-      }
+      if(selectModeAvailable())beginSelectElementPicker(e);
       return;
     }
 
@@ -12710,32 +13132,16 @@ if(selectHoldBtn){
       event:syntheticHoldEvent(e)
     };
 
-    // SELECT is a held tool: on touch it must react on pointer-down, not after
-    // a long-press delay. It only latches after geometry is actually selected.
+    // Touch: tap activates/exits Select; hold opens the persistent selection-type picker.
     if(press.pointerType==='touch'&&!press.startedActive){
-      press.held=true;
-      beginSelectModeHold(press.event);
-      showToast('SELECT · PICK');
-    }else{
-      // Keep the existing short-vs-hold distinction when SELECT is already
-      // active (tap = exit) and for mouse/pen desktop behaviour.
-      press.timer=setTimeout(()=>{
-        if(selectButtonPress!==press)return;
-        press.held=true;
-
-        if(press.pointerType==='touch'){
-          beginSelectModeHold(press.event);
-          showToast('SELECT · PICK');
-        }else{
-          activateSelectMode();
-          desktopWindowSelectArmed=true;
-          moveArmed=false;
-          selectTransformMode='select';
-          updateMobileDrawUI();
-          showToast('WINDOW SELECT · NEXT DRAG');
-        }
-      },SELECT_BUTTON_HOLD_MS);
+      activateSelectMode();
+      updateMobileDrawUI();
     }
+    press.timer=setTimeout(()=>{
+      if(selectButtonPress!==press)return;
+      press.held=true;
+      beginSelectElementPicker(e);
+    },SELECT_BUTTON_HOLD_MS);
   },{passive:false});
 
   const finishSelectButton=e=>{
@@ -12744,6 +13150,23 @@ if(selectHoldBtn){
     e.preventDefault();e.stopPropagation();
 
     if(press.timer)clearTimeout(press.timer);
+
+    if(selectElementPickerHeld&&press.held){
+      endSelectElementPicker(e,false);
+      iphoneSelectPressPreview=false;
+      selectButtonPress=null;
+      updateMobileDrawUI();
+      return;
+    }
+
+    if(press.ipadPencil){
+      iphoneSelectPressPreview=false;
+      if(!press.held){
+        if(!press.startedActive){ipadPencilMultiSelect=false;pencilSelectManuallyOff=false;activateSelectMode();showToast(`SELECT · ${selectElementModeLabel()}`);}
+        else{ipadPencilMultiSelect=!ipadPencilMultiSelect;pencilSelectManuallyOff=false;activateSelectMode();showToast(ipadPencilMultiSelect?'MULTI SELECT':'SINGLE SELECT');}
+      }
+      selectButtonPress=null;updateMobileDrawUI();return;
+    }
 
     if(press.iphone){
       iphoneSelectPressPreview=false;
@@ -12777,7 +13200,8 @@ if(selectHoldBtn){
           deactivateSelectMode(true);
           showToast('SELECT OFF');
         }else{
-          showToast('HOLD SELECT · PICK');
+          if(!selectModeActive)activateSelectMode();
+          showToast(`SELECT · ${selectElementModeLabel()}`);
         }
       }else if(selectModeActive){
         if(!MA_DRAW_MOBILE&&press.pointerType==='mouse'){
@@ -12808,11 +13232,14 @@ if(selectHoldBtn){
     updateMobileDrawUI();
   };
 
+  selectHoldBtn.addEventListener('pointermove',e=>{if(selectElementPickerHeld){e.preventDefault();e.stopPropagation();updateSelectElementPicker(e);}}, {passive:false});
   selectHoldBtn.addEventListener('pointerup',finishSelectButton,{passive:false});
   selectHoldBtn.addEventListener('pointercancel',e=>{
     const press=selectButtonPress;
     if(!press||press.pointerId!==e.pointerId)return;
     if(press.timer)clearTimeout(press.timer);
+    if(selectElementPickerHeld&&press.held){endSelectElementPicker(e,true);iphoneSelectPressPreview=false;selectButtonPress=null;updateMobileDrawUI();return;}
+    if(press.ipadPencil){iphoneSelectPressPreview=false;selectButtonPress=null;updateMobileDrawUI();return;}
     if(press.iphone){
       iphoneSelectPressPreview=false;
       if(press.held&&selectModeHeld)endSelectModeHold(syntheticHoldEvent(e));
@@ -12839,6 +13266,16 @@ if(selectHoldBtn){
     selectButtonPress=null;
     updateMobileDrawUI();
   },{passive:false});
+}
+
+
+for(const [id,mode] of SELECT_ELEMENT_PICKER_SLOTS){
+  const el=document.getElementById(id);if(!el)continue;
+  el.addEventListener('pointerdown',e=>{
+    if(!selectElementPickerHeld||e.pointerType!=='mouse'||e.button!==0)return;
+    e.preventDefault();e.stopImmediatePropagation();unifiedUIPointers.add(e.pointerId);
+    selectElementPickerChoice=mode;endSelectElementPicker(null,false);
+  },{capture:true,passive:false});
 }
 
 function clearTransformHoldCancelTimer(){
@@ -12880,7 +13317,7 @@ function beginSelectionTransformHold(kind,e){
 
   if(!selectModeActive)activateSelectMode();
   if(!selectedMasses().length){
-    showToast('SELECT OBJECT FIRST');
+    showToast(`SELECT ${selectElementModeLabel()} FIRST`);
     return false;
   }
 
@@ -12977,6 +13414,7 @@ window.addEventListener('pointercancel',e=>{
 
 
 function performDuplicateSelection(){
+  if(selectElementMode!=='object'&&selectedGeometryParts.size){showToast('DUPLICATE · OBJECT MODE');return;}
   if(!selectedMasses().length)return;
   moveArmed=false;
   transformHoldMode=null;
@@ -13393,6 +13831,7 @@ function beginModelPointer(e){
     }
 
     if(!m){beginMarquee(e);return;}
+    if(selectElementMode!=='object'){selectByElementModeAt(m,e.clientX,e.clientY,e.shiftKey);return;}
     if(e.shiftKey||!isSelectedMass(m)){selectInteractive(m,e.shiftKey);return;}
     beginMove(e);return;
   }
@@ -14000,6 +14439,34 @@ renderer.domElement.addEventListener('pointerdown',e=>{
       }
 
       if(currentAppMode()==='select'){
+        // v9.71 — a second finger always promotes a pending Select contact to
+        // camera navigation. This lets pinch-zoom start directly on selected
+        // Vertex / Line / Face / Object geometry instead of the first finger
+        // being trapped as a potential Move/Select gesture.
+        if(
+          mobileSelectTap &&
+          mobileSelectTap.pointerId!==e.pointerId &&
+          !selectModeHeld &&
+          !transformHoldMode &&
+          !interaction &&
+          !marqueeState
+        ){
+          const first=mobileSelectTap;
+          mobileSelectTap=null;
+          beginUnifiedTouchNavigation({
+            pointerId:first.pointerId,
+            pointerType:'touch',
+            clientX:first.startX,
+            clientY:first.startY
+          });
+          beginUnifiedTouchNavigation(e);
+          if(touchGesture){
+            touchGesture.maxCount=Math.max(touchGesture.maxCount,touchPointers.size);
+            touchGesture.moved=true;
+          }
+          return;
+        }
+
         if(selectModeHeld){
           // SELECT now behaves like the other held dock tools: keep the SELECT
           // circle down, then pick geometry with another finger. Empty space
@@ -14014,7 +14481,7 @@ renderer.domElement.addEventListener('pointerdown',e=>{
               startY:e.clientY,
               startTime:performance.now(),
               moved:false,
-              wasSelected:isSelectedMass(heldMass),
+              wasSelected:selectElementMode==='object'?isSelectedMass(heldMass):geometryComponentIsSelected(heldMass,nearestSelectComponent(e.clientX,e.clientY,heldMass,selectElementMode)),
               additive:true
             };
             renderer.domElement.setPointerCapture?.(e.pointerId);
@@ -14041,7 +14508,7 @@ renderer.domElement.addEventListener('pointerdown',e=>{
             startY:e.clientY,
             startTime:performance.now(),
             moved:false,
-            wasSelected:isSelectedMass(m),
+            wasSelected:selectElementMode==='object'?isSelectedMass(m):geometryComponentIsSelected(m,nearestSelectComponent(e.clientX,e.clientY,m,selectElementMode)),
             additive:false
           };
           renderer.domElement.setPointerCapture?.(e.pointerId);
@@ -14138,7 +14605,7 @@ renderer.domElement.addEventListener('pointerdown',e=>{
             startY:e.clientY,
             startTime:performance.now(),
             moved:false,
-            wasSelected:isSelectedMass(m),
+            wasSelected:selectElementMode==='object'?isSelectedMass(m):geometryComponentIsSelected(m,nearestSelectComponent(e.clientX,e.clientY,m,selectElementMode)),
             additive:!!(MA_IS_IPAD&&ipadPencilMode&&ipadPencilMultiSelect),
             pointerType:'pen'
           };
@@ -14192,7 +14659,7 @@ renderer.domElement.addEventListener('pointerdown',e=>{
             startY:e.clientY,
             startTime:performance.now(),
             moved:false,
-            wasSelected:isSelectedMass(m),
+            wasSelected:selectElementMode==='object'?isSelectedMass(m):geometryComponentIsSelected(m,nearestSelectComponent(e.clientX,e.clientY,m,selectElementMode)),
             additive:!!e.shiftKey,
             pointerType:'mouse'
           };
@@ -14227,7 +14694,7 @@ renderer.domElement.addEventListener('pointerdown',e=>{
             startY:e.clientY,
             startTime:performance.now(),
             moved:false,
-            wasSelected:isSelectedMass(m),
+            wasSelected:selectElementMode==='object'?isSelectedMass(m):geometryComponentIsSelected(m,nearestSelectComponent(e.clientX,e.clientY,m,selectElementMode)),
             additive:!!e.shiftKey,
             pointerType:'mouse'
           };
@@ -14268,6 +14735,9 @@ window.addEventListener('pointermove',e=>{
         return;
       }
 
+      if(interaction?.kind==='geometryMove'&&interaction.pointerId===e.pointerId){e.preventDefault();scheduleSelectedGeometryMove(e.clientX,e.clientY);return;}
+
+
       if(e.pointerId===mobileMovePointerId&&interaction?.kind==='move'){
         e.preventDefault();
         scheduleMove(e.clientX,e.clientY);
@@ -14302,7 +14772,9 @@ window.addEventListener('pointermove',e=>{
                 shiftKey:false
               };
               mobileSelectTap=null;
-              if(beginMobileNavMove(startEvent)){
+              if(selectElementMode!=='object'){
+                if(beginSelectedGeometryMove(startEvent)){scheduleSelectedGeometryMove(e.clientX,e.clientY);return;}
+              }else if(beginMobileNavMove(startEvent)){
                 scheduleMove(e.clientX,e.clientY);
                 return;
               }
@@ -14379,6 +14851,7 @@ window.addEventListener('pointermove',e=>{
         return;
       }
 
+      if(interaction?.kind==='geometryMove'&&interaction.pointerId===e.pointerId){e.preventDefault();scheduleSelectedGeometryMove(e.clientX,e.clientY);return;}
       if(interaction?.kind==='move'&&interaction.pointerId===e.pointerId){
         e.preventDefault();
         scheduleMove(e.clientX,e.clientY);
@@ -14407,8 +14880,12 @@ window.addEventListener('pointermove',e=>{
               shiftKey:false
             };
             mobileSelectTap=null;
-            beginMove(startEvent);
-            if(interaction?.kind==='move')scheduleMove(e.clientX,e.clientY);
+            if(selectElementMode!=='object'){
+              if(beginSelectedGeometryMove(startEvent))scheduleSelectedGeometryMove(e.clientX,e.clientY);
+            }else{
+              beginMove(startEvent);
+              if(interaction?.kind==='move')scheduleMove(e.clientX,e.clientY);
+            }
           }
         }else if(dist>28){
           // An unselected object is a selection tap first. Only a clearly
@@ -14448,6 +14925,7 @@ window.addEventListener('pointermove',e=>{
     }
 
     if(e.pointerType==='mouse'){
+      if(interaction?.kind==='geometryMove'&&interaction.pointerId===e.pointerId){e.preventDefault();scheduleSelectedGeometryMove(e.clientX,e.clientY);return;}
       if(marqueeState?.pointerId===e.pointerId){
         e.preventDefault();
         updateMarquee(e);
@@ -14461,8 +14939,12 @@ window.addEventListener('pointermove',e=>{
           if(candidate.wasSelected&&moveArmed&&!transformHoldMode){
             const startEvent={pointerId:e.pointerId,pointerType:'mouse',clientX:candidate.startX,clientY:candidate.startY,shiftKey:false};
             mobileSelectTap=null;
-            beginMove(startEvent);
-            if(interaction?.kind==='move')scheduleMove(e.clientX,e.clientY);
+            if(selectElementMode!=='object'){
+              if(beginSelectedGeometryMove(startEvent))scheduleSelectedGeometryMove(e.clientX,e.clientY);
+            }else{
+              beginMove(startEvent);
+              if(interaction?.kind==='move')scheduleMove(e.clientX,e.clientY);
+            }
           }
         }
         return;
@@ -14510,6 +14992,8 @@ window.addEventListener('pointerup',e=>{
         return;
       }
 
+      if(interaction?.kind==='geometryMove'&&interaction.pointerId===e.pointerId){e.preventDefault();endSelectedGeometryMove();updateMobileDrawUI();return;}
+
       if(e.pointerId===mobileMovePointerId&&interaction?.kind==='move'){
         e.preventDefault();
         endMove();
@@ -14544,7 +15028,7 @@ window.addEventListener('pointerup',e=>{
             const m=massById(candidate.massId);
             // Normal Select is exclusive. Holding SELECT temporarily turns taps
             // into additive/toggle picks for building a multi-selection.
-            if(m)selectInteractive(m,!!candidate.additive);
+            if(m)selectByElementModeAt(m,e.clientX,e.clientY,!!candidate.additive);
           }
           return;
         }
@@ -14612,10 +15096,12 @@ window.addEventListener('pointerup',e=>{
           const m=massById(candidate.massId);
           // Pencil Single Select replaces the selection. Persistent Multi Select
           // adds/removes the tapped mass or group until SELECT is tapped again.
-          if(m)selectInteractive(m,!!candidate.additive);
+          if(m)selectByElementModeAt(m,e.clientX,e.clientY,!!candidate.additive);
         }
         return;
       }
+
+      if(interaction?.kind==='geometryMove'&&interaction.pointerId===e.pointerId){e.preventDefault();endSelectedGeometryMove();penActive=false;updateMobileDrawUI();return;}
 
       if(interaction?.kind==='move'&&interaction.pointerId===e.pointerId){
         e.preventDefault();
@@ -14711,10 +15197,12 @@ window.addEventListener('pointerup',e=>{
           const m=massById(candidate.massId);
           // Desktop repeat-click matches touch/Pencil: clicking an already
           // selected mass toggles that mass/group out of the selection.
-          if(m)selectInteractive(m,!!candidate.additive||!!candidate.wasSelected);
+          if(m)selectByElementModeAt(m,e.clientX,e.clientY,!!candidate.additive||(selectElementMode==='object'&&!!candidate.wasSelected));
         }
         return;
       }
+
+      if(interaction?.kind==='geometryMove'&&interaction.pointerId===e.pointerId){e.preventDefault();endSelectedGeometryMove();updateMobileDrawUI();return;}
 
       if(interaction?.kind==='move'&&interaction.pointerId===e.pointerId){
         e.preventDefault();
@@ -14996,7 +15484,7 @@ window.addEventListener('keydown',e=>{
 
   // Context-sensitive modelling controls stay fixed because they operate inside an active gesture.
   if(['x','y','z'].includes(k)){
-    if(interaction?.kind==='move'||interaction?.kind==='modify'){axisLock=axisLock===k?null:k;e.preventDefault();return;}
+    if(interaction?.kind==='move'||interaction?.kind==='modify'||interaction?.kind==='geometryMove'){axisLock=axisLock===k?null:k;e.preventDefault();return;}
     if(interaction?.kind==='polyline'){setPolylineAxisLock(k);e.preventDefault();return;}
   }
   if(interaction?.kind==='polyline'&&['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(e.key)){
