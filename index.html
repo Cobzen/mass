@@ -2547,24 +2547,18 @@ document.addEventListener('touchstart',e=>{
   if(maNativeScrollAllowed(e.target))return;
   const dock=e.target instanceof Element?e.target.closest('#maBottomDock,#viewJoystick,#lookJoystick,#dockDragHandle'):null;
   const bottom=maViewportBottomY();
-  let guard=!!dock;
   for(const t of e.changedTouches){
-    if(guard || t.clientY>=bottom-96){
-      maBottomGuardTouches.add(t.identifier);
-      guard=true;
-    }
+    if(dock || t.clientY>=bottom-140)maBottomGuardTouches.add(t.identifier);
   }
-  if(guard&&e.cancelable)e.preventDefault();
+  // Cancel native scrolling from the first frame without changing layout.
+  if(e.cancelable)e.preventDefault();
 },{capture:true,passive:false});
 document.addEventListener('touchmove',e=>{
   if(maNativeScrollAllowed(e.target))return;
-  let guard=false;
-  for(const t of e.changedTouches){
-    if(maBottomGuardTouches.has(t.identifier)){guard=true;break;}
-  }
-  const t=e.target;
-  if(!guard&&t instanceof Element&&t.closest('#viewport,#maBottomDock,#viewJoystick,#lookJoystick,#dockDragHandle,#mainMenuButton'))guard=true;
-  if(guard&&e.cancelable)e.preventDefault();
+  // v9.88 — MA 3D is a fixed application surface, not a scrolling document.
+  // Prevent every non-panel touchmove so WebKit/the host cannot promote a
+  // downward dock or bottom-edge gesture into page/sheet scrolling.
+  if(e.cancelable)e.preventDefault();
 },{capture:true,passive:false});
 function maReleaseBottomGuardTouches(e){
   for(const t of e.changedTouches)maBottomGuardTouches.delete(t.identifier);
@@ -14391,13 +14385,8 @@ renderer.domElement.addEventListener('pointerdown',e=>{
     }
 
     if(e.pointerType==='touch'){
-      // v8.92 — leave only the local rectangle around the home indicator to iOS.
-      // Do NOT call preventDefault here: that lets the system home gesture win immediately
-      // instead of MA starting a camera/model gesture for the first few pixels.
-      if(touchStartsInHomeGestureSafeZone(e)||homeGestureSafePointers.size){
-        homeGestureSafePointers.add(e.pointerId);
-        return;
-      }
+      // v9.88 — do not yield the bottom/home-indicator region to the host.
+      // The host sheet/page scroll was being promoted from exactly this escape.
       e.preventDefault();
 
       if(beginMirrorTouchTracking(e)){
