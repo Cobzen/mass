@@ -655,6 +655,39 @@ html.ma-unified-ui #maModeBar button{
   -webkit-user-drag:none !important;
 }
 
+/* v9.92 — make the actual iOS hit target in the middle dock a plain app div,
+   like the joysticks, while keeping the real native buttons and their handlers. */
+html.ma-unified-ui #maModeBar{isolation:isolate;}
+html.ma-unified-ui #maModeBar .primaryDockButton{z-index:2;}
+#maModeBarGestureSurface{
+  position:absolute;
+  inset:0;
+  z-index:1;
+  background:transparent;
+  border:0;
+  pointer-events:auto;
+  touch-action:none !important;
+  -webkit-user-select:none !important;
+  user-select:none !important;
+  -webkit-touch-callout:none !important;
+}
+.maMiddleTouchSurface{
+  position:absolute;
+  inset:0;
+  z-index:20;
+  display:block;
+  background:transparent;
+  border:0;
+  margin:0;
+  padding:0;
+  pointer-events:auto;
+  touch-action:none !important;
+  -webkit-user-select:none !important;
+  user-select:none !important;
+  -webkit-touch-callout:none !important;
+  -webkit-user-drag:none !important;
+}
+
 /* LEFT / RIGHT: six controls stand vertically. */
 html.ma-unified-ui #maBottomDock.dock-vertical{
   flex-direction:column !important;
@@ -1515,16 +1548,6 @@ html.ma-unified-ui #shortcutLastInput{
     width:30px;min-width:30px;height:30px;min-height:30px;
   }
 }
-
-/* v9.91 — primary middle controls are app surfaces, not native buttons.
-   Keep every touch targeted at the same owning element, like the joysticks. */
-#maModeBar .primaryDockButton, #maModeBar .primaryDockButton *{
-  touch-action:none !important;
-  -webkit-user-select:none !important;
-  user-select:none !important;
-  -webkit-touch-callout:none !important;
-}
-#maModeBar .primaryDockButton *{pointer-events:none !important;}
 </style>
 
 
@@ -2443,21 +2466,26 @@ html.ma-unified-ui #maBottomDock.valueMode.dock-vertical #valuePalette{top:calc(
   </div>
 
   <div id="maModeBar" aria-label="Primary controls">
-    <div id="drawAddHoldBtn" class="holdToolButton primaryDockButton" role="button" tabindex="0" aria-label="Add">
+    <div id="maModeBarGestureSurface" aria-hidden="true"></div>
+    <button id="drawAddHoldBtn" class="holdToolButton primaryDockButton" aria-label="Add">
       <span class="primaryLabel">ADD</span>
-    </div>
-    <div id="drawEraseHoldBtn" class="holdToolButton primaryDockButton" role="button" tabindex="0" aria-label="Erase">
+      <span class="maMiddleTouchSurface" aria-hidden="true"></span>
+    </button>
+    <button id="drawEraseHoldBtn" class="holdToolButton primaryDockButton" aria-label="Erase">
       <span class="primaryLabel">ERASE</span>
-    </div>
+      <span class="maMiddleTouchSurface" aria-hidden="true"></span>
+    </button>
 
-    <div id="mobileSizeDrag" class="brushSizeButton primaryDockButton" role="button" tabindex="0" aria-label="Size">
+    <button id="mobileSizeDrag" class="brushSizeButton primaryDockButton" aria-label="Size">
       <span class="brushSizePreview"><i id="brushSizeCircle"></i></span>
       <span class="primaryLabel"></span>
-    </div>
+      <span class="maMiddleTouchSurface" aria-hidden="true"></span>
+    </button>
 
-    <div id="selectHoldBtn" class="holdToolButton primaryDockButton" role="button" tabindex="0" aria-label="Select">
+    <button id="selectHoldBtn" class="holdToolButton primaryDockButton" aria-label="Select">
       <span class="primaryLabel">SELECT</span>
-    </div>
+      <span class="maMiddleTouchSurface" aria-hidden="true"></span>
+    </button>
   </div>
 
   <div id="lookJoystick" class="maJoystick lookJoystick" aria-label="Look joystick. Tap toggles outlines. Left Value, up Light, right Depth Fog, down Workspace.">
@@ -2645,22 +2673,20 @@ for(const id of MA_MIDDLE_GESTURE_IDS){
   el.setAttribute('draggable','false');
   el.addEventListener('pointerdown',e=>{
     if(e.pointerType!=='touch')return;
-    e.preventDefault();e.stopPropagation();
-    unifiedUIPointers.add(e.pointerId);
+    if(e.cancelable)e.preventDefault();
     try{el.setPointerCapture?.(e.pointerId);}catch(_){}
   },{capture:true,passive:false});
   el.addEventListener('pointermove',e=>{
-    if(e.pointerType!=='touch')return;
-    e.preventDefault();e.stopPropagation();
+    if(e.pointerType==='touch'&&e.cancelable)e.preventDefault();
   },{capture:true,passive:false});
   el.addEventListener('pointerup',e=>{
     if(e.pointerType!=='touch')return;
-    e.preventDefault();e.stopPropagation();
+    if(e.cancelable)e.preventDefault();
     try{if(el.hasPointerCapture?.(e.pointerId))el.releasePointerCapture?.(e.pointerId);}catch(_){}
   },{capture:true,passive:false});
   el.addEventListener('pointercancel',e=>{
     if(e.pointerType!=='touch')return;
-    e.preventDefault();e.stopPropagation();
+    if(e.cancelable)e.preventDefault();
     try{if(el.hasPointerCapture?.(e.pointerId))el.releasePointerCapture?.(e.pointerId);}catch(_){}
   },{capture:true,passive:false});
   for(const type of ['touchstart','touchmove','touchend','touchcancel']){
@@ -2674,6 +2700,33 @@ const maModeBar=document.getElementById('maModeBar');
 for(const type of ['touchstart','touchmove','gesturestart','gesturechange']){
   maModeBar?.addEventListener(type,e=>{if(e.cancelable)e.preventDefault();},{capture:true,passive:false});
 }
+
+// v9.92 — these plain DIV/SPAN surfaces are the first iOS hit target, just like
+// the joysticks. Do not stop propagation: pointer events must still bubble to
+// the existing native button handlers underneath/around them.
+function installMiddleDockTouchSurface(el){
+  if(!el)return;
+  el.addEventListener('pointerdown',e=>{
+    if(e.pointerType!=='touch')return;
+    if(e.cancelable)e.preventDefault();
+    try{el.setPointerCapture?.(e.pointerId);}catch(_){}
+  },{passive:false});
+  el.addEventListener('pointermove',e=>{
+    if(e.pointerType==='touch'&&e.cancelable)e.preventDefault();
+  },{passive:false});
+  const finish=e=>{
+    if(e.pointerType!=='touch')return;
+    if(e.cancelable)e.preventDefault();
+    try{if(el.hasPointerCapture?.(e.pointerId))el.releasePointerCapture?.(e.pointerId);}catch(_){}
+  };
+  el.addEventListener('pointerup',finish,{passive:false});
+  el.addEventListener('pointercancel',finish,{passive:false});
+  for(const type of ['touchstart','touchmove','touchend','touchcancel']){
+    el.addEventListener(type,e=>{if(e.cancelable)e.preventDefault();},{passive:false});
+  }
+}
+installMiddleDockTouchSurface(document.getElementById('maModeBarGestureSurface'));
+document.querySelectorAll('.maMiddleTouchSurface').forEach(installMiddleDockTouchSurface);
 document.addEventListener('touchstart',e=>{
   if(maNativeScrollAllowed(e.target))return;
   const bottom=maViewportBottomY();
