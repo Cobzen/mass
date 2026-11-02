@@ -616,6 +616,33 @@ html.ma-unified-ui #maBottomDock::before{
   pointer-events:none;
 }
 
+/* v9.89 — invisible native-gesture shield around the dock. It sits below the
+   real controls but above the viewport, so empty space between/under controls
+   cannot start an iOS/WebView scroll or sheet-drag gesture. Geometry/layout is
+   untouched; JS positions this from the actual dock rect. */
+#dockGestureShield{
+  position:fixed;
+  display:none;
+  z-index:89;
+  background:transparent;
+  border:0;
+  margin:0;
+  padding:0;
+  pointer-events:auto;
+  touch-action:none !important;
+  -webkit-user-select:none;
+  user-select:none;
+  -webkit-touch-callout:none;
+}
+html.ma-draw-mobile #dockGestureShield{display:block;}
+html.ma-unified-ui #maBottomDock,
+html.ma-unified-ui #maBottomDock *{
+  touch-action:none !important;
+  -webkit-user-select:none !important;
+  user-select:none !important;
+  -webkit-touch-callout:none !important;
+}
+
 /* LEFT / RIGHT: six controls stand vertically. */
 html.ma-unified-ui #maBottomDock.dock-vertical{
   flex-direction:column !important;
@@ -2371,6 +2398,7 @@ html.ma-unified-ui #maBottomDock.valueMode.dock-vertical #valuePalette{top:calc(
   
   
   
+  <div id="dockGestureShield" aria-hidden="true"></div>
   <div id="maBottomDock" aria-label="MA controls" data-side="left">
   <div id="valuePalette" aria-label="Value levels">
     <button type="button" data-value-level="0" aria-label="Value 1" style="background:#000000"></button>
@@ -2543,28 +2571,68 @@ function maViewportBottomY(){
   const vv=window.visualViewport;
   return (vv?.offsetTop||0)+(vv?.height||window.innerHeight||document.documentElement.clientHeight||0);
 }
+function syncDockGestureShield(){
+  const shield=document.getElementById('dockGestureShield');
+  const dock=document.getElementById('maBottomDock');
+  if(!shield||!dock||!MA_DRAW_MOBILE)return;
+  const r=dock.getBoundingClientRect();
+  const vv=window.visualViewport;
+  const vw=vv?.width||window.innerWidth||document.documentElement.clientWidth||0;
+  const vh=vv?.height||window.innerHeight||document.documentElement.clientHeight||0;
+  const ox=vv?.offsetLeft||0,oy=vv?.offsetTop||0;
+  const horizontal=r.width>=r.height;
+  const distTop=Math.abs(r.top-oy),distBottom=Math.abs((oy+vh)-r.bottom);
+  const distLeft=Math.abs(r.left-ox),distRight=Math.abs((ox+vw)-r.right);
+  const side=horizontal?(distBottom<=distTop?'bottom':'top'):(distRight<=distLeft?'right':'left');
+  const margin=30;
+  if(side==='top'){
+    shield.style.left=`${ox}px`;shield.style.top=`${oy}px`;
+    shield.style.width=`${vw}px`;shield.style.height=`${Math.max(0,r.bottom-oy+margin)}px`;
+  }else if(side==='left'){
+    shield.style.left=`${ox}px`;shield.style.top=`${oy}px`;
+    shield.style.width=`${Math.max(0,r.right-ox+margin)}px`;shield.style.height=`${vh}px`;
+  }else if(side==='right'){
+    const left=Math.max(ox,r.left-margin);
+    shield.style.left=`${left}px`;shield.style.top=`${oy}px`;
+    shield.style.width=`${Math.max(0,ox+vw-left)}px`;shield.style.height=`${vh}px`;
+  }else{
+    const top=Math.max(oy,r.top-margin);
+    shield.style.left=`${ox}px`;shield.style.top=`${top}px`;
+    shield.style.width=`${vw}px`;shield.style.height=`${Math.max(0,oy+vh-top)}px`;
+  }
+}
+function maDockGuardPrevent(e){
+  if(maNativeScrollAllowed(e.target))return;
+  if(e.cancelable)e.preventDefault();
+}
+const maDock=document.getElementById('maBottomDock');
+maDock?.addEventListener('touchstart',maDockGuardPrevent,{capture:true,passive:false});
+maDock?.addEventListener('touchmove',maDockGuardPrevent,{capture:true,passive:false});
+maDock?.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'&&e.cancelable)e.preventDefault();},{capture:true,passive:false});
+const maDockShield=document.getElementById('dockGestureShield');
+for(const type of ['touchstart','touchmove'])maDockShield?.addEventListener(type,e=>{if(e.cancelable)e.preventDefault();e.stopPropagation();},{capture:true,passive:false});
+for(const type of ['pointerdown','pointermove','pointerup','pointercancel'])maDockShield?.addEventListener(type,e=>{if(e.pointerType==='touch'){if(e.cancelable)e.preventDefault();e.stopPropagation();}},{capture:true,passive:false});
 document.addEventListener('touchstart',e=>{
   if(maNativeScrollAllowed(e.target))return;
-  const dock=e.target instanceof Element?e.target.closest('#maBottomDock,#viewJoystick,#lookJoystick,#dockDragHandle'):null;
   const bottom=maViewportBottomY();
+  const dockRect=maDock?.getBoundingClientRect?.();
   for(const t of e.changedTouches){
-    if(dock || t.clientY>=bottom-140)maBottomGuardTouches.add(t.identifier);
+    const inDockBand=!!dockRect&&t.clientX>=dockRect.left-30&&t.clientX<=dockRect.right+30&&t.clientY>=dockRect.top-30&&t.clientY<=bottom;
+    if(inDockBand||t.clientY>=bottom-160)maBottomGuardTouches.add(t.identifier);
   }
-  // Cancel native scrolling from the first frame without changing layout.
   if(e.cancelable)e.preventDefault();
 },{capture:true,passive:false});
 document.addEventListener('touchmove',e=>{
   if(maNativeScrollAllowed(e.target))return;
-  // v9.88 — MA 3D is a fixed application surface, not a scrolling document.
-  // Prevent every non-panel touchmove so WebKit/the host cannot promote a
-  // downward dock or bottom-edge gesture into page/sheet scrolling.
   if(e.cancelable)e.preventDefault();
 },{capture:true,passive:false});
-function maReleaseBottomGuardTouches(e){
-  for(const t of e.changedTouches)maBottomGuardTouches.delete(t.identifier);
-}
+function maReleaseBottomGuardTouches(e){for(const t of e.changedTouches)maBottomGuardTouches.delete(t.identifier);}
 document.addEventListener('touchend',maReleaseBottomGuardTouches,{capture:true,passive:true});
 document.addEventListener('touchcancel',maReleaseBottomGuardTouches,{capture:true,passive:true});
+window.addEventListener('resize',()=>requestAnimationFrame(syncDockGestureShield),{passive:true});
+window.visualViewport?.addEventListener('resize',()=>requestAnimationFrame(syncDockGestureShield),{passive:true});
+window.visualViewport?.addEventListener('scroll',()=>requestAnimationFrame(syncDockGestureShield),{passive:true});
+requestAnimationFrame(()=>requestAnimationFrame(syncDockGestureShield));
 function viewportRenderSize(){
   const r=container.getBoundingClientRect();
   return{
@@ -7473,6 +7541,7 @@ function syncPrimaryDockUI(){
 }
 function updateMobileDrawUI(){
   if(!MA_UNIFIED_UI)return;
+  requestAnimationFrame(syncDockGestureShield);
 
   const canSelect=selectModeAvailable();
 
