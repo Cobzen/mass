@@ -643,6 +643,18 @@ html.ma-unified-ui #maBottomDock *{
   -webkit-touch-callout:none !important;
 }
 
+/* v9.90 — middle controls use the same hard gesture ownership as joysticks. */
+html.ma-unified-ui #maModeBar,
+html.ma-unified-ui #maModeBar *,
+html.ma-unified-ui #maModeBar button{
+  touch-action:none !important;
+  overscroll-behavior:none !important;
+  -webkit-user-select:none !important;
+  user-select:none !important;
+  -webkit-touch-callout:none !important;
+  -webkit-user-drag:none !important;
+}
+
 /* LEFT / RIGHT: six controls stand vertically. */
 html.ma-unified-ui #maBottomDock.dock-vertical{
   flex-direction:column !important;
@@ -2612,6 +2624,44 @@ maDock?.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'&&e.cancela
 const maDockShield=document.getElementById('dockGestureShield');
 for(const type of ['touchstart','touchmove'])maDockShield?.addEventListener(type,e=>{if(e.cancelable)e.preventDefault();e.stopPropagation();},{capture:true,passive:false});
 for(const type of ['pointerdown','pointermove','pointerup','pointercancel'])maDockShield?.addEventListener(type,e=>{if(e.pointerType==='touch'){if(e.cancelable)e.preventDefault();e.stopPropagation();}},{capture:true,passive:false});
+
+// v9.90 — the four middle controls previously had different gesture lifecycles.
+// Give each one immediate pointer ownership, matching the joysticks. We do NOT
+// stop propagation here: the existing Add/Erase/Size/Select handlers still run.
+// We only prevent the native WebKit/host gesture from ever acquiring the touch.
+const MA_MIDDLE_GESTURE_IDS=['mobileSizeDrag','drawAddHoldBtn','drawEraseHoldBtn','selectHoldBtn'];
+for(const id of MA_MIDDLE_GESTURE_IDS){
+  const el=document.getElementById(id);if(!el)continue;
+  el.setAttribute('draggable','false');
+  el.addEventListener('pointerdown',e=>{
+    if(e.pointerType!=='touch')return;
+    if(e.cancelable)e.preventDefault();
+    try{el.setPointerCapture?.(e.pointerId);}catch(_){}
+  },{capture:true,passive:false});
+  el.addEventListener('pointermove',e=>{
+    if(e.pointerType==='touch'&&e.cancelable)e.preventDefault();
+  },{capture:true,passive:false});
+  el.addEventListener('pointerup',e=>{
+    if(e.pointerType!=='touch')return;
+    if(e.cancelable)e.preventDefault();
+    try{if(el.hasPointerCapture?.(e.pointerId))el.releasePointerCapture?.(e.pointerId);}catch(_){}
+  },{capture:true,passive:false});
+  el.addEventListener('pointercancel',e=>{
+    if(e.pointerType!=='touch')return;
+    if(e.cancelable)e.preventDefault();
+    try{if(el.hasPointerCapture?.(e.pointerId))el.releasePointerCapture?.(e.pointerId);}catch(_){}
+  },{capture:true,passive:false});
+  for(const type of ['touchstart','touchmove','touchend','touchcancel']){
+    el.addEventListener(type,e=>{if(e.cancelable)e.preventDefault();},{capture:true,passive:false});
+  }
+  for(const type of ['gesturestart','gesturechange','gestureend']){
+    el.addEventListener(type,e=>{if(e.cancelable)e.preventDefault();},{capture:true,passive:false});
+  }
+}
+const maModeBar=document.getElementById('maModeBar');
+for(const type of ['touchstart','touchmove','gesturestart','gesturechange']){
+  maModeBar?.addEventListener(type,e=>{if(e.cancelable)e.preventDefault();},{capture:true,passive:false});
+}
 document.addEventListener('touchstart',e=>{
   if(maNativeScrollAllowed(e.target))return;
   const bottom=maViewportBottomY();
