@@ -1515,6 +1515,16 @@ html.ma-unified-ui #shortcutLastInput{
     width:30px;min-width:30px;height:30px;min-height:30px;
   }
 }
+
+/* v9.91 — primary middle controls are app surfaces, not native buttons.
+   Keep every touch targeted at the same owning element, like the joysticks. */
+#maModeBar .primaryDockButton, #maModeBar .primaryDockButton *{
+  touch-action:none !important;
+  -webkit-user-select:none !important;
+  user-select:none !important;
+  -webkit-touch-callout:none !important;
+}
+#maModeBar .primaryDockButton *{pointer-events:none !important;}
 </style>
 
 
@@ -2433,21 +2443,21 @@ html.ma-unified-ui #maBottomDock.valueMode.dock-vertical #valuePalette{top:calc(
   </div>
 
   <div id="maModeBar" aria-label="Primary controls">
-    <button id="drawAddHoldBtn" class="holdToolButton primaryDockButton" aria-label="Add">
+    <div id="drawAddHoldBtn" class="holdToolButton primaryDockButton" role="button" tabindex="0" aria-label="Add">
       <span class="primaryLabel">ADD</span>
-    </button>
-    <button id="drawEraseHoldBtn" class="holdToolButton primaryDockButton" aria-label="Erase">
+    </div>
+    <div id="drawEraseHoldBtn" class="holdToolButton primaryDockButton" role="button" tabindex="0" aria-label="Erase">
       <span class="primaryLabel">ERASE</span>
-    </button>
+    </div>
 
-    <button id="mobileSizeDrag" class="brushSizeButton primaryDockButton" aria-label="Size">
+    <div id="mobileSizeDrag" class="brushSizeButton primaryDockButton" role="button" tabindex="0" aria-label="Size">
       <span class="brushSizePreview"><i id="brushSizeCircle"></i></span>
       <span class="primaryLabel"></span>
-    </button>
+    </div>
 
-    <button id="selectHoldBtn" class="holdToolButton primaryDockButton" aria-label="Select">
+    <div id="selectHoldBtn" class="holdToolButton primaryDockButton" role="button" tabindex="0" aria-label="Select">
       <span class="primaryLabel">SELECT</span>
-    </button>
+    </div>
   </div>
 
   <div id="lookJoystick" class="maJoystick lookJoystick" aria-label="Look joystick. Tap toggles outlines. Left Value, up Light, right Depth Fog, down Workspace.">
@@ -2635,20 +2645,22 @@ for(const id of MA_MIDDLE_GESTURE_IDS){
   el.setAttribute('draggable','false');
   el.addEventListener('pointerdown',e=>{
     if(e.pointerType!=='touch')return;
-    if(e.cancelable)e.preventDefault();
+    e.preventDefault();e.stopPropagation();
+    unifiedUIPointers.add(e.pointerId);
     try{el.setPointerCapture?.(e.pointerId);}catch(_){}
   },{capture:true,passive:false});
   el.addEventListener('pointermove',e=>{
-    if(e.pointerType==='touch'&&e.cancelable)e.preventDefault();
+    if(e.pointerType!=='touch')return;
+    e.preventDefault();e.stopPropagation();
   },{capture:true,passive:false});
   el.addEventListener('pointerup',e=>{
     if(e.pointerType!=='touch')return;
-    if(e.cancelable)e.preventDefault();
+    e.preventDefault();e.stopPropagation();
     try{if(el.hasPointerCapture?.(e.pointerId))el.releasePointerCapture?.(e.pointerId);}catch(_){}
   },{capture:true,passive:false});
   el.addEventListener('pointercancel',e=>{
     if(e.pointerType!=='touch')return;
-    if(e.cancelable)e.preventDefault();
+    e.preventDefault();e.stopPropagation();
     try{if(el.hasPointerCapture?.(e.pointerId))el.releasePointerCapture?.(e.pointerId);}catch(_){}
   },{capture:true,passive:false});
   for(const type of ['touchstart','touchmove','touchend','touchcancel']){
