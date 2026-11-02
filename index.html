@@ -2641,10 +2641,10 @@ function updateLighting(){
   sun.castShadow=lightState.shadowsEnabled;
   renderer.shadowMap.enabled=lightState.shadowsEnabled;
   const graphicShadow=viewMode==='shadow';
-  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-  sun.shadow.radius=graphicShadow?1:(lightState.hardShadows?1:3);
-  sun.shadow.bias=graphicShadow?-0.000035:-0.00008;
-  sun.shadow.normalBias=graphicShadow?0.001:0.018;
+  renderer.shadowMap.type=graphicShadow?THREE.PCFShadowMap:THREE.PCFSoftShadowMap;
+  sun.shadow.radius=graphicShadow?0:(lightState.hardShadows?1:3);
+  sun.shadow.bias=graphicShadow?0.00012:-0.00008;
+  sun.shadow.normalBias=graphicShadow?0.012:0.018;
   shadowCatcher.visible=lightState.shadowsEnabled;
   shadowCatcher.material.opacity=lightState.shadowOpacity;
 }
@@ -2877,9 +2877,9 @@ let selectHoldCancelTimer=null,selectHoldPointerCancelledForPen=false;
 let transformHoldCancelTimer=null,transformHoldPointerCancelledForPen=false;
 let selectModeHeld=false,selectModeHoldPointerId=null,selectModeHoldPointerType=null,desktopSelectArmed=false;
 let selectModeActive=false,selectButtonPress=null,desktopWindowSelectArmed=false;
-let selectElementMode='object';
-let selectElementPickerHeld=false,selectElementPickerPointerId=null,selectElementPickerChoice=null;
+let selectElementMode='object'; // internal: type of the currently selected geometry
 let selectedGeometryParts=new Map();
+let lastDirectSelectTap=null;
 let iphoneSelectPressPreview=false; // v8.51 — dark whenever the iPhone SELECT button is physically down
 const SELECT_BUTTON_HOLD_MS=280;
 const IPHONE_SELECT_HOLD_MS=160; // quicker temporary Multi Select on iPhone
@@ -3162,6 +3162,9 @@ const GRAPHIC_SUPERSAMPLE=1.5;
 const bwTarget=new THREE.WebGLRenderTarget(1,1,{samples:0});
 bwTarget.texture.minFilter=THREE.LinearFilter;
 bwTarget.texture.magFilter=THREE.LinearFilter;
+const bwMorphTarget=new THREE.WebGLRenderTarget(1,1,{samples:0});
+bwMorphTarget.texture.minFilter=THREE.NearestFilter;
+bwMorphTarget.texture.magFilter=THREE.NearestFilter;
 function updateGraphicTargetSize(){
   const draw=renderer.getDrawingBufferSize(new THREE.Vector2());
   const maxTex=renderer.capabilities.maxTextureSize||8192;
@@ -3170,6 +3173,7 @@ function updateGraphicTargetSize(){
   const scale=Math.min(1,maxTex/w,maxTex/h);
   w=Math.max(1,Math.round(w*scale));h=Math.max(1,Math.round(h*scale));
   bwTarget.setSize(w,h);
+  bwMorphTarget.setSize(w,h);
 }
 updateGraphicTargetSize();
 
@@ -3907,15 +3911,50 @@ async function exportAllScenesMoodPSDs(){
 
 syncSafeFrameUI();
 updateSafeFrame();
-const postScene=new THREE.Scene();
 const postCamera=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+const graphicQuadGeometry=new THREE.PlaneGeometry(2,2);
+const morphScene=new THREE.Scene();
+const morphDilateMat=new THREE.ShaderMaterial({
+  uniforms:{tDiffuse:{value:bwTarget.texture},uThreshold:{value:0.28},uTexel:{value:new THREE.Vector2(1,1)}},
+  depthTest:false,depthWrite:false,
+  vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }`,
+  fragmentShader:`uniform sampler2D tDiffuse; uniform float uThreshold; uniform vec2 uTexel; varying vec2 vUv;
+    float sourceBW(vec2 uv){ vec3 c=texture2D(tDiffuse,uv).rgb; float lum=dot(c,vec3(0.299,0.587,0.114)); lum=pow(clamp(lum,0.0,1.0),0.9); return step(uThreshold,lum); }
+    void main(){
+      float outBW=1.0;
+      for(int y=-2;y<=2;y++){
+        for(int x=-2;x<=2;x++){
+          vec2 o=vec2(float(x),float(y))*uTexel;
+          outBW=min(outBW,sourceBW(vUv+o));
+        }
+      }
+      gl_FragColor=vec4(vec3(outBW),1.0);
+    }`
+});
+morphScene.add(new THREE.Mesh(graphicQuadGeometry,morphDilateMat));
+
+const postScene=new THREE.Scene();
 const postMat=new THREE.ShaderMaterial({
-  uniforms:{tDiffuse:{value:bwTarget.texture},uThreshold:{value:0.28},uTransparentBackground:{value:0}},
+  uniforms:{tDiffuse:{value:bwMorphTarget.texture},uThreshold:{value:0.28},uTransparentBackground:{value:0},uTexel:{value:new THREE.Vector2(1,1)}},
   depthTest:false,depthWrite:false,transparent:true,
   vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }`,
-  fragmentShader:`uniform sampler2D tDiffuse; uniform float uThreshold; uniform float uTransparentBackground; varying vec2 vUv; void main(){ vec4 sampleColor=texture2D(tDiffuse,vUv); float lum=dot(sampleColor.rgb,vec3(0.299,0.587,0.114)); lum=pow(clamp(lum,0.0,1.0),0.9); float aa=max(fwidth(lum)*1.15,0.0025); float bw=smoothstep(uThreshold-aa,uThreshold+aa,lum); if(uTransparentBackground>0.5){ gl_FragColor=vec4(vec3(0.0),1.0-bw); } else { gl_FragColor=vec4(vec3(bw),1.0); } }`
+  fragmentShader:`uniform sampler2D tDiffuse; uniform float uTransparentBackground; uniform vec2 uTexel; varying vec2 vUv;
+    void main(){
+      float bw=0.0;
+      for(int y=-2;y<=2;y++){
+        for(int x=-2;x<=2;x++){
+          vec2 o=vec2(float(x),float(y))*uTexel;
+          bw=max(bw,texture2D(tDiffuse,vUv+o).r);
+        }
+      }
+      bw=step(0.5,bw);
+      if(uTransparentBackground>0.5) gl_FragColor=vec4(vec3(0.0),1.0-bw);
+      else gl_FragColor=vec4(vec3(bw),1.0);
+    }`
 });
-postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),postMat));
+postScene.add(new THREE.Mesh(graphicQuadGeometry,postMat));
+morphDilateMat.uniforms.uTexel.value.set(1/Math.max(1,bwTarget.width),1/Math.max(1,bwTarget.height));
+postMat.uniforms.uTexel.value.set(1/Math.max(1,bwMorphTarget.width),1/Math.max(1,bwMorphTarget.height));
 const depthPassMaterial=new THREE.ShaderMaterial({
   uniforms:{uNear:{value:depthViewState.near},uFar:{value:depthViewState.far}},
   side:THREE.FrontSide,
@@ -4027,9 +4066,17 @@ function renderViewport(){
     }
     return;
   }
-  // In shadow mode, hide helper overlays during the graphic pass.
-  const gridWasVisible=groundGrid.visible;groundGrid.visible=false;
-  const edgeStates=masses.map(m=>m.edges.visible);masses.forEach(m=>m.edges.visible=false);
+  // LIGHT is a pure graphic black/white pass. Render only source-of-truth mass
+  // meshes plus the shadow catcher. Selection overlays, sub-object highlights,
+  // guides, grids, outlines, workplanes and preview geometry must never leak into
+  // the threshold pass.
+  const lightPassMassMeshes=new Set(masses.map(m=>m.mesh).filter(Boolean));
+  const hiddenRenderables=[];
+  scene.traverse(o=>{
+    if(!(o.isMesh||o.isLine||o.isPoints||o.isSprite))return;
+    const keep=lightPassMassMeshes.has(o)||o===shadowCatcher;
+    if(!keep&&o.visible){hiddenRenderables.push(o);o.visible=false;}
+  });
   const oldClearColor=new THREE.Color();
   renderer.getClearColor(oldClearColor);
   const oldClearAlpha=renderer.getClearAlpha();
@@ -4038,9 +4085,20 @@ function renderViewport(){
   renderer.setRenderTarget(bwTarget);
   renderer.clear();
   renderer.render(scene,camera);
+
+  // True binary morphological close: dilate black foreground, then erode it back.
+  // This seals 1-3 px raster seams where separate touching masses meet without
+  // permanently expanding the exterior silhouette.
+  morphDilateMat.uniforms.uThreshold.value=postMat.uniforms.uThreshold.value;
+  morphDilateMat.uniforms.uTexel.value.set(1/Math.max(1,bwTarget.width),1/Math.max(1,bwTarget.height));
+  renderer.setRenderTarget(bwMorphTarget);
+  renderer.setClearColor(0xffffff,1);
+  renderer.clear();
+  renderer.render(morphScene,postCamera);
+
   renderer.setRenderTarget(null);
-  groundGrid.visible=gridWasVisible;
-  masses.forEach((m,i)=>m.edges.visible=edgeStates[i]);
+  postMat.uniforms.uTexel.value.set(1/Math.max(1,bwMorphTarget.width),1/Math.max(1,bwMorphTarget.height));
+  for(const o of hiddenRenderables)o.visible=true;
   renderer.setClearColor(transparentExportActive?0x000000:0xffffff,transparentExportActive?0:1);
   renderer.clear();
   renderer.render(postScene,postCamera);
@@ -5267,7 +5325,7 @@ function serializeProject(){
       viewSettings:serializeViewSettings(),
       safeFrame:{...safeFrameState},
       scenes:{items:savedScenes.map(s=>({id:s.id,name:s.name,view:s.view})),activeSceneId,nextSceneId},
-      settings:{activeDepth,brushWidth:brushWidthValue,brushDepth:brushDepthValue,randomBrushSizeMode,drawMode,outlinesEnabled,mirrorModeX,streamlineAmount,valueLevelSelected,selectElementMode}
+      settings:{activeDepth,brushWidth:brushWidthValue,brushDepth:brushDepthValue,randomBrushSizeMode,drawMode,outlinesEnabled,mirrorModeX,streamlineAmount,valueLevelSelected}
     }
   };
 }
@@ -6263,8 +6321,7 @@ function loadProjectObject(project,{fromAutosave=false}={}){
     valueLevelSelected=clamp(Math.round(+s.settings.valueLevelSelected),0,VALUE_LEVEL_COUNT-1);
   }
   valueBucketMode='object';
-  if(s.settings&&['vertex','line','face','object'].includes(s.settings.selectElementMode))selectElementMode=s.settings.selectElementMode;
-  else selectElementMode='object';
+  selectElementMode='object';
   syncValuePalette?.();
 
   if(s.workplane){
@@ -6602,14 +6659,10 @@ function selectTopology(m){
 }
 function geometryPartIndices(m,part){
   const topo=selectTopology(m);if(!topo||!part)return new Set();
-  const out=new Set();
-  if(part.mode==='vertex'){
-    for(const id of part.elements){const rec=topo.repGroups.get(+id);if(rec)rec.indices.forEach(i=>out.add(i));}
-  }else if(part.mode==='line'){
-    for(const id of part.elements){const e=topo.edgeById.get(id);if(!e)continue;for(const key of [e.ka,e.kb])topo.groups.get(key)?.indices?.forEach(i=>out.add(i));}
-  }else if(part.mode==='face'){
-    for(const id of part.elements){const f=topo.faces[+id];if(!f)continue;for(const rep of f.reps)topo.repGroups.get(rep)?.indices?.forEach(i=>out.add(i));}
-  }
+  const out=new Set(),components=part.components||{};
+  for(const id of components.vertex||[]){const rec=topo.repGroups.get(+id);if(rec)rec.indices.forEach(i=>out.add(i));}
+  for(const id of components.line||[]){const e=topo.edgeById.get(id);if(!e)continue;for(const key of [e.ka,e.kb])topo.groups.get(key)?.indices?.forEach(i=>out.add(i));}
+  for(const id of components.face||[]){const f=topo.faces[+id];if(!f)continue;for(const rep of f.reps)topo.repGroups.get(rep)?.indices?.forEach(i=>out.add(i));}
   return out;
 }
 function refreshSelectedGeometryPartIndices(){
@@ -6621,20 +6674,17 @@ function refreshSelectedGeometryPartIndices(){
 }
 function syncSelectGeometryHighlight(){
   clearSelectGeometryHighlight();
-  if(selectElementMode==='object'||!selectedGeometryParts.size)return;
+  if(!selectedGeometryParts.size)return;
   refreshSelectedGeometryPartIndices();
   const pts=[],lines=[],faces=[];
   for(const [massId,part] of selectedGeometryParts){
     const m=massById(massId),topo=m&&selectTopology(m);if(!m||!topo)continue;
+    const components=part.components||{};
     m.mesh.updateWorldMatrix(true,false);
-    if(part.mode==='vertex'){
-      for(const id of part.elements){const rec=topo.repGroups.get(+id);if(!rec)continue;const w=m.mesh.localToWorld(rec.local.clone());pts.push(w.x,w.y,w.z);}
-    }else if(part.mode==='line'){
-      for(const id of part.elements){const e=topo.edgeById.get(id);if(!e)continue;const a=m.mesh.localToWorld(e.a.clone()),b=m.mesh.localToWorld(e.b.clone());lines.push(a.x,a.y,a.z,b.x,b.y,b.z);}
-    }else if(part.mode==='face'){
-      const pos=m.mesh.geometry.attributes.position,index=m.mesh.geometry.index;
-      for(const id of part.elements){const f=topo.faces[+id];if(!f)continue;for(const t of f.triangles){for(let k=0;k<3;k++){const vi=index?index.getX(t*3+k):t*3+k;const w=new THREE.Vector3().fromBufferAttribute(pos,vi).applyMatrix4(m.mesh.matrixWorld);faces.push(w.x,w.y,w.z);}}}
-    }
+    for(const id of components.vertex||[]){const rec=topo.repGroups.get(+id);if(!rec)continue;const w=m.mesh.localToWorld(rec.local.clone());pts.push(w.x,w.y,w.z);}
+    for(const id of components.line||[]){const e=topo.edgeById.get(id);if(!e)continue;const a=m.mesh.localToWorld(e.a.clone()),b=m.mesh.localToWorld(e.b.clone());lines.push(a.x,a.y,a.z,b.x,b.y,b.z);}
+    const pos=m.mesh.geometry.attributes.position,index=m.mesh.geometry.index;
+    for(const id of components.face||[]){const f=topo.faces[+id];if(!f)continue;for(const t of f.triangles){for(let k=0;k<3;k++){const vi=index?index.getX(t*3+k):t*3+k;const w=new THREE.Vector3().fromBufferAttribute(pos,vi).applyMatrix4(m.mesh.matrixWorld);faces.push(w.x,w.y,w.z);}}}
   }
   if(faces.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(faces,3));const o=new THREE.Mesh(g,selectFaceHighlightMaterial);o.renderOrder=1798;selectGeometryHighlightGroup.add(o);}
   if(lines.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(lines,3));const o=new THREE.LineSegments(g,selectLineHighlightMaterial);o.renderOrder=1800;selectGeometryHighlightGroup.add(o);}
@@ -6644,20 +6694,6 @@ function clearSelectedGeometryParts({keepMassSelection=false}={}){
   selectedGeometryParts.clear();clearSelectGeometryHighlight();
   if(!keepMassSelection&&selectedMasses().length)setSelection([]);
 }
-function setSelectElementMode(mode,{announce=true,autosave=true}={}){
-  const next=['vertex','line','face','object'].includes(mode)?mode:'object';
-  if(next!==selectElementMode){
-    selectElementMode=next;
-    selectedGeometryParts.clear();clearSelectGeometryHighlight();
-    if(selectedMasses().length)setSelection([]);
-    transformHoldMode=null;desktopTransformArmed=false;transformHoldReleasePending=false;
-    finalizeRotatePivot(false);setSelectionGizmosEnabled(false);
-  }
-  selectElementPickerChoice=next;
-  if(autosave)scheduleAutosave();
-  updateMobileDrawUI();
-  if(announce)showToast(`SELECT · ${selectElementModeLabel(next)}`);
-}
 function nearestSelectComponent(x,y,m,mode=selectElementMode){
   if(!m)return null;const topo=selectTopology(m);if(!topo)return null;
   m.group.updateMatrixWorld(true);const mouse=vec2(x,y);let best=null,bestPx=Infinity;
@@ -6666,7 +6702,7 @@ function nearestSelectComponent(x,y,m,mode=selectElementMode){
     return best;
   }
   if(mode==='line'){
-    for(const e of topo.edges){const a=m.group.localToWorld(e.a.clone()),b=m.group.localToWorld(e.b.clone()),wp=closestPointOnWorldEdgeFromCursor(x,y,a,b),d=worldToClient(wp).distanceTo(mouse);if(d<19&&d<bestPx&&visibleOnMass(wp,m)){best={mode:'line',id:e.id,point:wp.clone()};bestPx=d;}}
+    for(const e of topo.edges){const a=m.group.localToWorld(e.a.clone()),b=m.group.localToWorld(e.b.clone()),wp=closestPointOnWorldEdgeFromCursor(x,y,a,b),d=worldToClient(wp).distanceTo(mouse);if(d<16&&d<bestPx&&visibleOnMass(wp,m)){best={mode:'line',id:e.id,point:wp.clone()};bestPx=d;}}
     return best;
   }
   if(mode==='face'){
@@ -6674,19 +6710,36 @@ function nearestSelectComponent(x,y,m,mode=selectElementMode){
   }
   return{mode:'object',id:String(m.id),point:null};
 }
+function automaticSelectComponentAt(x,y,m){
+  if(!m)return null;
+  // SketchUp-like direct selection: precise small targets win before surfaces.
+  return nearestSelectComponent(x,y,m,'vertex')||nearestSelectComponent(x,y,m,'line')||nearestSelectComponent(x,y,m,'face');
+}
 function geometryComponentIsSelected(m,component){
-  if(!m||!component||component.mode==='object')return isSelectedMass(m);
-  const part=selectedGeometryParts.get(m.id);return !!(part&&part.mode===component.mode&&part.elements.has(String(component.id)));
+  if(!m||!component||component.mode==='object')return isSelectedMass(m)&&!selectedGeometryParts.size;
+  const part=selectedGeometryParts.get(m.id),set=part?.components?.[component.mode];
+  return !!(set&&set.has(String(component.id)));
+}
+function selectionTargetIsSelectedAt(m,x,y){
+  if(!m)return false;
+  if(!selectedGeometryParts.size&&isSelectedMass(m))return true;
+  const component=automaticSelectComponentAt(x,y,m);
+  return !!component&&geometryComponentIsSelected(m,component);
 }
 function selectGeometryComponent(m,component,{additive=false}={}){
   if(!m||!component)return false;
-  if(component.mode==='object'){selectedGeometryParts.clear();clearSelectGeometryHighlight();selectInteractive(m,additive);return true;}
+  if(component.mode==='object'){
+    selectedGeometryParts.clear();clearSelectGeometryHighlight();selectElementMode='object';selectInteractive(m,additive);return true;
+  }
+  selectElementMode=component.mode;
   if(!additive)selectedGeometryParts.clear();
   let part=selectedGeometryParts.get(m.id);
-  if(!part||part.mode!==component.mode){part={mode:component.mode,elements:new Set(),indices:new Set()};selectedGeometryParts.set(m.id,part);}
-  const id=String(component.id);
-  if(additive&&part.elements.has(id))part.elements.delete(id);else part.elements.add(id);
-  if(!part.elements.size)selectedGeometryParts.delete(m.id);
+  if(!part){part={components:{vertex:new Set(),line:new Set(),face:new Set()},indices:new Set()};selectedGeometryParts.set(m.id,part);}
+  if(!part.components)part.components={vertex:new Set(),line:new Set(),face:new Set()};
+  for(const mode of ['vertex','line','face'])if(!(part.components[mode] instanceof Set))part.components[mode]=new Set(part.components[mode]||[]);
+  const set=part.components[component.mode],id=String(component.id);
+  if(additive&&set.has(id))set.delete(id);else set.add(id);
+  if(!['vertex','line','face'].some(mode=>part.components[mode].size))selectedGeometryParts.delete(m.id);
   refreshSelectedGeometryPartIndices();
   setSelection(masses.filter(x=>selectedGeometryParts.has(x.id)));
   syncSelectGeometryHighlight();
@@ -6696,10 +6749,45 @@ function selectGeometryComponent(m,component,{additive=false}={}){
   return true;
 }
 function selectByElementModeAt(m,x,y,additive=false){
-  if(!m)return false;
-  if(selectElementMode==='object'){selectedGeometryParts.clear();clearSelectGeometryHighlight();selectInteractive(m,additive);return true;}
-  const component=nearestSelectComponent(x,y,m,selectElementMode);if(!component)return false;
+  const component=automaticSelectComponentAt(x,y,m);if(!component)return false;
   return selectGeometryComponent(m,component,{additive});
+}
+function directSelectTap(m,x,y,{additive=false,pointerType='touch'}={}){
+  if(!m)return false;
+  const now=performance.now();
+  const prev=lastDirectSelectTap;
+  const isDouble=!!(prev&&prev.massId===m.id&&prev.pointerType===pointerType&&now-prev.time<=420&&Math.hypot(x-prev.x,y-prev.y)<=28);
+  if(isDouble){
+    lastDirectSelectTap=null;
+    selectedGeometryParts.clear();clearSelectGeometryHighlight();selectElementMode='object';
+
+    if(additive){
+      // IMPORTANT: the first tap of a double-tap may already have selected a
+      // Vertex/Line/Face. Multi Object must be based on the selection that
+      // existed BEFORE that first tap, otherwise holding SELECT cannot reliably
+      // double-tap several whole objects into one selection.
+      const ids=new Set(Array.isArray(prev.objectBaseIds)?prev.objectBaseIds:[]);
+      const members=groupMembers(m);
+      const allIn=members.every(x=>ids.has(x.id));
+      for(const x of members){if(allIn)ids.delete(x.id);else ids.add(x.id);}
+      setSelection(masses.filter(x=>ids.has(x.id)));
+    }else{
+      selectInteractive(m,false);
+    }
+
+    moveArmed=selectedMasses().length>0;selectTransformMode=moveArmed?'move':'select';
+    syncRotateGizmo();updateMobileDrawUI();showToast(additive?'OBJECT · MULTI':'OBJECT');
+    return true;
+  }
+
+  // Snapshot whole-object hosts before the first additive tap mutates the
+  // sub-selection. If a second tap follows, this becomes the authoritative
+  // starting point for Multi Object.
+  lastDirectSelectTap={
+    massId:m.id,time:now,x,y,pointerType,
+    objectBaseIds:additive?selectedMasses().map(x=>x.id):null
+  };
+  return selectByElementModeAt(m,x,y,additive);
 }
 function selectedGeometryIndicesByMass(){refreshSelectedGeometryPartIndices();const out=new Map();for(const [id,part] of selectedGeometryParts)if(part.indices?.size)out.set(id,new Set(part.indices));return out;}
 function selectedGeometryWorldCenter(){
@@ -6708,52 +6796,8 @@ function selectedGeometryWorldCenter(){
   return any?box.getCenter(new THREE.Vector3()):null;
 }
 
-const SELECT_ELEMENT_PICKER_SLOTS=[
-  ['mobileSizeDrag','vertex'],
-  ['drawAddHoldBtn','line'],
-  ['drawEraseHoldBtn','face'],
-  ['selectHoldBtn','object']
-];
-function selectElementPickerChoiceAt(x,y){
-  let best=null,bestD=Infinity;
-  for(const [id,mode] of SELECT_ELEMENT_PICKER_SLOTS){
-    const el=document.getElementById(id);if(!el)continue;const r=el.getBoundingClientRect();
-    const cx=(r.left+r.right)/2,cy=(r.top+r.bottom)/2,d=Math.hypot(x-cx,y-cy);
-    if(d<bestD){bestD=d;best=mode;}
-  }
-  return bestD<=Math.max(52,(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ma-control-size'))||58)*1.05)?best:null;
-}
-function beginSelectElementPicker(e){
-  if(!selectModeAvailable())return false;
-  if(!selectModeActive)activateSelectMode();
-  selectElementPickerHeld=true;
-  selectElementPickerPointerId=e?.pointerId??null;
-  selectElementPickerChoice=selectElementMode;
-  selectModeHeld=false;selectModeHoldPointerId=null;selectModeHoldPointerType=null;
-  clearSelectHoldCancelTimer();selectHoldPointerCancelledForPen=false;
-  updateMobileDrawUI();
-  showToast(`SELECT TYPE · ${selectElementModeLabel(selectElementMode)}`);
-  return true;
-}
-function updateSelectElementPicker(e){
-  if(!selectElementPickerHeld)return false;
-  if(selectElementPickerPointerId!=null&&e?.pointerId!=null&&e.pointerId!==selectElementPickerPointerId)return false;
-  const choice=selectElementPickerChoiceAt(e.clientX,e.clientY);
-  if(choice&&choice!==selectElementPickerChoice){selectElementPickerChoice=choice;updateMobileDrawUI();}
-  return true;
-}
-function endSelectElementPicker(e=null,cancel=false){
-  if(!selectElementPickerHeld)return false;
-  if(e&&selectElementPickerPointerId!=null&&e.pointerId!==selectElementPickerPointerId)return false;
-  if(e)updateSelectElementPicker(e);
-  const choice=cancel?selectElementMode:(selectElementPickerChoice||selectElementMode);
-  selectElementPickerHeld=false;selectElementPickerPointerId=null;selectElementPickerChoice=null;
-  setSelectElementMode(choice,{announce:!cancel,autosave:!cancel});
-  updateMobileDrawUI();
-  return true;
-}
-function groupSelected(){if(selectElementMode!=='object'&&selectedGeometryParts.size){showToast('GROUP · OBJECT MODE');return;}const sel=selectedMasses();if(sel.length<2)return;const gid=nextGroupId++;for(const m of sel)m.groupId=gid;setSelection(sel);recordHistory();}
-function ungroupSelected(){if(selectElementMode!=='object'&&selectedGeometryParts.size){showToast('UNGROUP · OBJECT MODE');return;}const sel=selectedMasses();if(!sel.length)return;let changed=false;for(const m of sel){if(m.groupId!=null){m.groupId=null;changed=true;}}if(changed){setSelection(sel);recordHistory();}}
+function groupSelected(){if(selectedGeometryParts.size){showToast('GROUP · OBJECT ONLY');return;}const sel=selectedMasses();if(sel.length<2)return;const gid=nextGroupId++;for(const m of sel)m.groupId=gid;setSelection(sel);recordHistory();}
+function ungroupSelected(){if(selectedGeometryParts.size){showToast('UNGROUP · OBJECT ONLY');return;}const sel=selectedMasses();if(!sel.length)return;let changed=false;for(const m of sel){if(m.groupId!=null){m.groupId=null;changed=true;}}if(changed){setSelection(sel);recordHistory();}}
 function raycastMasses(x,y,ignore=null){setPointerXY(x,y);const ignored=ignore instanceof Set?ignore:new Set(ignore?[ignore]:[]);const meshes=masses.filter(m=>!ignored.has(m)).map(m=>m.mesh);return ray.intersectObjects(meshes,false)[0]||null;}
 function raycastSelectedMasses(x,y){
   const sel=selectedMasses();
@@ -7373,29 +7417,20 @@ function syncPrimaryDockUI(){
     return;
   }
 
-  if(selectElementPickerHeld){
-    const shown=selectElementPickerChoice||selectElementMode;
-    setPrimaryDockButtonVisual(b3,'VERTEX',{active:shown==='vertex'});
-    setPrimaryDockButtonVisual(b1,'LINE',{active:shown==='line'});
-    setPrimaryDockButtonVisual(b2,'FACE',{active:shown==='face'});
-    setPrimaryDockButtonVisual(b4,'OBJECT',{active:shown==='object'});
-    return;
-  }
-
   if(mode==='select'){
     setPrimaryDockButtonVisual(b1,'SCALE',{active:transformHoldMode==='scale'});
     setPrimaryDockButtonVisual(b2,'ROTATE',{active:transformHoldMode==='rotate'});
     setPrimaryDockButtonVisual(b3,'DUP');
     // In iPad Pencil mode SELECT is a Single/Multi mode toggle, not an active
     // modelling tool. Multi is shown by the dedicated grey state below.
-    setPrimaryDockButtonVisual(b4,selectElementModeLabel(),{active:!(MA_IS_IPHONE||(MA_IS_IPAD&&ipadPencilMode))});
+    setPrimaryDockButtonVisual(b4,'SELECT',{active:!(MA_IS_IPHONE||(MA_IS_IPAD&&ipadPencilMode))});
     return;
   }
 
   setPrimaryDockButtonVisual(b1,'ADD',{active:currentAppMode()==='draw'&&drawHoldAction==='add'});
   setPrimaryDockButtonVisual(b2,'ERASE',{active:currentAppMode()==='draw'&&drawHoldAction==='erase'});
   setPrimaryDockButtonVisual(b3,'',{size:true});
-  setPrimaryDockButtonVisual(b4,selectModeActive?selectElementModeLabel():'SELECT',{active:selectModeActive||selectModeHeld});
+  setPrimaryDockButtonVisual(b4,'SELECT',{active:selectModeActive||selectModeHeld});
   if(b4){b4.style.removeProperty('background');b4.style.removeProperty('color');}
   syncValuePalette?.();
 }
@@ -7460,10 +7495,7 @@ function updateMobileDrawUI(){
     !(MA_IS_IPAD&&ipadPencilMode)&&
     (selectModeActive||selectModeHeld||desktopSelectArmed||desktopWindowSelectArmed)
   );
-  selectBtn?.classList.toggle(
-    'pencilMultiSelect',
-    !!(MA_IS_IPAD&&ipadPencilMode&&ipadPencilMultiSelect&&canSelect&&(dockMode==='base'||dockMode==='select'))
-  );
+  selectBtn?.classList.remove('pencilMultiSelect');
   const iphoneSelectVisual=!!(MA_IS_IPHONE&&canSelect&&(dockMode==='base'||dockMode==='select'));
   selectBtn?.classList.toggle('iphoneSelectPressPreview',iphoneSelectVisual&&iphoneSelectPressPreview);
   selectBtn?.classList.toggle('iphoneSelectMultiHold',iphoneSelectVisual&&selectModeHeld&&!iphoneSelectPressPreview);
@@ -9413,13 +9445,13 @@ function updateSelectMoveHover(x,y){
   if(activeTool!=='select'||interaction||transformDragging){if(!interaction)clearSnapVisual();return;}
   const hit=raycastMoveTarget(x,y),m=massFromHit(hit);
   if(!m){clearSnapVisual();return;}
-  if(selectElementMode!=='object'){
-    const component=nearestSelectComponent(x,y,m,selectElementMode);
+  if(selectedGeometryParts.size){
+    const component=automaticSelectComponentAt(x,y,m);
     if(!component){clearSnapVisual();return;}
     if(component.mode==='vertex'){showSnapVisual({kind:'vertex',point:component.point});return;}
     if(component.mode==='line'){
-      const topo=selectTopology(m),e=topo?.edgeById?.get(component.id);
-      if(e){const a=m.group.localToWorld(e.a.clone()),b=m.group.localToWorld(e.b.clone());showSnapVisual({kind:'edge',point:component.point,a,b});return;}
+      const topo=selectTopology(m),edge=topo?.edgeById?.get(component.id);
+      if(edge){const a=m.group.localToWorld(edge.a.clone()),b=m.group.localToWorld(edge.b.clone());showSnapVisual({kind:'edge',point:component.point,a,b});return;}
     }
     clearSnapVisual();showInference('FACE');return;
   }
@@ -9430,7 +9462,7 @@ function updateSelectMoveHover(x,y){
 function beginMove(e){const hit=raycastMoveTarget(e.clientX,e.clientY),m=massFromHit(hit);if(!m)return;const members=selectionForMass(m);setSelection(members);const own=nearestOwnMoveSnap(e.clientX,e.clientY,m),grab=own?own.point.clone():hit.point.clone();const plane=new THREE.Plane().setFromNormalAndCoplanarPoint(workplane.n,grab),start=new THREE.Vector3();setPointerXY(e.clientX,e.clientY);ray.ray.intersectPlane(plane,start);const starts=new Map(members.map(x=>[x.id,x.group.position.clone()])),ignored=new Set(members);
   interaction={kind:'move',pointerId:e.pointerId,m,members,ignored,before:snapshot(),grab,startPlane:start.clone(),movePlane:plane,startPos:m.group.position.clone(),startPositions:starts,startClient:vec2(e.clientX,e.clientY),lastClient:vec2(e.clientX,e.clientY),sourceSnap:own,moveSnapCache:buildMoveSnapCache(ignored),autoAxis:null,moved:false};if(own)showSnapVisual(own);renderer.domElement.setPointerCapture?.(e.pointerId);}
 function beginAxisLockedMoveAnywhere(e,axis){
-  if(selectElementMode!=='object'&&selectedGeometryParts.size){
+  if(selectedGeometryParts.size){
     const grab=selectedGeometryWorldCenter();if(!grab||!(axis==='x'||axis==='y'||axis==='z'))return false;
     const byMass=selectedGeometryIndicesByMass(),parts=new Map();
     for(const [id,indices] of byMass){const m=massById(id),pos=m?.mesh?.geometry?.attributes?.position;if(!m||!pos)continue;parts.set(id,{m,indices:[...indices],startPositions:new Float32Array(pos.array)});}
@@ -9561,6 +9593,40 @@ function unlockActiveMoveAxis(){
   showMoveAxisDots(st,new THREE.Vector3());
   updateMobileDrawUI();
   return true;
+}
+
+function flushPendingGeometryMoveNow(){
+  if(rafGeometryMove){cancelAnimationFrame(rafGeometryMove);rafGeometryMove=0;}
+  if(pendingGeometryMove){const p=pendingGeometryMove;pendingGeometryMove=null;updateSelectedGeometryMoveAt(p.x,p.y);}
+}
+function rebaseActiveGeometryMoveAtCurrentPosition(){
+  const st=interaction;if(!st||st.kind!=='geometryMove')return false;
+  flushPendingGeometryMoveNow();
+  const pointer=st.lastClient?.clone?.()||st.startClient.clone();
+  const currentGrab=selectedGeometryWorldCenter()||st.grab.clone();
+  for(const rec of st.parts.values()){
+    const pos=rec.m?.mesh?.geometry?.attributes?.position;if(pos)rec.startPositions=new Float32Array(pos.array);
+  }
+  st.grab.copy(currentGrab);st.startClient.copy(pointer);st.autoAxis=null;
+  const n=new THREE.Vector3();camera.getWorldDirection(n).normalize();
+  st.movePlane=new THREE.Plane().setFromNormalAndCoplanarPoint(n,st.grab);
+  setPointerXY(pointer.x,pointer.y);
+  const p=ray.ray.intersectPlane(st.movePlane,new THREE.Vector3());st.startPlane.copy(p||st.grab);
+  return true;
+}
+function lockActiveGeometryMoveToAxis(axis,joystickState=null){
+  if(!(axis==='x'||axis==='y'||axis==='z'))return false;
+  const st=interaction;if(!st||st.kind!=='geometryMove')return false;
+  if(axisLock!==axis&&!rebaseActiveGeometryMoveAtCurrentPosition())return false;
+  axisLock=axis;st.midMoveAxisLock=axis;st.autoAxis=null;
+  if(joystickState)joystickState.usedAsLock=true;
+  showMoveAxisGuide(st,axis,new THREE.Vector3());updateMobileDrawUI();showToast(`${axis.toUpperCase()} LOCK`);return true;
+}
+function unlockActiveGeometryMoveAxis(){
+  const st=interaction;
+  if(!st||st.kind!=='geometryMove'||!st.midMoveAxisLock){axisLock=null;return false;}
+  rebaseActiveGeometryMoveAtCurrentPosition();st.midMoveAxisLock=null;axisLock=null;
+  clearSnapVisual();showMoveAxisDots(st,new THREE.Vector3());updateMobileDrawUI();return true;
 }
 
 function beginMobileNavMove(e){
@@ -9712,10 +9778,11 @@ function endMove(){
 // --- Select sub-elements: move selected vertex / line / face geometry ----------
 let pendingGeometryMove=null,rafGeometryMove=0;
 function beginSelectedGeometryMove(e){
-  if(selectElementMode==='object'||!selectedGeometryParts.size)return false;
+  if(!selectedGeometryParts.size)return false;
   const hit=raycastMasses(e.clientX,e.clientY),m=massFromHit(hit);if(!m)return false;
-  const component=nearestSelectComponent(e.clientX,e.clientY,m,selectElementMode);
+  const component=automaticSelectComponentAt(e.clientX,e.clientY,m);
   if(!component||!geometryComponentIsSelected(m,component))return false;
+  selectElementMode=component.mode;
   const byMass=selectedGeometryIndicesByMass();if(!byMass.size)return false;
   const viewNormal=new THREE.Vector3();camera.getWorldDirection(viewNormal);
   const grab=component.point?.clone()||hit.point.clone();
@@ -9742,6 +9809,7 @@ function applySelectedGeometryMove(st,worldDelta){
 }
 function updateSelectedGeometryMoveAt(x,y){
   const st=interaction;if(!st||st.kind!=='geometryMove')return;
+  st.lastClient=vec2(x,y);
   const lock=axisLock;let delta;
   if(lock){st.autoAxis=null;delta=axisMoveDelta(st,x,y,lock);showMoveAxisGuide(st,lock,delta);}
   else{const inferred=inferMoveAxis(st,x,y);if(inferred){delta=axisMoveDelta(st,x,y,inferred);showMoveAxisGuide(st,inferred,delta);}else{clearSnapVisual();setPointerXY(x,y);const p=ray.ray.intersectPlane(st.movePlane,new THREE.Vector3());if(!p)return;delta=p.sub(st.startPlane);showInference('FREE');}}
@@ -9749,19 +9817,21 @@ function updateSelectedGeometryMoveAt(x,y){
 }
 function scheduleSelectedGeometryMove(x,y){pendingGeometryMove={x,y};if(rafGeometryMove)return;rafGeometryMove=requestAnimationFrame(()=>{rafGeometryMove=0;const p=pendingGeometryMove;pendingGeometryMove=null;if(p)updateSelectedGeometryMoveAt(p.x,p.y);});}
 function rebuildSelectedGeometryElementsFromIndices(){
-  for(const [id,part] of selectedGeometryParts){
-    const m=massById(id),topo=m&&selectTopology(m);if(!m||!topo)continue;const selected=new Set(part.indices||[]),els=new Set();
-    if(part.mode==='vertex'){for(const rep of topo.vertexEndpointReps||[]){const rec=topo.repGroups.get(rep);if(rec?.indices.some(i=>selected.has(i)))els.add(String(rec.rep));}}
-    else if(part.mode==='line'){for(const e of topo.edges){const a=topo.groups.get(e.ka),b=topo.groups.get(e.kb);if(a?.indices.some(i=>selected.has(i))&&b?.indices.some(i=>selected.has(i)))els.add(e.id);}}
-    else if(part.mode==='face'){for(const f of topo.faces){let any=false,all=true;for(const rep of f.reps){const rec=topo.repGroups.get(rep),has=!!rec?.indices.some(i=>selected.has(i));any=any||has;all=all&&has;}if(any&&all)els.add(String(f.id));}}
-    part.elements=els;
+  for(const [id,part] of [...selectedGeometryParts]){
+    const m=massById(id),topo=m&&selectTopology(m);if(!m||!topo){selectedGeometryParts.delete(id);continue;}
+    const c=part.components||{vertex:new Set(),line:new Set(),face:new Set()};
+    c.vertex=new Set([...(c.vertex||[])].filter(v=>topo.vertexEndpointReps?.has(+v)));
+    c.line=new Set([...(c.line||[])].filter(v=>topo.edgeById?.has(String(v))));
+    c.face=new Set([...(c.face||[])].filter(v=>+v>=0&&+v<topo.faces.length));
+    part.components=c;part.indices=geometryPartIndices(m,part);
+    if(!c.vertex.size&&!c.line.size&&!c.face.size)selectedGeometryParts.delete(id);
   }
 }
 function endSelectedGeometryMove(){
   const st=interaction;if(!st||st.kind!=='geometryMove')return;
   if(rafGeometryMove){cancelAnimationFrame(rafGeometryMove);rafGeometryMove=0;}if(pendingGeometryMove){const p=pendingGeometryMove;pendingGeometryMove=null;updateSelectedGeometryMoveAt(p.x,p.y);}
   mobileMovePointerId=null;penActive=false;
-  if(st.changed&&[...st.parts.values()].some(rec=>!geometryTrianglesValid(rec.m.mesh.geometry))){
+  if(st.changed&&[...st.parts.values()].some(rec=>!geometryTrianglesValid(rec.m.mesh.geometry,rec.startPositions))){
     interaction=null;clearSnapVisual();clearMoveAxisDots();axisLock=null;restoreState(st.before);showToast('MOVE FAILED · RESTORED');return;
   }
   if(st.changed){
@@ -9940,17 +10010,31 @@ function scheduleModify(x,y){
   });
 }
 
-function geometryTrianglesValid(g){
+function geometryTrianglesValid(g,startPositions=null){
   const pos=g?.attributes?.position;if(!pos||pos.count<3)return false;
   g.computeBoundingBox();
   const diag=Math.max(1e-5,g.boundingBox.getSize(new THREE.Vector3()).length());
   const minArea2=diag*diag*1e-12;
+  const hasBaseline=!!startPositions&&startPositions.length===pos.count*3;
+  const oldA=new THREE.Vector3(),oldB=new THREE.Vector3(),oldC=new THREE.Vector3();
+  const a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3();
   for(let i=0;i+2<pos.count;i+=3){
-    const a=new THREE.Vector3().fromBufferAttribute(pos,i);
-    const b=new THREE.Vector3().fromBufferAttribute(pos,i+1);
-    const c=new THREE.Vector3().fromBufferAttribute(pos,i+2);
+    a.fromBufferAttribute(pos,i);b.fromBufferAttribute(pos,i+1);c.fromBufferAttribute(pos,i+2);
     if(!Number.isFinite(a.x+a.y+a.z+b.x+b.y+b.z+c.x+c.y+c.z))return false;
-    if(new THREE.Vector3().subVectors(b,a).cross(new THREE.Vector3().subVectors(c,a)).lengthSq()<minArea2)return false;
+    const newArea2=new THREE.Vector3().subVectors(b,a).cross(new THREE.Vector3().subVectors(c,a)).lengthSq();
+    if(newArea2>=minArea2)continue;
+
+    // Some authored Shape meshes can already contain a tiny/degenerate triangle
+    // from their original triangulation. A sub-element edit must not be rejected
+    // merely because that pre-existing triangle is still present. Roll back only
+    // when this edit collapses a triangle that was valid before the gesture.
+    if(!hasBaseline)return false;
+    oldA.set(startPositions[i*3],startPositions[i*3+1],startPositions[i*3+2]);
+    oldB.set(startPositions[(i+1)*3],startPositions[(i+1)*3+1],startPositions[(i+1)*3+2]);
+    oldC.set(startPositions[(i+2)*3],startPositions[(i+2)*3+1],startPositions[(i+2)*3+2]);
+    if(!Number.isFinite(oldA.x+oldA.y+oldA.z+oldB.x+oldB.y+oldB.z+oldC.x+oldC.y+oldC.z))return false;
+    const oldArea2=new THREE.Vector3().subVectors(oldB,oldA).cross(new THREE.Vector3().subVectors(oldC,oldA)).lengthSq();
+    if(oldArea2>=minArea2)return false;
   }
   return true;
 }
@@ -9961,7 +10045,7 @@ function endModify(){
   if(pendingModify){const p=pendingModify;pendingModify=null;updateModifyAt(p.x,p.y);}
 
   const m=st.m;
-  if(st.changed&&!geometryTrianglesValid(m.mesh.geometry)){
+  if(st.changed&&!geometryTrianglesValid(m.mesh.geometry,st.startPositions)){
     interaction=null;clearSnapVisual();axisLock=null;
     restoreState(st.before);
     showToast('MODIFY FAILED · RESTORED');
@@ -10106,7 +10190,7 @@ function syncRotateGizmo(){
 
   if(MA_UNIFIED_UI){
     const kind=transformHoldMode;
-    if(selectElementMode!=='object'&&selectedGeometryParts.size){
+    if(selectedGeometryParts.size){
       const center=selectedGeometryWorldCenter();
       if(!center||!(kind==='scale'||kind==='rotate')){
         if(!transformDragging)finalizeRotatePivot(false);
@@ -10226,7 +10310,7 @@ function beginSelectionTransform(kind){
     return false;
   }
   transformDragging=true;
-  if(selectElementMode!=='object'&&selectedGeometryParts.size){
+  if(selectedGeometryParts.size){
     const byMass=selectedGeometryIndicesByMass(),parts=new Map();
     for(const [id,indices] of byMass){const m=massById(id),pos=m?.mesh?.geometry?.attributes?.position;if(!m||!pos)continue;m.mesh.updateWorldMatrix(true,false);parts.set(id,{m,indices:[...indices],startPositions:new Float32Array(pos.array),startWorld:m.mesh.matrixWorld.clone(),startWorldInv:m.mesh.matrixWorld.clone().invert()});}
     selectionPivot.updateMatrixWorld(true);
@@ -10254,7 +10338,7 @@ function endSelectionTransform(){
   transformDragging=false;
   if(interaction&&(interaction.kind==='rotate'||interaction.kind==='scale')){
     const st=interaction;
-    if(st.subGeometry&&[...st.parts.values()].some(rec=>!geometryTrianglesValid(rec.m.mesh.geometry))){
+    if(st.subGeometry&&[...st.parts.values()].some(rec=>!geometryTrianglesValid(rec.m.mesh.geometry,rec.startPositions))){
       interaction=null;finalizeRotatePivot(false);restoreState(st.before);showToast('TRANSFORM FAILED · RESTORED');return;
     }
     if(st.subGeometry){
@@ -10292,7 +10376,7 @@ rotateTransform.addEventListener('mouseUp',endSelectionTransform);
 
 // --- Selection / editing --------------------------------------------------------
 function duplicateSelected(){
-  if(selectElementMode!=='object'&&selectedGeometryParts.size){showToast('DUPLICATE · OBJECT MODE');return;}
+  if(selectedGeometryParts.size){showToast('DUPLICATE · OBJECT ONLY');return;}
   const sel=selectedMasses();if(!sel.length)return;
 
   // Capture the authoritative scene BEFORE the copy is created. Duplicate is
@@ -10488,7 +10572,7 @@ function syncMirrorStateBeforeCommit(){
     syncRotateGizmo?.();
   }finally{mirrorSyncing=false;}
 }
-function deleteSelected(){if(selectElementMode!=='object'&&selectedGeometryParts.size){showToast('DELETE · OBJECT MODE');return;}const sel=selectedMasses();if(!sel.length)return;const wasSelectMode=!!selectModeActive;if(sel.some(m=>m.id===activeBrushContainerId))clearActiveBrushContainer();setSelection([]);for(const m of sel){const i=masses.indexOf(m);if(i>=0)masses.splice(i,1);disposeMass(m);}setSelectionGizmosEnabled(false);if(wasSelectMode)deactivateSelectMode(false);recordHistory();showToast('DELETED');}
+function deleteSelected(){if(selectedGeometryParts.size){showToast('DELETE · OBJECT ONLY');return;}const sel=selectedMasses();if(!sel.length)return;const wasSelectMode=!!selectModeActive;if(sel.some(m=>m.id===activeBrushContainerId))clearActiveBrushContainer();setSelection([]);for(const m of sel){const i=masses.indexOf(m);if(i>=0)masses.splice(i,1);disposeMass(m);}setSelectionGizmosEnabled(false);if(wasSelectMode)deactivateSelectMode(false);recordHistory();showToast('DELETED');}
 function deleteAllGeometry(){
   if(!masses.length)return;
   if(!window.confirm('Delete all geometry?'))return;
@@ -10948,42 +11032,8 @@ function projectedGeometryIntersectsMarquee(m,r){
   }
   return false;
 }
-function projectedSelectElementsInMarquee(m,r,mode=selectElementMode){
-  const topo=selectTopology(m);if(!topo)return new Set();
-  m.mesh.updateWorldMatrix(true,false);camera.updateMatrixWorld(true);
-  const picked=new Set(),rectCorners=[{x:r.minX,y:r.minY},{x:r.maxX,y:r.minY},{x:r.maxX,y:r.maxY},{x:r.minX,y:r.maxY}];
-  const segmentHitsRect=(a,b)=>pointInRect2D(a,r)||pointInRect2D(b,r)||[[rectCorners[0],rectCorners[1]],[rectCorners[1],rectCorners[2]],[rectCorners[2],rectCorners[3]],[rectCorners[3],rectCorners[0]]].some(([c,d])=>segmentsIntersect2D(a,b,c,d));
-  if(mode==='vertex'){
-    for(const rep of topo.vertexEndpointReps||[]){const rec=topo.repGroups.get(rep);if(!rec)continue;const p=worldToClient(m.mesh.localToWorld(rec.local.clone()));if(pointInRect2D(p,r))picked.add(String(rec.rep));}
-    return picked;
-  }
-  if(mode==='line'){
-    for(const e of topo.edges){const a=worldToClient(m.mesh.localToWorld(e.a.clone())),b=worldToClient(m.mesh.localToWorld(e.b.clone()));if(segmentHitsRect(a,b))picked.add(e.id);}
-    return picked;
-  }
-  if(mode==='face'){
-    const g=m.mesh.geometry,pos=g.attributes.position,index=g.index;
-    for(const f of topo.faces){let hit=false;for(const t of f.triangles){const pts=[];for(let k=0;k<3;k++){const vi=index?index.getX(t*3+k):t*3+k;pts.push(worldToClient(new THREE.Vector3().fromBufferAttribute(pos,vi).applyMatrix4(m.mesh.matrixWorld)));}if(triangleIntersectsMarquee2D(pts[0],pts[1],pts[2],r)){hit=true;break;}}if(hit)picked.add(String(f.id));}
-  }
-  return picked;
-}
-function marqueeGeometrySelection(a,b,{additive=false,toggle=false}={}){
-  const r=marqueeRect(a,b);
-  if(!additive&&!toggle)selectedGeometryParts.clear();
-  for(const m of masses){
-    const elements=projectedSelectElementsInMarquee(m,r,selectElementMode);if(!elements.size)continue;
-    let part=selectedGeometryParts.get(m.id);if(!part||part.mode!==selectElementMode){part={mode:selectElementMode,elements:new Set(),indices:new Set()};selectedGeometryParts.set(m.id,part);}
-    for(const id of elements){if(toggle&&part.elements.has(id))part.elements.delete(id);else part.elements.add(id);}
-    if(!part.elements.size)selectedGeometryParts.delete(m.id);
-  }
-  refreshSelectedGeometryPartIndices();
-  setSelection(masses.filter(m=>selectedGeometryParts.has(m.id)));
-  syncSelectGeometryHighlight();
-  moveArmed=selectedGeometryParts.size>0;selectTransformMode=moveArmed?'move':'select';updateMobileDrawUI();
-}
-
 function marqueeSelection(a,b,{additive=false,toggle=false}={}){
-  if(selectElementMode!=='object')return marqueeGeometrySelection(a,b,{additive,toggle});
+  selectElementMode='object';selectedGeometryParts.clear();clearSelectGeometryHighlight();
   // Always normalize both corners. Window Select therefore has identical
   // geometry whether the gesture goes ↘, ↙, ↗ or ↖.
   const r=marqueeRect(a,b);
@@ -11021,7 +11071,7 @@ function marqueeSelection(a,b,{additive=false,toggle=false}={}){
 function beginMarquee(e){
   const pencilSelection=!!(MA_IS_IPAD&&ipadPencilMode&&e?.pointerType==='pen');
   const toggle=pencilSelection
-    ?!!ipadPencilMultiSelect
+    ?!!(selectModeHeld||ipadPencilMultiSelect)
     :!!(MA_UNIFIED_UI&&currentAppMode()==='select');
   const additive=!!e.shiftKey&&!toggle;
   marqueeState={
@@ -12046,6 +12096,8 @@ function updateViewJoystick(e){
       // A free MOVE can be constrained after it has already started.
       if(interaction?.kind==='move'&&!interaction.axisHoldMove){
         lockActiveMoveToAxis(mode,st);
+      }else if(interaction?.kind==='geometryMove'&&!interaction.axisHoldMove){
+        lockActiveGeometryMoveToAxis(mode,st);
       }
     }else{
       viewAxisHold=null;
@@ -12053,6 +12105,9 @@ function updateViewJoystick(e){
       // Returning the joystick to center/P removes only the constraint.
       if(interaction?.kind==='move'&&interaction.midMoveAxisLock){
         unlockActiveMoveAxis();
+        st.usedAsLock=true;
+      }else if(interaction?.kind==='geometryMove'&&interaction.midMoveAxisLock){
+        unlockActiveGeometryMoveAxis();
         st.usedAsLock=true;
       }
     }
@@ -12075,6 +12130,9 @@ function endViewJoystick(e,cancel=false){
     // This move existed before the joystick lock. Release only the lock;
     // the original move pointer stays active.
     unlockActiveMoveAxis();
+    st.usedAsLock=true;
+  }else if(interaction?.kind==='geometryMove'&&interaction.midMoveAxisLock){
+    unlockActiveGeometryMoveAxis();
     st.usedAsLock=true;
   }
 
@@ -13042,105 +13100,107 @@ function promoteIPhoneSelectPressToMulti(){
   return true;
 }
 
+
+
+const SELECT_RELATIVE_MOVE_START_PX=8;
+function selectHasMovableSelection(){
+  return selectedGeometryParts.size>0||selectedMasses().length>0;
+}
+function beginRelativeSelectButtonMove(e,press){
+  if(!press||!selectHasMovableSelection()||interaction||transformDragging)return false;
+  const physicalStart=vec2(press.startX??e.clientX,press.startY??e.clientY);
+
+  // Sub-geometry selection wins when present. Object-only selection uses the
+  // existing mass move path. This keeps one SELECT mode while moving the
+  // actual thing that is currently highlighted.
+  if(selectedGeometryParts.size){
+    const grab=selectedGeometryWorldCenter();if(!grab)return false;
+    const byMass=selectedGeometryIndicesByMass(),parts=new Map();
+    for(const [id,indices] of byMass){
+      const m=massById(id),pos=m?.mesh?.geometry?.attributes?.position;if(!m||!pos)continue;
+      parts.set(id,{m,indices:[...indices],startPositions:new Float32Array(pos.array)});
+    }
+    if(!parts.size)return false;
+    const viewNormal=new THREE.Vector3();camera.getWorldDirection(viewNormal).normalize();
+    const movePlane=new THREE.Plane().setFromNormalAndCoplanarPoint(viewNormal,grab);
+    const virtualStart=worldToClient(grab);
+    setPointerXY(virtualStart.x,virtualStart.y);
+    const startPlane=ray.ray.intersectPlane(movePlane,new THREE.Vector3())||grab.clone();
+    interaction={kind:'geometryMove',pointerId:e.pointerId,parts,startClient:virtualStart.clone(),grab:grab.clone(),movePlane,startPlane:startPlane.clone(),before:snapshot(),autoAxis:null,changed:false,relativeSelectButton:true};
+    clearSelectGeometryHighlight();showMoveAxisDots(interaction);
+    press.relativeMove=true;press.relativePhysicalStart=physicalStart;press.relativeVirtualStart=virtualStart.clone();
+    updateMobileDrawUI();
+    return true;
+  }
+
+  const members=selectedMasses();if(!members.length)return false;
+  const box=new THREE.Box3();for(const m of members)box.expandByObject(m.group);
+  const grab=box.isEmpty()?members[0].group.getWorldPosition(new THREE.Vector3()):box.getCenter(new THREE.Vector3());
+  const n=new THREE.Vector3();camera.getWorldDirection(n).normalize();
+  const movePlane=new THREE.Plane().setFromNormalAndCoplanarPoint(n,grab);
+  const virtualStart=worldToClient(grab);
+  setPointerXY(virtualStart.x,virtualStart.y);
+  const startPlane=ray.ray.intersectPlane(movePlane,new THREE.Vector3())||grab.clone();
+  const starts=new Map(members.map(m=>[m.id,m.group.position.clone()])),ignored=new Set(members),m=members[0];
+  interaction={kind:'move',pointerId:e.pointerId,m,members,ignored,before:snapshot(),grab:grab.clone(),startPlane:startPlane.clone(),movePlane,startPos:m.group.position.clone(),startPositions:starts,startClient:virtualStart.clone(),lastClient:virtualStart.clone(),sourceSnap:null,moveSnapCache:buildMoveSnapCache(ignored),autoAxis:null,moved:false,relativeSelectButton:true};
+  showMoveAxisDots(interaction);
+  press.relativeMove=true;press.relativePhysicalStart=physicalStart;press.relativeVirtualStart=virtualStart.clone();
+  updateMobileDrawUI();
+  return true;
+}
+function updateRelativeSelectButtonMove(e,press){
+  if(!press?.relativeMove||!interaction)return false;
+  const dx=e.clientX-press.relativePhysicalStart.x,dy=e.clientY-press.relativePhysicalStart.y;
+  const x=press.relativeVirtualStart.x+dx,y=press.relativeVirtualStart.y+dy;
+  if(interaction.kind==='geometryMove')scheduleSelectedGeometryMove(x,y);
+  else if(interaction.kind==='move')scheduleMove(x,y);
+  return true;
+}
+function endRelativeSelectButtonMove(press,{cancel=false}={}){
+  if(!press?.relativeMove)return false;
+  if(cancel){cancelInteraction(true);syncSelectGeometryHighlight();syncRotateGizmo();updateMobileDrawUI();return true;}
+  if(interaction?.kind==='geometryMove')endSelectedGeometryMove();
+  else if(interaction?.kind==='move')endMove();
+  syncSelectGeometryHighlight();syncRotateGizmo();updateMobileDrawUI();
+  return true;
+}
 const selectHoldBtn=document.getElementById('selectHoldBtn');
 if(selectHoldBtn){
   selectHoldBtn.addEventListener('pointerdown',e=>{
     e.preventDefault();e.stopPropagation();
     unifiedUIPointers.add(e.pointerId);
     try{selectHoldBtn.setPointerCapture?.(e.pointerId);}catch(_){}
+    if(!selectModeAvailable()){updateMobileDrawUI();return;}
 
-    // iPad Pencil: tap keeps Single/Multi behavior; hold opens the selection-type picker.
-    if(MA_IS_IPAD&&ipadPencilMode&&e.pointerType==='touch'){
-      if(!selectModeAvailable()){updateMobileDrawUI();return;}
-      if(selectButtonPress)return;
-      try{selectHoldBtn.setPointerCapture?.(e.pointerId);}catch(_){}
-      const press=selectButtonPress={pointerId:e.pointerId,pointerType:e.pointerType,held:false,startedActive:!!selectModeActive,timer:null,event:syntheticHoldEvent(e),ipadPencil:true};
-      iphoneSelectPressPreview=true;updateMobileDrawUI();
-      press.timer=setTimeout(()=>{if(selectButtonPress!==press)return;press.held=true;iphoneSelectPressPreview=false;beginSelectElementPicker(e);},SELECT_BUTTON_HOLD_MS);
-      return;
-    }
-
-    // v8.51 — iPhone SELECT is physically dark only while the button is down.
-    // First press enters Single Select immediately; once active, a long hold
-    // temporarily sets selectModeHeld for additive/toggle picking.
-    if(MA_IS_IPHONE&&e.pointerType==='touch'){
-      const selectDockMode=primaryDockMode();
-      if(selectDockMode!=='draw'&&!selectModeAvailable()){
-        iphoneSelectPressPreview=false;
-        updateMobileDrawUI();
-        return;
-      }
-      if(selectButtonPress)return;
-      // Keep the SELECT finger owned by the button. This makes a second finger
-      // on the viewport reliable instead of letting Safari re-route/cancel the hold.
-      try{selectHoldBtn.setPointerCapture?.(e.pointerId);}catch(_){}
-      const press=selectButtonPress={
-        pointerId:e.pointerId,
-        pointerType:e.pointerType,
-        held:false,
-        startedActive:!!selectModeActive,
-        timer:null,
-        event:syntheticHoldEvent(e),
-        iphone:true
-      };
-      if(!press.startedActive){
-        // v8.58 — Select becomes logically active on the first pointer-down and
-        // that same physical press can continue into Multi Select. A short release
-        // still leaves Single Select active; holding or adding another viewport
-        // finger promotes the press instead of requiring a second Select cycle.
-        iphoneSelectPressPreview=true;
-        activateSelectMode();
-        updateMobileDrawUI();
-        press.timer=setTimeout(()=>{
-          if(selectButtonPress!==press)return;
-          press.held=true;iphoneSelectPressPreview=false;beginSelectElementPicker(e);
-        },SELECT_BUTTON_HOLD_MS);
-      }else{
-        // v8.51 — an already-active SELECT also goes dark immediately on
-        // pointer-down. If the press becomes a Multi hold, the dedicated hold
-        // state stays dark; if it is a short tap, release returns to neutral.
-        iphoneSelectPressPreview=true;
-        updateMobileDrawUI();
-        press.timer=setTimeout(()=>{
-          if(selectButtonPress!==press)return;
-          press.held=true;iphoneSelectPressPreview=false;beginSelectElementPicker(e);
-        },SELECT_BUTTON_HOLD_MS);
-      }
-      return;
-    }
-
-    // Desktop hold-equivalent: right-click SELECT opens the selection-type picker.
+    // Desktop right-click is the hold equivalent: temporary Multi Select.
     if(!MA_DRAW_MOBILE&&e.pointerType==='mouse'&&e.button===2){
-      if(selectModeAvailable())beginSelectElementPicker(e);
+      if(selectButtonPress)return;
+      const press=selectButtonPress={pointerId:e.pointerId,pointerType:e.pointerType,held:true,startedActive:!!selectModeActive,timer:null,event:syntheticHoldEvent(e),desktopHold:true,startX:e.clientX,startY:e.clientY,relativeMove:false};
+      if(!selectModeActive)activateSelectMode();
+      beginSelectModeHold(press.event);
+      showToast('MULTI SELECT');
       return;
     }
-
-    const selectDockMode=primaryDockMode();
-    if(selectDockMode!=='draw'&&!selectModeAvailable()){
-      updateMobileDrawUI();
-      return;
-    }
-
     if(selectButtonPress)return;
 
     const press=selectButtonPress={
-      pointerId:e.pointerId,
-      pointerType:e.pointerType,
-      held:false,
-      startedActive:!!selectModeActive,
-      timer:null,
-      event:syntheticHoldEvent(e)
+      pointerId:e.pointerId,pointerType:e.pointerType,held:false,
+      startedActive:!!selectModeActive,timer:null,event:syntheticHoldEvent(e),
+      iphone:!!(MA_IS_IPHONE&&e.pointerType==='touch'),
+      ipadPencil:!!(MA_IS_IPAD&&ipadPencilMode&&e.pointerType==='touch'),
+      startX:e.clientX,startY:e.clientY,relativeMove:false
     };
 
-    // Touch: tap activates/exits Select; hold opens the persistent selection-type picker.
-    if(press.pointerType==='touch'&&!press.startedActive){
-      activateSelectMode();
-      updateMobileDrawUI();
-    }
+    // Select is available immediately. Holding the button changes only the
+    // additive behavior; there is no sub-mode picker anymore.
+    if(!selectModeActive){pencilSelectManuallyOff=false;activateSelectMode();}
+    iphoneSelectPressPreview=!!press.iphone;
+    updateMobileDrawUI();
     press.timer=setTimeout(()=>{
-      if(selectButtonPress!==press)return;
-      press.held=true;
-      beginSelectElementPicker(e);
+      if(selectButtonPress!==press||press.relativeMove)return;
+      press.held=true;iphoneSelectPressPreview=false;
+      beginSelectModeHold(press.event);
+      updateMobileDrawUI();showToast('MULTI SELECT');
     },SELECT_BUTTON_HOLD_MS);
   },{passive:false});
 
@@ -13148,134 +13208,58 @@ if(selectHoldBtn){
     const press=selectButtonPress;
     if(!press||press.pointerId!==e.pointerId)return;
     e.preventDefault();e.stopPropagation();
-
     if(press.timer)clearTimeout(press.timer);
+    iphoneSelectPressPreview=false;
 
-    if(selectElementPickerHeld&&press.held){
-      endSelectElementPicker(e,false);
-      iphoneSelectPressPreview=false;
-      selectButtonPress=null;
-      updateMobileDrawUI();
+    if(press.relativeMove){
+      endRelativeSelectButtonMove(press,{cancel:false});
+      selectButtonPress=null;updateMobileDrawUI();
       return;
     }
 
-    if(press.ipadPencil){
-      iphoneSelectPressPreview=false;
-      if(!press.held){
-        if(!press.startedActive){ipadPencilMultiSelect=false;pencilSelectManuallyOff=false;activateSelectMode();showToast(`SELECT · ${selectElementModeLabel()}`);}
-        else{ipadPencilMultiSelect=!ipadPencilMultiSelect;pencilSelectManuallyOff=false;activateSelectMode();showToast(ipadPencilMultiSelect?'MULTI SELECT':'SINGLE SELECT');}
-      }
-      selectButtonPress=null;updateMobileDrawUI();return;
+    if(press.held){
+      if(selectModeHeld)endSelectModeHold(syntheticHoldEvent(e));
+      if(!selectModeActive)activateSelectMode();
+      showToast('SELECT');
+    }else if(press.startedActive){
+      // Short tap on active SELECT exits, matching the existing dock behavior.
+      if(ipadPencilMode)pencilSelectManuallyOff=true;
+      deactivateSelectMode(true);showToast('SELECT OFF');
+    }else{
+      if(!selectModeActive)activateSelectMode();showToast('SELECT');
     }
-
-    if(press.iphone){
-      iphoneSelectPressPreview=false;
-      if(press.held){
-        endSelectModeHold(syntheticHoldEvent(e));
-        // Multi Select is temporary on iPhone; releasing returns to latched
-        // neutral Single Select regardless of how many objects are selected.
-        if(!selectModeActive)activateSelectMode();
-        showToast('SINGLE SELECT');
-      }else if(!press.startedActive){
-        if(!selectModeActive)activateSelectMode();
-        showToast('SELECT');
-      }else{
-        // v8.50 — a short tap on active SELECT exits Select mode again.
-        // A long hold is still reserved for temporary Multi Select and therefore
-        // returns to latched Single Select when released.
-        deactivateSelectMode(true);
-        showToast('SELECT OFF');
-      }
-      selectButtonPress=null;
-      updateMobileDrawUI();
-      return;
-    }
-
-    if(!press.held){
-      if(press.pointerType==='touch'){
-        // A touch tap must never latch SELECT and allow a later canvas tap.
-        // If SELECT was already active, tapping the active button still exits.
-        if(press.startedActive&&selectModeActive){
-          if(ipadPencilMode)pencilSelectManuallyOff=true;
-          deactivateSelectMode(true);
-          showToast('SELECT OFF');
-        }else{
-          if(!selectModeActive)activateSelectMode();
-          showToast(`SELECT · ${selectElementModeLabel()}`);
-        }
-      }else if(selectModeActive){
-        if(!MA_DRAW_MOBILE&&press.pointerType==='mouse'){
-          // Desktop tools are latched: clicking SELECT again keeps SELECT active.
-          activateSelectMode();
-          showToast(selectedMasses().length?'SELECT · MOVE':'SELECT');
-        }else{
-          if(ipadPencilMode)pencilSelectManuallyOff=true;
-          deactivateSelectMode(true);
-          showToast('SELECT OFF');
-        }
-      }else{
-        activateSelectMode();
-        showToast(selectedMasses().length?'SELECT · MOVE':'SELECT');
-      }
-    }else if(press.pointerType==='touch'){
-      endSelectModeHold(syntheticHoldEvent(e));
-      // Releasing SELECT before a pick completes returns straight to NAVI.
-      // Once geometry has been selected, SELECT stays latched as the edit mode.
-      if(!selectedMasses().length){
-        deactivateSelectMode(false);
-      }else{
-        showToast('SELECT · MOVE');
-      }
-    }
-
-    selectButtonPress=null;
-    updateMobileDrawUI();
+    selectButtonPress=null;updateMobileDrawUI();
   };
 
-  selectHoldBtn.addEventListener('pointermove',e=>{if(selectElementPickerHeld){e.preventDefault();e.stopPropagation();updateSelectElementPicker(e);}}, {passive:false});
+  selectHoldBtn.addEventListener('pointermove',e=>{
+    const press=selectButtonPress;
+    if(!press||press.pointerId!==e.pointerId||press.desktopHold)return;
+    if(press.relativeMove){e.preventDefault();e.stopPropagation();updateRelativeSelectButtonMove(e,press);return;}
+    if(press.held)return; // a stationary hold has already become Multi Select
+    const travel=Math.hypot(e.clientX-(press.startX??e.clientX),e.clientY-(press.startY??e.clientY));
+    if(travel>=SELECT_RELATIVE_MOVE_START_PX&&selectHasMovableSelection()){
+      if(press.timer){clearTimeout(press.timer);press.timer=null;}
+      e.preventDefault();e.stopPropagation();
+      if(beginRelativeSelectButtonMove(e,press))updateRelativeSelectButtonMove(e,press);
+    }
+  },{passive:false});
   selectHoldBtn.addEventListener('pointerup',finishSelectButton,{passive:false});
   selectHoldBtn.addEventListener('pointercancel',e=>{
-    const press=selectButtonPress;
-    if(!press||press.pointerId!==e.pointerId)return;
-    if(press.timer)clearTimeout(press.timer);
-    if(selectElementPickerHeld&&press.held){endSelectElementPicker(e,true);iphoneSelectPressPreview=false;selectButtonPress=null;updateMobileDrawUI();return;}
-    if(press.ipadPencil){iphoneSelectPressPreview=false;selectButtonPress=null;updateMobileDrawUI();return;}
-    if(press.iphone){
-      iphoneSelectPressPreview=false;
-      if(press.held&&selectModeHeld)endSelectModeHold(syntheticHoldEvent(e));
-      // v8.50 — the first press activates Select on pointer-down, so a Safari
-      // cancellation must not throw that activation away. Active Select stays
-      // neutral; a cancelled Multi hold simply returns to Single Select.
-      if(!press.startedActive&&!selectModeActive)activateSelectMode();
-      selectButtonPress=null;
-      updateMobileDrawUI();
-      return;
+    const press=selectButtonPress;if(!press||press.pointerId!==e.pointerId)return;
+    if(press.timer)clearTimeout(press.timer);iphoneSelectPressPreview=false;
+    if(press.relativeMove){
+      endRelativeSelectButtonMove(press,{cancel:true});
+      selectButtonPress=null;updateMobileDrawUI();return;
     }
-    if(press.held&&press.pointerType==='touch'&&selectModeHeld){
-      // In iPad Pencil mode, Pencil contact may cancel the finger PointerEvent
-      // even though the user is still holding SELECT. Preserve the temporary
-      // multi-select state for Pencil instead of dropping back to single-select.
+    if(press.held&&selectModeHeld){
       if(MA_IS_IPAD&&ipadPencilMode&&deferSelectHoldCancelForPen()){
-        selectButtonPress=null;
-        updateMobileDrawUI();
-        return;
+        selectButtonPress=null;updateMobileDrawUI();return;
       }
       endSelectModeHold(syntheticHoldEvent(e));
-      if(!selectedMasses().length)deactivateSelectMode(false);
     }
-    selectButtonPress=null;
-    updateMobileDrawUI();
+    if(!selectModeActive)activateSelectMode();
+    selectButtonPress=null;updateMobileDrawUI();
   },{passive:false});
-}
-
-
-for(const [id,mode] of SELECT_ELEMENT_PICKER_SLOTS){
-  const el=document.getElementById(id);if(!el)continue;
-  el.addEventListener('pointerdown',e=>{
-    if(!selectElementPickerHeld||e.pointerType!=='mouse'||e.button!==0)return;
-    e.preventDefault();e.stopImmediatePropagation();unifiedUIPointers.add(e.pointerId);
-    selectElementPickerChoice=mode;endSelectElementPicker(null,false);
-  },{capture:true,passive:false});
 }
 
 function clearTransformHoldCancelTimer(){
@@ -13317,7 +13301,7 @@ function beginSelectionTransformHold(kind,e){
 
   if(!selectModeActive)activateSelectMode();
   if(!selectedMasses().length){
-    showToast(`SELECT ${selectElementModeLabel()} FIRST`);
+    showToast('SELECT SOMETHING FIRST');
     return false;
   }
 
@@ -13414,7 +13398,7 @@ window.addEventListener('pointercancel',e=>{
 
 
 function performDuplicateSelection(){
-  if(selectElementMode!=='object'&&selectedGeometryParts.size){showToast('DUPLICATE · OBJECT MODE');return;}
+  if(selectedGeometryParts.size){showToast('DUPLICATE · OBJECT ONLY');return;}
   if(!selectedMasses().length)return;
   moveArmed=false;
   transformHoldMode=null;
@@ -13831,8 +13815,8 @@ function beginModelPointer(e){
     }
 
     if(!m){beginMarquee(e);return;}
-    if(selectElementMode!=='object'){selectByElementModeAt(m,e.clientX,e.clientY,e.shiftKey);return;}
-    if(e.shiftKey||!isSelectedMass(m)){selectInteractive(m,e.shiftKey);return;}
+    if(e.shiftKey||!selectionTargetIsSelectedAt(m,e.clientX,e.clientY)){directSelectTap(m,e.clientX,e.clientY,{additive:e.shiftKey,pointerType:e.pointerType||'mouse'});return;}
+    if(selectedGeometryParts.size){beginSelectedGeometryMove(e);return;}
     beginMove(e);return;
   }
 }
@@ -14481,7 +14465,7 @@ renderer.domElement.addEventListener('pointerdown',e=>{
               startY:e.clientY,
               startTime:performance.now(),
               moved:false,
-              wasSelected:selectElementMode==='object'?isSelectedMass(heldMass):geometryComponentIsSelected(heldMass,nearestSelectComponent(e.clientX,e.clientY,heldMass,selectElementMode)),
+              wasSelected:selectionTargetIsSelectedAt(heldMass,e.clientX,e.clientY),
               additive:true
             };
             renderer.domElement.setPointerCapture?.(e.pointerId);
@@ -14508,7 +14492,7 @@ renderer.domElement.addEventListener('pointerdown',e=>{
             startY:e.clientY,
             startTime:performance.now(),
             moved:false,
-            wasSelected:selectElementMode==='object'?isSelectedMass(m):geometryComponentIsSelected(m,nearestSelectComponent(e.clientX,e.clientY,m,selectElementMode)),
+            wasSelected:selectionTargetIsSelectedAt(m,e.clientX,e.clientY),
             additive:false
           };
           renderer.domElement.setPointerCapture?.(e.pointerId);
@@ -14605,8 +14589,8 @@ renderer.domElement.addEventListener('pointerdown',e=>{
             startY:e.clientY,
             startTime:performance.now(),
             moved:false,
-            wasSelected:selectElementMode==='object'?isSelectedMass(m):geometryComponentIsSelected(m,nearestSelectComponent(e.clientX,e.clientY,m,selectElementMode)),
-            additive:!!(MA_IS_IPAD&&ipadPencilMode&&ipadPencilMultiSelect),
+            wasSelected:selectionTargetIsSelectedAt(m,e.clientX,e.clientY),
+            additive:!!(selectModeHeld||(MA_IS_IPAD&&ipadPencilMode&&ipadPencilMultiSelect)),
             pointerType:'pen'
           };
           penActive=true;
@@ -14659,8 +14643,8 @@ renderer.domElement.addEventListener('pointerdown',e=>{
             startY:e.clientY,
             startTime:performance.now(),
             moved:false,
-            wasSelected:selectElementMode==='object'?isSelectedMass(m):geometryComponentIsSelected(m,nearestSelectComponent(e.clientX,e.clientY,m,selectElementMode)),
-            additive:!!e.shiftKey,
+            wasSelected:selectionTargetIsSelectedAt(m,e.clientX,e.clientY),
+            additive:!!(e.shiftKey||selectModeHeld),
             pointerType:'mouse'
           };
           renderer.domElement.setPointerCapture?.(e.pointerId);
@@ -14694,8 +14678,8 @@ renderer.domElement.addEventListener('pointerdown',e=>{
             startY:e.clientY,
             startTime:performance.now(),
             moved:false,
-            wasSelected:selectElementMode==='object'?isSelectedMass(m):geometryComponentIsSelected(m,nearestSelectComponent(e.clientX,e.clientY,m,selectElementMode)),
-            additive:!!e.shiftKey,
+            wasSelected:selectionTargetIsSelectedAt(m,e.clientX,e.clientY),
+            additive:!!(e.shiftKey||selectModeHeld),
             pointerType:'mouse'
           };
           renderer.domElement.setPointerCapture?.(e.pointerId);
@@ -14772,7 +14756,7 @@ window.addEventListener('pointermove',e=>{
                 shiftKey:false
               };
               mobileSelectTap=null;
-              if(selectElementMode!=='object'){
+              if(selectedGeometryParts.size){
                 if(beginSelectedGeometryMove(startEvent)){scheduleSelectedGeometryMove(e.clientX,e.clientY);return;}
               }else if(beginMobileNavMove(startEvent)){
                 scheduleMove(e.clientX,e.clientY);
@@ -14880,7 +14864,7 @@ window.addEventListener('pointermove',e=>{
               shiftKey:false
             };
             mobileSelectTap=null;
-            if(selectElementMode!=='object'){
+            if(selectedGeometryParts.size){
               if(beginSelectedGeometryMove(startEvent))scheduleSelectedGeometryMove(e.clientX,e.clientY);
             }else{
               beginMove(startEvent);
@@ -14939,7 +14923,7 @@ window.addEventListener('pointermove',e=>{
           if(candidate.wasSelected&&moveArmed&&!transformHoldMode){
             const startEvent={pointerId:e.pointerId,pointerType:'mouse',clientX:candidate.startX,clientY:candidate.startY,shiftKey:false};
             mobileSelectTap=null;
-            if(selectElementMode!=='object'){
+            if(selectedGeometryParts.size){
               if(beginSelectedGeometryMove(startEvent))scheduleSelectedGeometryMove(e.clientX,e.clientY);
             }else{
               beginMove(startEvent);
@@ -15028,7 +15012,7 @@ window.addEventListener('pointerup',e=>{
             const m=massById(candidate.massId);
             // Normal Select is exclusive. Holding SELECT temporarily turns taps
             // into additive/toggle picks for building a multi-selection.
-            if(m)selectByElementModeAt(m,e.clientX,e.clientY,!!candidate.additive);
+            if(m)directSelectTap(m,e.clientX,e.clientY,{additive:!!candidate.additive,pointerType:candidate.pointerType||e.pointerType});
           }
           return;
         }
@@ -15096,7 +15080,7 @@ window.addEventListener('pointerup',e=>{
           const m=massById(candidate.massId);
           // Pencil Single Select replaces the selection. Persistent Multi Select
           // adds/removes the tapped mass or group until SELECT is tapped again.
-          if(m)selectByElementModeAt(m,e.clientX,e.clientY,!!candidate.additive);
+          if(m)directSelectTap(m,e.clientX,e.clientY,{additive:!!candidate.additive,pointerType:candidate.pointerType||e.pointerType});
         }
         return;
       }
@@ -15197,7 +15181,7 @@ window.addEventListener('pointerup',e=>{
           const m=massById(candidate.massId);
           // Desktop repeat-click matches touch/Pencil: clicking an already
           // selected mass toggles that mass/group out of the selection.
-          if(m)selectByElementModeAt(m,e.clientX,e.clientY,!!candidate.additive||(selectElementMode==='object'&&!!candidate.wasSelected));
+          if(m)directSelectTap(m,e.clientX,e.clientY,{additive:!!candidate.additive,pointerType:candidate.pointerType||e.pointerType});
         }
         return;
       }
