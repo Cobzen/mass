@@ -106,11 +106,16 @@
 }
 html, body{
   margin:0;
-  width:100%;
-  height:100%;
-  overflow:hidden;
-  overscroll-behavior:none;
-  overscroll-behavior-y:none;
+  position:fixed;
+  inset:0;
+  width:100vw;
+  height:100dvh;
+  min-height:100dvh;
+  max-height:100dvh;
+  overflow:hidden !important;
+  overscroll-behavior:none !important;
+  overscroll-behavior-x:none !important;
+  overscroll-behavior-y:none !important;
   background:var(--bg);
   color:#111;
   font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
@@ -118,7 +123,7 @@ html, body{
 }
 button, input{font:inherit}
 button{touch-action:none}
-#app{position:fixed;inset:0;overflow:hidden;overscroll-behavior:none;background:#fff}
+#app{position:fixed;inset:0;width:100vw;height:100dvh;overflow:hidden!important;overscroll-behavior:none!important;touch-action:none;background:#fff}
 #viewport{
   position:absolute;
   left:0;right:0;top:0;
@@ -2530,17 +2535,25 @@ const {Manifold:ManifoldSolid,Mesh:ManifoldMesh}=manifoldWasm;
 // v4.91: Brush Size replaces draw-depth as the user-facing concept. F adjusts size in the viewport. Adds a Sphere brush.
 // -----------------------------------------------------------------------------
 const container=document.getElementById('viewport');
-// v9.85 — iOS/WebKit can still rubber-band the root document even with
-// overflow:hidden + touch-action:none. Any touch that begins on the workspace
-// or main dock is app-owned, so explicitly prevent native page scrolling for
-// that gesture. Internal library/settings scrollers are intentionally excluded.
-document.addEventListener('touchmove',e=>{
-  const t=e.target;
-  if(!(t instanceof Element))return;
-  if(t.closest('#viewport,#maBottomDock,#viewJoystick,#lookJoystick,#dockDragHandle,#mainMenuButton')){
-    if(e.cancelable)e.preventDefault();
-  }
-},{capture:true,passive:false});
+// v9.86 — hard-lock the document itself against iOS/WebKit rubber-band.
+// The app surface is never a native scroll surface. Only explicitly scrollable
+// panels are exempt; every other touchmove is owned by MA 3D and cannot scroll
+// or pull the root document / hosting web view through normal page scrolling.
+const MA_NATIVE_SCROLL_SELECTOR='#projectLibrary,#shortcutPanel,#shortcutList';
+function maTouchMayNativeScroll(target){
+  return target instanceof Element && !!target.closest(MA_NATIVE_SCROLL_SELECTOR);
+}
+function maPreventRootTouchScroll(e){
+  if(maTouchMayNativeScroll(e.target))return;
+  if(e.cancelable)e.preventDefault();
+}
+window.addEventListener('touchmove',maPreventRootTouchScroll,{capture:true,passive:false});
+document.addEventListener('touchmove',maPreventRootTouchScroll,{capture:true,passive:false});
+// Keep root scroll coordinates pinned as an extra guard for WebKit previews that
+// try to synthesize document scrolling despite a fixed body.
+window.addEventListener('scroll',()=>{
+  if(window.scrollX!==0||window.scrollY!==0)window.scrollTo(0,0);
+},{passive:true});
 function viewportRenderSize(){
   const r=container.getBoundingClientRect();
   return{
