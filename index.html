@@ -106,16 +106,11 @@
 }
 html, body{
   margin:0;
-  position:fixed;
-  inset:0;
-  width:100vw;
-  height:100dvh;
-  min-height:100dvh;
-  max-height:100dvh;
-  overflow:hidden !important;
-  overscroll-behavior:none !important;
-  overscroll-behavior-x:none !important;
-  overscroll-behavior-y:none !important;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  overscroll-behavior:none;
+  overscroll-behavior-y:none;
   background:var(--bg);
   color:#111;
   font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
@@ -123,7 +118,7 @@ html, body{
 }
 button, input{font:inherit}
 button{touch-action:none}
-#app{position:fixed;inset:0;width:100vw;height:100dvh;overflow:hidden!important;overscroll-behavior:none!important;touch-action:none;background:#fff}
+#app{position:fixed;inset:0;overflow:hidden;overscroll-behavior:none;background:#fff}
 #viewport{
   position:absolute;
   left:0;right:0;top:0;
@@ -2535,25 +2530,47 @@ const {Manifold:ManifoldSolid,Mesh:ManifoldMesh}=manifoldWasm;
 // v4.91: Brush Size replaces draw-depth as the user-facing concept. F adjusts size in the viewport. Adds a Sphere brush.
 // -----------------------------------------------------------------------------
 const container=document.getElementById('viewport');
-// v9.86 — hard-lock the document itself against iOS/WebKit rubber-band.
-// The app surface is never a native scroll surface. Only explicitly scrollable
-// panels are exempt; every other touchmove is owned by MA 3D and cannot scroll
-// or pull the root document / hosting web view through normal page scrolling.
+// v9.87 — keep the original viewport/dock geometry, but block iOS root
+// scrolling at the event level. Touches that start on the bottom dock / bottom
+// safe-area are cancelled on touchstart (not only touchmove), which gives WebKit
+// no opportunity to promote the gesture to page rubber-band scrolling.
 const MA_NATIVE_SCROLL_SELECTOR='#projectLibrary,#shortcutPanel,#shortcutList';
-function maTouchMayNativeScroll(target){
+const maBottomGuardTouches=new Set();
+function maNativeScrollAllowed(target){
   return target instanceof Element && !!target.closest(MA_NATIVE_SCROLL_SELECTOR);
 }
-function maPreventRootTouchScroll(e){
-  if(maTouchMayNativeScroll(e.target))return;
-  if(e.cancelable)e.preventDefault();
+function maViewportBottomY(){
+  const vv=window.visualViewport;
+  return (vv?.offsetTop||0)+(vv?.height||window.innerHeight||document.documentElement.clientHeight||0);
 }
-window.addEventListener('touchmove',maPreventRootTouchScroll,{capture:true,passive:false});
-document.addEventListener('touchmove',maPreventRootTouchScroll,{capture:true,passive:false});
-// Keep root scroll coordinates pinned as an extra guard for WebKit previews that
-// try to synthesize document scrolling despite a fixed body.
-window.addEventListener('scroll',()=>{
-  if(window.scrollX!==0||window.scrollY!==0)window.scrollTo(0,0);
-},{passive:true});
+document.addEventListener('touchstart',e=>{
+  if(maNativeScrollAllowed(e.target))return;
+  const dock=e.target instanceof Element?e.target.closest('#maBottomDock,#viewJoystick,#lookJoystick,#dockDragHandle'):null;
+  const bottom=maViewportBottomY();
+  let guard=!!dock;
+  for(const t of e.changedTouches){
+    if(guard || t.clientY>=bottom-96){
+      maBottomGuardTouches.add(t.identifier);
+      guard=true;
+    }
+  }
+  if(guard&&e.cancelable)e.preventDefault();
+},{capture:true,passive:false});
+document.addEventListener('touchmove',e=>{
+  if(maNativeScrollAllowed(e.target))return;
+  let guard=false;
+  for(const t of e.changedTouches){
+    if(maBottomGuardTouches.has(t.identifier)){guard=true;break;}
+  }
+  const t=e.target;
+  if(!guard&&t instanceof Element&&t.closest('#viewport,#maBottomDock,#viewJoystick,#lookJoystick,#dockDragHandle,#mainMenuButton'))guard=true;
+  if(guard&&e.cancelable)e.preventDefault();
+},{capture:true,passive:false});
+function maReleaseBottomGuardTouches(e){
+  for(const t of e.changedTouches)maBottomGuardTouches.delete(t.identifier);
+}
+document.addEventListener('touchend',maReleaseBottomGuardTouches,{capture:true,passive:true});
+document.addEventListener('touchcancel',maReleaseBottomGuardTouches,{capture:true,passive:true});
 function viewportRenderSize(){
   const r=container.getBoundingClientRect();
   return{
