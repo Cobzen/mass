@@ -616,78 +616,6 @@ html.ma-unified-ui #maBottomDock::before{
   pointer-events:none;
 }
 
-/* v9.89 — invisible native-gesture shield around the dock. It sits below the
-   real controls but above the viewport, so empty space between/under controls
-   cannot start an iOS/WebView scroll or sheet-drag gesture. Geometry/layout is
-   untouched; JS positions this from the actual dock rect. */
-#dockGestureShield{
-  position:fixed;
-  display:none;
-  z-index:89;
-  background:transparent;
-  border:0;
-  margin:0;
-  padding:0;
-  pointer-events:auto;
-  touch-action:none !important;
-  -webkit-user-select:none;
-  user-select:none;
-  -webkit-touch-callout:none;
-}
-html.ma-draw-mobile #dockGestureShield{display:block;}
-html.ma-unified-ui #maBottomDock,
-html.ma-unified-ui #maBottomDock *{
-  touch-action:none !important;
-  -webkit-user-select:none !important;
-  user-select:none !important;
-  -webkit-touch-callout:none !important;
-}
-
-/* v9.90 — middle controls use the same hard gesture ownership as joysticks. */
-html.ma-unified-ui #maModeBar,
-html.ma-unified-ui #maModeBar *,
-html.ma-unified-ui #maModeBar button{
-  touch-action:none !important;
-  overscroll-behavior:none !important;
-  -webkit-user-select:none !important;
-  user-select:none !important;
-  -webkit-touch-callout:none !important;
-  -webkit-user-drag:none !important;
-}
-
-/* v9.92 — make the actual iOS hit target in the middle dock a plain app div,
-   like the joysticks, while keeping the real native buttons and their handlers. */
-html.ma-unified-ui #maModeBar{isolation:isolate;}
-html.ma-unified-ui #maModeBar .primaryDockButton{z-index:2;}
-#maModeBarGestureSurface{
-  position:absolute;
-  inset:0;
-  z-index:1;
-  background:transparent;
-  border:0;
-  pointer-events:auto;
-  touch-action:none !important;
-  -webkit-user-select:none !important;
-  user-select:none !important;
-  -webkit-touch-callout:none !important;
-}
-.maMiddleTouchSurface{
-  position:absolute;
-  inset:0;
-  z-index:20;
-  display:block;
-  background:transparent;
-  border:0;
-  margin:0;
-  padding:0;
-  pointer-events:auto;
-  touch-action:none !important;
-  -webkit-user-select:none !important;
-  user-select:none !important;
-  -webkit-touch-callout:none !important;
-  -webkit-user-drag:none !important;
-}
-
 /* LEFT / RIGHT: six controls stand vertically. */
 html.ma-unified-ui #maBottomDock.dock-vertical{
   flex-direction:column !important;
@@ -2443,7 +2371,6 @@ html.ma-unified-ui #maBottomDock.valueMode.dock-vertical #valuePalette{top:calc(
   
   
   
-  <div id="dockGestureShield" aria-hidden="true"></div>
   <div id="maBottomDock" aria-label="MA controls" data-side="left">
   <div id="valuePalette" aria-label="Value levels">
     <button type="button" data-value-level="0" aria-label="Value 1" style="background:#000000"></button>
@@ -2466,25 +2393,20 @@ html.ma-unified-ui #maBottomDock.valueMode.dock-vertical #valuePalette{top:calc(
   </div>
 
   <div id="maModeBar" aria-label="Primary controls">
-    <div id="maModeBarGestureSurface" aria-hidden="true"></div>
     <button id="drawAddHoldBtn" class="holdToolButton primaryDockButton" aria-label="Add">
       <span class="primaryLabel">ADD</span>
-      <span class="maMiddleTouchSurface" aria-hidden="true"></span>
     </button>
     <button id="drawEraseHoldBtn" class="holdToolButton primaryDockButton" aria-label="Erase">
       <span class="primaryLabel">ERASE</span>
-      <span class="maMiddleTouchSurface" aria-hidden="true"></span>
     </button>
 
     <button id="mobileSizeDrag" class="brushSizeButton primaryDockButton" aria-label="Size">
       <span class="brushSizePreview"><i id="brushSizeCircle"></i></span>
       <span class="primaryLabel"></span>
-      <span class="maMiddleTouchSurface" aria-hidden="true"></span>
     </button>
 
     <button id="selectHoldBtn" class="holdToolButton primaryDockButton" aria-label="Select">
       <span class="primaryLabel">SELECT</span>
-      <span class="maMiddleTouchSurface" aria-hidden="true"></span>
     </button>
   </div>
 
@@ -2608,146 +2530,19 @@ const {Manifold:ManifoldSolid,Mesh:ManifoldMesh}=manifoldWasm;
 // v4.91: Brush Size replaces draw-depth as the user-facing concept. F adjusts size in the viewport. Adds a Sphere brush.
 // -----------------------------------------------------------------------------
 const container=document.getElementById('viewport');
-// v9.87 — keep the original viewport/dock geometry, but block iOS root
-// scrolling at the event level. Touches that start on the bottom dock / bottom
-// safe-area are cancelled on touchstart (not only touchmove), which gives WebKit
-// no opportunity to promote the gesture to page rubber-band scrolling.
+// MA 3D is an application surface, not a scrolling document.
+// Block native WebKit page/sheet scrolling at the document level while keeping
+// the few intentionally scrollable panels native. Layout is untouched.
 const MA_NATIVE_SCROLL_SELECTOR='#projectLibrary,#shortcutPanel,#shortcutList';
-const maBottomGuardTouches=new Set();
 function maNativeScrollAllowed(target){
   return target instanceof Element && !!target.closest(MA_NATIVE_SCROLL_SELECTOR);
 }
-function maViewportBottomY(){
-  const vv=window.visualViewport;
-  return (vv?.offsetTop||0)+(vv?.height||window.innerHeight||document.documentElement.clientHeight||0);
-}
-function syncDockGestureShield(){
-  const shield=document.getElementById('dockGestureShield');
-  const dock=document.getElementById('maBottomDock');
-  if(!shield||!dock||!MA_DRAW_MOBILE)return;
-  const r=dock.getBoundingClientRect();
-  const vv=window.visualViewport;
-  const vw=vv?.width||window.innerWidth||document.documentElement.clientWidth||0;
-  const vh=vv?.height||window.innerHeight||document.documentElement.clientHeight||0;
-  const ox=vv?.offsetLeft||0,oy=vv?.offsetTop||0;
-  const horizontal=r.width>=r.height;
-  const distTop=Math.abs(r.top-oy),distBottom=Math.abs((oy+vh)-r.bottom);
-  const distLeft=Math.abs(r.left-ox),distRight=Math.abs((ox+vw)-r.right);
-  const side=horizontal?(distBottom<=distTop?'bottom':'top'):(distRight<=distLeft?'right':'left');
-  const margin=30;
-  if(side==='top'){
-    shield.style.left=`${ox}px`;shield.style.top=`${oy}px`;
-    shield.style.width=`${vw}px`;shield.style.height=`${Math.max(0,r.bottom-oy+margin)}px`;
-  }else if(side==='left'){
-    shield.style.left=`${ox}px`;shield.style.top=`${oy}px`;
-    shield.style.width=`${Math.max(0,r.right-ox+margin)}px`;shield.style.height=`${vh}px`;
-  }else if(side==='right'){
-    const left=Math.max(ox,r.left-margin);
-    shield.style.left=`${left}px`;shield.style.top=`${oy}px`;
-    shield.style.width=`${Math.max(0,ox+vw-left)}px`;shield.style.height=`${vh}px`;
-  }else{
-    const top=Math.max(oy,r.top-margin);
-    shield.style.left=`${ox}px`;shield.style.top=`${top}px`;
-    shield.style.width=`${vw}px`;shield.style.height=`${Math.max(0,oy+vh-top)}px`;
-  }
-}
-function maDockGuardPrevent(e){
+function preventNativeAppScroll(e){
   if(maNativeScrollAllowed(e.target))return;
   if(e.cancelable)e.preventDefault();
 }
-const maDock=document.getElementById('maBottomDock');
-maDock?.addEventListener('touchstart',maDockGuardPrevent,{capture:true,passive:false});
-maDock?.addEventListener('touchmove',maDockGuardPrevent,{capture:true,passive:false});
-maDock?.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'&&e.cancelable)e.preventDefault();},{capture:true,passive:false});
-const maDockShield=document.getElementById('dockGestureShield');
-for(const type of ['touchstart','touchmove'])maDockShield?.addEventListener(type,e=>{if(e.cancelable)e.preventDefault();e.stopPropagation();},{capture:true,passive:false});
-for(const type of ['pointerdown','pointermove','pointerup','pointercancel'])maDockShield?.addEventListener(type,e=>{if(e.pointerType==='touch'){if(e.cancelable)e.preventDefault();e.stopPropagation();}},{capture:true,passive:false});
-
-// v9.90 — the four middle controls previously had different gesture lifecycles.
-// Give each one immediate pointer ownership, matching the joysticks. We do NOT
-// stop propagation here: the existing Add/Erase/Size/Select handlers still run.
-// We only prevent the native WebKit/host gesture from ever acquiring the touch.
-const MA_MIDDLE_GESTURE_IDS=['mobileSizeDrag','drawAddHoldBtn','drawEraseHoldBtn','selectHoldBtn'];
-for(const id of MA_MIDDLE_GESTURE_IDS){
-  const el=document.getElementById(id);if(!el)continue;
-  el.setAttribute('draggable','false');
-  el.addEventListener('pointerdown',e=>{
-    if(e.pointerType!=='touch')return;
-    if(e.cancelable)e.preventDefault();
-    try{el.setPointerCapture?.(e.pointerId);}catch(_){}
-  },{capture:true,passive:false});
-  el.addEventListener('pointermove',e=>{
-    if(e.pointerType==='touch'&&e.cancelable)e.preventDefault();
-  },{capture:true,passive:false});
-  el.addEventListener('pointerup',e=>{
-    if(e.pointerType!=='touch')return;
-    if(e.cancelable)e.preventDefault();
-    try{if(el.hasPointerCapture?.(e.pointerId))el.releasePointerCapture?.(e.pointerId);}catch(_){}
-  },{capture:true,passive:false});
-  el.addEventListener('pointercancel',e=>{
-    if(e.pointerType!=='touch')return;
-    if(e.cancelable)e.preventDefault();
-    try{if(el.hasPointerCapture?.(e.pointerId))el.releasePointerCapture?.(e.pointerId);}catch(_){}
-  },{capture:true,passive:false});
-  for(const type of ['touchstart','touchmove','touchend','touchcancel']){
-    el.addEventListener(type,e=>{if(e.cancelable)e.preventDefault();},{capture:true,passive:false});
-  }
-  for(const type of ['gesturestart','gesturechange','gestureend']){
-    el.addEventListener(type,e=>{if(e.cancelable)e.preventDefault();},{capture:true,passive:false});
-  }
-}
-const maModeBar=document.getElementById('maModeBar');
-for(const type of ['touchstart','touchmove','gesturestart','gesturechange']){
-  maModeBar?.addEventListener(type,e=>{if(e.cancelable)e.preventDefault();},{capture:true,passive:false});
-}
-
-// v9.92 — these plain DIV/SPAN surfaces are the first iOS hit target, just like
-// the joysticks. Do not stop propagation: pointer events must still bubble to
-// the existing native button handlers underneath/around them.
-function installMiddleDockTouchSurface(el){
-  if(!el)return;
-  el.addEventListener('pointerdown',e=>{
-    if(e.pointerType!=='touch')return;
-    if(e.cancelable)e.preventDefault();
-    try{el.setPointerCapture?.(e.pointerId);}catch(_){}
-  },{passive:false});
-  el.addEventListener('pointermove',e=>{
-    if(e.pointerType==='touch'&&e.cancelable)e.preventDefault();
-  },{passive:false});
-  const finish=e=>{
-    if(e.pointerType!=='touch')return;
-    if(e.cancelable)e.preventDefault();
-    try{if(el.hasPointerCapture?.(e.pointerId))el.releasePointerCapture?.(e.pointerId);}catch(_){}
-  };
-  el.addEventListener('pointerup',finish,{passive:false});
-  el.addEventListener('pointercancel',finish,{passive:false});
-  for(const type of ['touchstart','touchmove','touchend','touchcancel']){
-    el.addEventListener(type,e=>{if(e.cancelable)e.preventDefault();},{passive:false});
-  }
-}
-installMiddleDockTouchSurface(document.getElementById('maModeBarGestureSurface'));
-document.querySelectorAll('.maMiddleTouchSurface').forEach(installMiddleDockTouchSurface);
-document.addEventListener('touchstart',e=>{
-  if(maNativeScrollAllowed(e.target))return;
-  const bottom=maViewportBottomY();
-  const dockRect=maDock?.getBoundingClientRect?.();
-  for(const t of e.changedTouches){
-    const inDockBand=!!dockRect&&t.clientX>=dockRect.left-30&&t.clientX<=dockRect.right+30&&t.clientY>=dockRect.top-30&&t.clientY<=bottom;
-    if(inDockBand||t.clientY>=bottom-160)maBottomGuardTouches.add(t.identifier);
-  }
-  if(e.cancelable)e.preventDefault();
-},{capture:true,passive:false});
-document.addEventListener('touchmove',e=>{
-  if(maNativeScrollAllowed(e.target))return;
-  if(e.cancelable)e.preventDefault();
-},{capture:true,passive:false});
-function maReleaseBottomGuardTouches(e){for(const t of e.changedTouches)maBottomGuardTouches.delete(t.identifier);}
-document.addEventListener('touchend',maReleaseBottomGuardTouches,{capture:true,passive:true});
-document.addEventListener('touchcancel',maReleaseBottomGuardTouches,{capture:true,passive:true});
-window.addEventListener('resize',()=>requestAnimationFrame(syncDockGestureShield),{passive:true});
-window.visualViewport?.addEventListener('resize',()=>requestAnimationFrame(syncDockGestureShield),{passive:true});
-window.visualViewport?.addEventListener('scroll',()=>requestAnimationFrame(syncDockGestureShield),{passive:true});
-requestAnimationFrame(()=>requestAnimationFrame(syncDockGestureShield));
+document.addEventListener('touchstart',preventNativeAppScroll,{capture:true,passive:false});
+document.addEventListener('touchmove',preventNativeAppScroll,{capture:true,passive:false});
 function viewportRenderSize(){
   const r=container.getBoundingClientRect();
   return{
@@ -3186,42 +2981,6 @@ function endMirrorTouchTracking(e,cancelled=false){
     if(shouldMirror)toggleMirrorModeX();
   }
   return consumed;
-}
-// v8.92 — iPhone/iPad home-indicator safe zone. Only touches that START in
-// a small rectangle around the actual bottom-centre home indicator belong to
-// iOS. The rest of the bottom edge remains normal MA 3D workspace input.
-// UI controls are intercepted before viewport input; Apple Pencil is unaffected.
-const homeGestureSafePointers=new Set();
-let homeGestureInsetProbe=null;
-function iosHomeGestureSafeZonePx(){
-  if(!(window.__MA_IS_IPHONE__||window.__MA_IS_IPAD__))return 0;
-  if(!homeGestureInsetProbe&&document.body){
-    const probe=document.createElement('div');
-    probe.setAttribute('aria-hidden','true');
-    probe.style.cssText='position:fixed;left:-10000px;bottom:0;width:1px;height:env(safe-area-inset-bottom);visibility:hidden;pointer-events:none;';
-    document.body.appendChild(probe);
-    homeGestureInsetProbe=probe;
-  }
-  const safe=homeGestureInsetProbe?(parseFloat(getComputedStyle(homeGestureInsetProbe).height)||0):0;
-  // Home-indicator inset + a small vertical buffer.
-  return Math.min(80,Math.max(44,safe+18));
-}
-function iosHomeGestureSafeZoneWidthPx(){
-  const vv=window.visualViewport;
-  const width=vv?vv.width:(window.innerWidth||document.documentElement.clientWidth||0);
-  // Localised around the system home bar instead of blocking the full edge.
-  // Scale gently across iPhone/iPad sizes while keeping it intentionally narrow.
-  return Math.min(340,Math.max(180,width*.28));
-}
-function touchStartsInHomeGestureSafeZone(e){
-  if(e.pointerType!=='touch'||!(window.__MA_IS_IPHONE__||window.__MA_IS_IPAD__))return false;
-  const vv=window.visualViewport;
-  const left=vv?vv.offsetLeft:0;
-  const width=vv?vv.width:(window.innerWidth||document.documentElement.clientWidth||0);
-  const bottom=vv?vv.offsetTop+vv.height:(window.innerHeight||document.documentElement.clientHeight||0);
-  const centreX=left+width*.5;
-  const halfWidth=iosHomeGestureSafeZoneWidthPx()*.5;
-  return e.clientY>=bottom-iosHomeGestureSafeZonePx() && Math.abs(e.clientX-centreX)<=halfWidth;
 }
 // v8.87 — keep the existing three-finger REDO tap crisp by requiring a tiny
 // stationary hold before three-finger movement becomes an FOV gesture.
@@ -7656,7 +7415,6 @@ function syncPrimaryDockUI(){
 }
 function updateMobileDrawUI(){
   if(!MA_UNIFIED_UI)return;
-  requestAnimationFrame(syncDockGestureShield);
 
   const canSelect=selectModeAvailable();
 
@@ -14569,8 +14327,7 @@ renderer.domElement.addEventListener('pointerdown',e=>{
     }
 
     if(e.pointerType==='touch'){
-      // v9.88 — do not yield the bottom/home-indicator region to the host.
-      // The host sheet/page scroll was being promoted from exactly this escape.
+      // Touch input belongs to the app; document-level scrolling is disabled.
       e.preventDefault();
 
       if(beginMirrorTouchTracking(e)){
@@ -14917,7 +14674,6 @@ window.addEventListener('pointermove',e=>{
     if(e.pointerType==='touch')updateMirrorTouchTracking(e);
     if(unifiedUIPointers.has(e.pointerId))return;
     if(e.pointerType==='touch'){
-      if(homeGestureSafePointers.has(e.pointerId))return;
       if(ipadPencilMode){
         if(!touchPointers.has(e.pointerId))return;
         e.preventDefault();
@@ -15169,10 +14925,6 @@ window.addEventListener('pointerup',e=>{
       return;
     }
     if(e.pointerType==='touch'){
-      if(homeGestureSafePointers.has(e.pointerId)){
-        homeGestureSafePointers.delete(e.pointerId);
-        return;
-      }
       if(ipadPencilMode&&mobileSelectTap?.pointerId!==e.pointerId&&marqueeState?.pointerId!==e.pointerId){
         const pt=touchPointers.get(e.pointerId);
         if(touchGesture&&pt){
@@ -15466,10 +15218,6 @@ window.addEventListener('pointercancel',e=>{
     if(mobileSelectTap?.pointerId===e.pointerId)mobileSelectTap=null;
 
     if(e.pointerType==='touch'){
-      if(homeGestureSafePointers.has(e.pointerId)){
-        homeGestureSafePointers.delete(e.pointerId);
-        return;
-      }
       if(ipadPencilMode){
         touchPointers.delete(e.pointerId);
         if(!touchPointers.size){
@@ -15762,7 +15510,6 @@ window.addEventListener('pointerup',()=>scheduleAutosave());
 // v5.92 — A suspended iOS standalone app may resume without a clean pointer end.
 // Never carry touch-navigation state across app background/foreground boundaries.
 function resetTouchNavigationRuntime(){
-  homeGestureSafePointers.clear();
   cancelTouchCameraUpdate();
   stylusTouchFallbackIds.clear();
   lastNativePenPointerAt=0;
