@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="ma-build" content="9.70">
+<meta name="ma-build" content="9.104">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -11,10 +11,10 @@
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <!-- MA 3D · object value mode -->
-<title>MA 3D · v9.100</title>
+<title>MA 3D · v9.104</title>
 <script>
 (() => {
-  const CURRENT_BUILD = '9.70';
+  const CURRENT_BUILD = '9.104';
   const CHECK_INTERVAL = 30000;
   let lastCheck = 0;
   let checking = false;
@@ -2634,6 +2634,8 @@ import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js'
 import ManifoldModule from 'https://cdn.jsdelivr.net/npm/manifold-3d@3.5.3/manifold.js';
 import { writePsd } from 'https://cdn.jsdelivr.net/npm/ag-psd@31.0.2/+esm';
 
+// v9.104 — Clean Face Move: one cached base manifold per drag, lightweight solid previews, exact final geometry on release.
+// v9.101 — Move preserves topological feature edges and clamps deformation before walls invert or selected vertices cross stationary faces.
 // v8.63 cleanup: removed unreachable legacy toolbar adapters, inert scene helpers, and obsolete dock-handle DOM.
 // v8.65 iPhone layout: portrait dock bottom inset is clamped so oversized webview safe-area values cannot push the dock upward.
 // v8.64 selection: marquee uses actual projected mesh triangles; Pencil fallback hit radius is tightened.
@@ -4976,9 +4978,14 @@ function geometryToManifold(source){
   const compact=compactSolidGeometry(source),src=compact.attributes.position,vertProperties=new Float32Array(src.array),triVerts=new Uint32Array(src.count);for(let i=0;i<triVerts.length;i++)triVerts[i]=i;compact.dispose();
   const mesh=new ManifoldMesh({numProp:3,vertProperties,triVerts});mesh.merge();const solid=new ManifoldSolid(mesh),status=solid.status();if(status!=='NoError'){solid.delete();throw new Error('Invalid solid: '+status);}return solid;
 }
-function manifoldToGeometry(solid){
+function manifoldToGeometry(solid,{cache=true}={}){
   const mesh=solid.getMesh(),count=mesh.vertProperties.length/mesh.numProp,positions=new Float32Array(count*3);for(let i=0;i<count;i++){positions[i*3]=mesh.vertProperties[i*mesh.numProp];positions[i*3+1]=mesh.vertProperties[i*mesh.numProp+1];positions[i*3+2]=mesh.vertProperties[i*mesh.numProp+2];}
-  const indexed=new THREE.BufferGeometry();indexed.setAttribute('position',new THREE.BufferAttribute(positions,3));indexed.setIndex(new THREE.BufferAttribute(new Uint32Array(mesh.triVerts),1));const g=indexed.toNonIndexed();indexed.dispose();g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();g.userData.manifoldMesh={positions:Array.from(positions),triangles:Array.from(mesh.triVerts),mergeFrom:Array.from(mesh.mergeFromVert||[]),mergeTo:Array.from(mesh.mergeToVert||[])};return g;
+  const indexed=new THREE.BufferGeometry();indexed.setAttribute('position',new THREE.BufferAttribute(positions,3));indexed.setIndex(new THREE.BufferAttribute(new Uint32Array(mesh.triVerts),1));const g=indexed.toNonIndexed();indexed.dispose();g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();
+  // During a Face Move, the original solid is cached in WASM. Converting every
+  // intermediate manifold back into large JS arrays provides no benefit.
+  // The exact release result still receives the normal project/undo cache.
+  if(cache)g.userData.manifoldMesh={positions:Array.from(positions),triangles:Array.from(mesh.triVerts),mergeFrom:Array.from(mesh.mergeFromVert||[]),mergeTo:Array.from(mesh.mergeToVert||[])};
+  return g;
 }
 function subtractGeometry(baseGeometry,cutterGeometry){
   let base=null,cutter=null,result=null,cleaned=null;try{base=geometryToManifold(baseGeometry);cutter=geometryToManifold(cutterGeometry);result=base.subtract(cutter);const status=result.status();if(status!=='NoError'||result.isEmpty())throw new Error('Boolean result: '+status);baseGeometry.computeBoundingBox();const tol=Math.max(1,baseGeometry.boundingBox.getSize(new THREE.Vector3()).length())*1e-6;cleaned=result.simplify(tol);return manifoldToGeometry(cleaned);}finally{if(cleaned)cleaned.delete();if(result)result.delete();if(cutter)cutter.delete();if(base)base.delete();}
@@ -5011,6 +5018,60 @@ function unionGeometry(baseGeometry,addGeometry){
 }
 function commitMassBoolean(m,baseGeometry,cutter,operation='subtract'){
   let next=null;try{next=operation==='union'?unionGeometry(baseGeometry,cutter):subtractGeometry(baseGeometry,cutter);if(!setMassGeometry(m,next,true)){next.dispose();return false;}return true;}catch(err){console.warn('Mass boolean failed',err);next?.dispose();return false;}
+}
+// Stable authored edges for deformed triangle meshes. Three.EdgesGeometry is useful
+// when a new solid is created, but it cannot distinguish an intentionally hidden
+// triangulation diagonal from an authored edge after a face has been bent.
+// Pair indices always refer to the CURRENT position buffer, never a frozen line
+// drawing; when topology is replaced (boolean etc.), the metadata is discarded.
+function maStructuralEdges(g){
+  const e=g?.userData?.maStructuralEdges,p=g?.attributes?.position;
+  if(!e||!p||e.count!==p.count||!Array.isArray(e.pairs)||e.pairs.length%2)return null;
+  return e;
+}
+function maStructuralEdgeGeometry(g){
+  const e=maStructuralEdges(g);if(!e)return null;
+  const pos=g.attributes.position,coords=[];
+  for(let k=0;k<e.pairs.length;k+=2){
+    const i=e.pairs[k],j=e.pairs[k+1];
+    if(!Number.isInteger(i)||!Number.isInteger(j)||i<0||j<0||i>=pos.count||j>=pos.count)continue;
+    const ax=pos.getX(i),ay=pos.getY(i),az=pos.getZ(i);
+    const bx=pos.getX(j),by=pos.getY(j),bz=pos.getZ(j);
+    if(!Number.isFinite(ax+ay+az+bx+by+bz))continue;
+    if((ax-bx)**2+(ay-by)**2+(az-bz)**2<1e-18)continue;
+    coords.push(ax,ay,az,bx,by,bz);
+  }
+  const out=new THREE.BufferGeometry();
+  out.setAttribute('position',new THREE.Float32BufferAttribute(coords,3));
+  out.computeBoundingSphere();
+  return out;
+}
+function maRememberStructuralEdges(m){
+  const g=m?.mesh?.geometry;if(!g)return null;
+  const stored=maStructuralEdges(g);if(stored)return stored;
+  // Capture only real model edges BEFORE changing vertex positions. Each edge
+  // endpoint is identified by the geometric vertex group (triangle soup safe).
+  const topo=modifyTopology(m);if(!topo)return null;
+  const pairs=[],ep=m.edges?.geometry?.attributes?.position;
+  if(!ep)return null;
+  const seen=new Set();
+  for(let i=0;i+1<ep.count;i+=2){
+    const a=new THREE.Vector3().fromBufferAttribute(ep,i);
+    const b=new THREE.Vector3().fromBufferAttribute(ep,i+1);
+    const ka=quantKey3(a,topo.tol),kb=quantKey3(b,topo.tol);
+    const ia=topo.groups.get(ka)?.indices?.[0],ib=topo.groups.get(kb)?.indices?.[0];
+    if(ia==null||ib==null||ia===ib)continue;
+    const key=ia<ib?ia+'|'+ib:ib+'|'+ia;
+    if(seen.has(key))continue;
+    seen.add(key);pairs.push(ia,ib);
+  }
+  const result={count:g.attributes.position.count,pairs};
+  g.userData.maStructuralEdges=result;
+  return result;
+}
+function maCopyStructuralEdges(source,target){
+  const e=maStructuralEdges(source);if(!e||!target?.attributes?.position||e.count!==target.attributes.position.count)return;
+  target.userData.maStructuralEdges={count:e.count,pairs:e.pairs.slice()};
 }
 function geometryFromPositions(arr,normals=null){
   const g=new THREE.BufferGeometry();
@@ -5069,14 +5130,20 @@ function invalidateMassGeometryDerivedState(m,{invalidateManifold=false}={}){
   m._modifyTopology=null;
   m._modifyTopologyGeometry=null;
 }
-function commitMassGeometry(m,g,{smooth=true}={}){
+function commitMassGeometry(m,g,{smooth=true,preview=false}={}){
   if(!m||!g)return false;
   const previous=m.mesh.geometry;
   if(smooth)g=smoothGeometryForType(g,m.type);
-  g.computeVertexNormals();
-  g.computeBoundingBox();
-  g.computeBoundingSphere();
+  // Manifold previews already have normals and bounds. Avoid recalculating
+  // them and the (hidden) VALUE overlay on every Pencil movement.
+  if(!preview||!g.attributes.normal)g.computeVertexNormals();
+  if(!preview||!g.boundingBox)g.computeBoundingBox();
+  if(!preview||!g.boundingSphere)g.computeBoundingSphere();
   const replaced=previous!==g;
+  // A smoothing/retriangulation pass may change the buffer topology. Never use
+  // vertex-pair IDs from a previous buffer when its layout no longer matches.
+  if(g.userData.maStructuralEdges&&g.userData.maStructuralEdges.count!==g.attributes.position.count)
+    delete g.userData.maStructuralEdges;
   if(replaced){
     m.mesh.geometry=g;
     previous?.dispose();
@@ -5084,13 +5151,13 @@ function commitMassGeometry(m,g,{smooth=true}={}){
   m.edges.geometry.dispose();
   m.edges.geometry=outlineGeometryForMass(g,m.type);
   invalidateMassGeometryDerivedState(m,{invalidateManifold:!replaced});
-  syncMassValueOverlay(m,{resetFaceValues:false});
+  if(!preview)syncMassValueOverlay(m,{resetFaceValues:false});
   updateMassVisual(m);
   markViewPlaneSectionDirty();
   return true;
 }
-function setMassGeometry(m,g,baked=true,{smooth=true}={}){
-  if(!commitMassGeometry(m,g,{smooth}))return false;
+function setMassGeometry(m,g,baked=true,{smooth=true,preview=false}={}){
+  if(!commitMassGeometry(m,g,{smooth,preview}))return false;
   m.baked=!!baked;
   m.cuts=[];
   return true;
@@ -5189,6 +5256,10 @@ function smoothGeometryForType(g,type){
 }
 function outlineGeometryForMass(g,type){
   if(!g)return new THREE.BufferGeometry();
+  // Editing changes vertex positions, NOT the identity of triangulation edges.
+  // Each endpoint is read from actual mesh geometry on every rebuild.
+  const structural=maStructuralEdgeGeometry(g);
+  if(structural)return structural;
   if(type!=='curve'&&type!=='boxbrush')return new THREE.EdgesGeometry(g,20);
 
   // Outlines are derived from a POSITION-WELDED copy of the actual solid.
@@ -5230,6 +5301,12 @@ function makeMass(data,addHistory=false){
     restoreRoundBrushNormalsInPlace(g,data.geometryNormals,58);
     g.computeBoundingBox();g.computeBoundingSphere();
   }else{g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();}
+  // Restore topology-labelled model edges together with the saved triangle mesh.
+  // Legacy projects without this data still derive edges from their geometry.
+  if(data.structuralEdges&&Array.isArray(data.structuralEdges.pairs)&&
+     data.structuralEdges.count===g.attributes.position.count){
+    g.userData.maStructuralEdges={count:g.attributes.position.count,pairs:data.structuralEdges.pairs.slice()};
+  }
   const group=new THREE.Group(),mesh=new THREE.Mesh(g,materialForMass(massType));mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);scene.add(group);
   group.position.fromArray(data.position||[0,0,0]);group.quaternion.fromArray(data.quaternion||[0,0,0,1]);group.scale.fromArray(data.scale||[1,1,1]);
   const id=data.id??nextId++;nextId=Math.max(nextId,id+1);group.userData.massId=id;mesh.userData.massId=id;
@@ -5266,7 +5343,7 @@ function getActiveBrushContainer(tool=null){
   return m;
 }
 
-function serializeMass(m){const geometryPositions=serializeGeometry(m.mesh.geometry),geometryNormals=m.type==='curve'?serializeGeometryNormals(m.mesh.geometry):null;return{id:m.id,name:m.name,type:m.type,groupId:m.groupId??null,mirrorPairId:m.mirrorPairId??null,mirrorRole:m.mirrorRole||null,valueLevel:clamp(Math.round(+m.valueLevel||0),0,VALUE_LEVEL_COUNT-1),profile:m.profile.map(p=>({x:p.x,y:p.y})),depth:m.depth,cuts:m.baked?[]:(m.cuts||[]).map(serializeCut),baked:!!m.baked,geometryPositions:m.baked?null:geometryPositions,bakedPositions:m.baked?geometryPositions:null,geometryNormals,position:m.group.position.toArray(),quaternion:m.group.quaternion.toArray(),scale:m.group.scale.toArray()};}
+function serializeMass(m){const geometryPositions=serializeGeometry(m.mesh.geometry),geometryNormals=m.type==='curve'?serializeGeometryNormals(m.mesh.geometry):null;const featureEdges=maStructuralEdges(m.mesh.geometry);return{id:m.id,structuralEdges:featureEdges?{count:featureEdges.count,pairs:featureEdges.pairs.slice()}:null,name:m.name,type:m.type,groupId:m.groupId??null,mirrorPairId:m.mirrorPairId??null,mirrorRole:m.mirrorRole||null,valueLevel:clamp(Math.round(+m.valueLevel||0),0,VALUE_LEVEL_COUNT-1),profile:m.profile.map(p=>({x:p.x,y:p.y})),depth:m.depth,cuts:m.baked?[]:(m.cuts||[]).map(serializeCut),baked:!!m.baked,geometryPositions:m.baked?null:geometryPositions,bakedPositions:m.baked?geometryPositions:null,geometryNormals,position:m.group.position.toArray(),quaternion:m.group.quaternion.toArray(),scale:m.group.scale.toArray()};}
 function snapshot(){return masses.map(m=>({...serializeMass(m),baked:!!m.baked,geometryPositions:serializeGeometry(m.mesh.geometry)}));}
 function captureSceneView(){
   // A scene is a complete shot snapshot, not only a camera bookmark. Persist the
@@ -6516,6 +6593,11 @@ function massMatchesHistoryState(m,d){
     if(!a||a.length!==b.length)return false;
     for(let i=0;i<a.length;i++)if(!historyNumberEq(a[i],b[i],1e-7))return false;
   }
+  const edges=maStructuralEdges(m.mesh.geometry),targetEdges=d.structuralEdges;
+  if(!!edges!==!!targetEdges)return false;
+  if(edges&&(!Array.isArray(targetEdges.pairs)||edges.count!==targetEdges.count||
+     edges.pairs.length!==targetEdges.pairs.length||
+     edges.pairs.some((index,i)=>index!==targetEdges.pairs[i])))return false;
   const cuts=m.cuts||[],targetCuts=d.cuts||[];
   if(cuts.length!==targetCuts.length)return false;
   for(let i=0;i<cuts.length;i++)if(!historyCutEq(cuts[i],targetCuts[i]))return false;
@@ -9613,9 +9695,7 @@ function beginMove(e){const hit=raycastMoveTarget(e.clientX,e.clientY),m=massFro
 function beginAxisLockedMoveAnywhere(e,axis){
   if(selectedGeometryParts.size){
     const grab=selectedGeometryWorldCenter();if(!grab||!(axis==='x'||axis==='y'||axis==='z'))return false;
-    const byMass=selectedGeometryIndicesByMass(),parts=new Map();
-    for(const [id,indices] of byMass){const m=massById(id),pos=m?.mesh?.geometry?.attributes?.position;if(!m||!pos)continue;parts.set(id,{m,indices:[...indices],startPositions:new Float32Array(pos.array)});}
-    if(!parts.size)return false;
+    const parts=maCreateSelectedGeometryMoveParts();if(!parts.size)return false;
     const n=new THREE.Vector3();camera.getWorldDirection(n).normalize();const plane=new THREE.Plane().setFromNormalAndCoplanarPoint(n,grab);
     interaction={kind:'geometryMove',pointerId:e.pointerId,parts,startClient:vec2(e.clientX,e.clientY),grab:grab.clone(),movePlane:plane,startPlane:grab.clone(),before:snapshot(),autoAxis:null,changed:false,axisHoldMove:true,axisHoldAxis:axis};
     axisLock=axis;clearSelectGeometryHighlight();if(e.pointerType==='touch')mobileMovePointerId=e.pointerId;if(e.pointerType==='pen')penActive=true;renderer.domElement.setPointerCapture?.(e.pointerId);showMoveAxisGuide(interaction,axis,new THREE.Vector3());updateMobileDrawUI();return true;
@@ -9752,10 +9832,27 @@ function rebaseActiveGeometryMoveAtCurrentPosition(){
   const st=interaction;if(!st||st.kind!=='geometryMove')return false;
   flushPendingGeometryMoveNow();
   const pointer=st.lastClient?.clone?.()||st.startClient.clone();
-  const currentGrab=selectedGeometryWorldCenter()||st.grab.clone();
   for(const rec of st.parts.values()){
-    const pos=rec.m?.mesh?.geometry?.attributes?.position;if(pos)rec.startPositions=new Float32Array(pos.array);
+    if(rec.faceSweep){
+      // Axis changes rebase the gesture on the CURRENT mass, whether the last
+      // preview used direct deformation or a topology-changing Boolean.
+      if(rec.faceBoolean&&!maRelinkMovedFace(rec))return false;
+      maReleaseFaceMoveResources(rec);
+      rec.faceBase=rec.m.mesh.geometry.clone();
+      rec.faceBase.computeBoundingBox();
+      const part=selectedGeometryParts.get(rec.m.id);
+      rec.indices=[...(part?.indices||rec.indices)];
+      const pos=rec.m.mesh.geometry.attributes.position;
+      rec.startPositions=new Float32Array(pos.array);
+      rec.faceSweep=maFaceSweepSource(rec.m,part);
+      rec.faceDeformSupport=rec.faceSweep?maFaceMoveDeformationSupport(rec.m,rec.indices,rec.startPositions):null;
+      rec.faceBoolean=false;rec.faceBooleanEmpty=false;rec.faceDeformed=false;
+    }else{
+      const pos=rec.m?.mesh?.geometry?.attributes?.position;
+      if(pos)rec.startPositions=new Float32Array(pos.array);
+    }
   }
+  const currentGrab=selectedGeometryWorldCenter()||st.grab.clone();
   st.grab.copy(currentGrab);st.startClient.copy(pointer);st.autoAxis=null;
   const n=new THREE.Vector3();camera.getWorldDirection(n).normalize();
   st.movePlane=new THREE.Plane().setFromNormalAndCoplanarPoint(n,st.grab);
@@ -9926,35 +10023,378 @@ function endMove(){
 
 // --- Select sub-elements: move selected vertex / line / face geometry ----------
 let pendingGeometryMove=null,rafGeometryMove=0;
+function maCreateSelectedGeometryMoveParts(){
+  const byMass=selectedGeometryIndicesByMass(),parts=new Map();
+  for(const [id,indices] of byMass){
+    const m=massById(id),pos=m?.mesh?.geometry?.attributes?.position;
+    if(!m||!pos)continue;
+    maRememberStructuralEdges(m);
+    const rec={m,indices:[...indices],startPositions:new Float32Array(pos.array)};
+    // Only a single planar Face uses constructive solid geometry. Vertex/Line
+    // edits still move their own shared vertices as before.
+    rec.faceSweep=maFaceSweepSource(m,selectedGeometryParts.get(id));
+    if(rec.faceSweep){
+      rec.faceBase=m.mesh.geometry.clone();
+      rec.faceBase.computeBoundingBox();
+      // A translated planar face does not need a Boolean while its connected
+      // faces can follow without folding. Keep a read-only record of those
+      // neighboring surface patches for a fast, topology-preserving move.
+      rec.faceDeformSupport=maFaceMoveDeformationSupport(m,rec.indices,rec.startPositions);
+    }
+    parts.set(id,rec);
+  }
+  return parts;
+}
 function beginSelectedGeometryMove(e){
   if(!selectedGeometryParts.size)return false;
   const hit=raycastMasses(e.clientX,e.clientY),m=massFromHit(hit);if(!m)return false;
   const component=automaticSelectComponentAt(e.clientX,e.clientY,m);
   if(!component||!geometryComponentIsSelected(m,component))return false;
   selectElementMode=component.mode;
-  const byMass=selectedGeometryIndicesByMass();if(!byMass.size)return false;
   const viewNormal=new THREE.Vector3();camera.getWorldDirection(viewNormal);
   const grab=component.point?.clone()||hit.point.clone();
   const movePlane=new THREE.Plane().setFromNormalAndCoplanarPoint(viewNormal,grab);
   setPointerXY(e.clientX,e.clientY);const startPlane=ray.ray.intersectPlane(movePlane,new THREE.Vector3())||grab.clone();
-  const parts=new Map();
-  for(const [id,indices] of byMass){const mm=massById(id),pos=mm?.mesh?.geometry?.attributes?.position;if(!mm||!pos)continue;parts.set(id,{m:mm,indices:[...indices],startPositions:new Float32Array(pos.array)});}
-  if(!parts.size)return false;
+  const parts=maCreateSelectedGeometryMoveParts();if(!parts.size)return false;
   interaction={kind:'geometryMove',pointerId:e.pointerId,parts,startClient:vec2(e.clientX,e.clientY),grab,movePlane,startPlane:startPlane.clone(),before:snapshot(),autoAxis:null,changed:false};
   clearSelectGeometryHighlight();showMoveAxisDots(interaction);
   renderer.domElement.setPointerCapture?.(e.pointerId);
   return true;
 }
-function applySelectedGeometryMove(st,worldDelta){
+// A selected Face is a region of the solid surface, not a bag of mesh indices.
+// Sweeping that region produces a closed prism. Union (outward) / subtraction
+// (inward) rebuilds the actual solid when a face passes other walls. Merely
+// translating the triangle vertices makes the adjacent tessellation fold and
+// creates the long diagonal artifacts seen in v9.100.
+function maFaceSweepSource(m,part){
+  const c=part?.components;
+  if(!c||c.face?.size!==1||c.vertex?.size||c.line?.size)return null;
+  const topo=selectTopology(m),fid=Number([...c.face][0]),f=topo?.faces?.[fid];
+  const g=m.mesh.geometry,p=g.attributes.position,idx=g.index;
+  if(!f||!f.triangles.length||!p)return null;
+  const tolerance=Math.max(1e-6,topo.tol);
+  const key=v=>quantKey3(v,tolerance);
+  const patches=[],boundary=new Map(),unique=new Map();
+  const triNormal=new THREE.Vector3(),ab=new THREE.Vector3(),ac=new THREE.Vector3();
+  let normal=null,planePoint=null;
+  for(const t of f.triangles){
+    const vs=[];
+    for(let k=0;k<3;k++)vs.push(new THREE.Vector3().fromBufferAttribute(p,idx?idx.getX(3*t+k):3*t+k));
+    triNormal.crossVectors(ab.subVectors(vs[1],vs[0]),ac.subVectors(vs[2],vs[0]));
+    if(triNormal.lengthSq()<1e-16)continue;
+    triNormal.normalize();
+    if(!normal){normal=triNormal.clone();planePoint=vs[0].clone();}
+    if(normal.dot(triNormal)<.997||vs.some(v=>Math.abs(v.clone().sub(planePoint).dot(normal))>tolerance*3))return null;
+    patches.push(vs);
+    for(let k=0;k<3;k++){
+      const a=vs[k],b=vs[(k+1)%3],ka=key(a),kb=key(b),eid=ka<kb?ka+'|'+kb:kb+'|'+ka;
+      const e=boundary.get(eid);
+      if(e)e.count++;
+      else boundary.set(eid,{a:a.clone(),b:b.clone(),count:1});
+      unique.set(ka,a.clone());
+    }
+  }
+  if(!patches.length)return null;
+  const edges=[...boundary.values()].filter(e=>e.count===1);
+  if(!edges.length||[...boundary.values()].some(e=>e.count>2))return null;
+  const center=new THREE.Vector3();for(const v of unique.values())center.add(v);
+  center.multiplyScalar(1/unique.size);
+  return{patches,edges,normal,center,tolerance};
+}
+// v9.104 — A face MOVE is first a deformation of the *existing* solid.
+// The previous sweep-union changed topology even for a perfectly ordinary
+// translated face. With an oblique pointer delta it could create a wedge/extra
+// corner at the old face position (a real, but unintended, crease). Only fall
+// back to the robust Manifold sweep where moving shared vertices would make an
+// adjacent surface non-planar or invert its triangles.
+// All tested triangles and face groups come from the original mesh; previews
+// never rebase on a previous preview and cannot accumulate numerical drift.
+function maFaceMoveDeformationSupport(m,movedIndices,source){
+  const topo=selectTopology(m),g=m?.mesh?.geometry,idx=g?.index;
+  if(!topo?.faces?.length||!source?.length)return null;
+  const moved=new Set(movedIndices),affected=[];
+  const size=g.boundingBox?.getSize(new THREE.Vector3()).length()||1;
+  const planarEps=Math.max(2e-6,size*1.5e-5);
+  const read=(i)=>new THREE.Vector3(source[i*3],source[i*3+1],source[i*3+2]);
+  for(const face of topo.faces){
+    const touched=face.triangles.some(t=>[0,1,2].some(k=>moved.has(idx?idx.getX(t*3+k):t*3+k)));
+    if(!touched)continue;
+    const triangles=[];
+    let baseNormal=null,basePoint=null;
+    for(const t of face.triangles){
+      const ids=[0,1,2].map(k=>idx?idx.getX(t*3+k):t*3+k);
+      const [a,b,c]=ids.map(read),n=b.clone().sub(a).cross(c.clone().sub(a));
+      if(n.lengthSq()<1e-18)return null;
+      n.normalize();
+      if(!baseNormal){baseNormal=n;basePoint=a;}
+      if(n.dot(baseNormal)<.9999||ids.some(i=>Math.abs(read(i).sub(basePoint).dot(baseNormal))>planarEps))return null;
+      triangles.push({ids,normal:n});
+    }
+    affected.push(triangles);
+  }
+  if(!affected.length)return null;
+  // Planarity of each neighboring polygon is a linear constraint on a rigidly
+  // translated set of its vertices. Precompute an orthonormal constraint basis
+  // so free drags can drop only the unwanted off-plane component, rather than
+  // inventing a new fold or defaulting to a skewed Boolean prism.
+  const constraints=[];
+  for(const triangles of affected){
+    const vertices=new Map();
+    for(const tri of triangles)for(const i of tri.ids){
+      const p=read(i),key=quantKey3(p,Math.max(1e-6,size*1e-6));
+      if(!vertices.has(key))vertices.set(key,{p,moved:moved.has(i)});
+    }
+    const vs=[...vertices.values()];if(vs.length<4)continue;
+    const p0=vs[0],p1=vs.slice(1).reduce((best,v)=>v.p.distanceToSquared(p0.p)>best.p.distanceToSquared(p0.p)?v:best,vs[1]);
+    const u=p1.p.clone().sub(p0.p);
+    let p2=null,area=0;
+    for(const v of vs){
+      if(v===p0||v===p1)continue;
+      const ar=new THREE.Vector3().crossVectors(u,v.p.clone().sub(p0.p)).lengthSq();
+      if(ar>area){area=ar;p2=v;}
+    }
+    if(!p2||area<1e-18)continue;
+    const v=p2.p.clone().sub(p0.p),a1=Number(p1.moved)-Number(p0.moved),a2=Number(p2.moved)-Number(p0.moved);
+    for(const p3 of vs){
+      if(p3===p0||p3===p1||p3===p2)continue;
+      const w=p3.p.clone().sub(p0.p),a3=Number(p3.moved)-Number(p0.moved);
+      const c=new THREE.Vector3().crossVectors(v,w).multiplyScalar(a1)
+        .add(new THREE.Vector3().crossVectors(w,u).multiplyScalar(a2))
+        .add(new THREE.Vector3().crossVectors(u,v).multiplyScalar(a3));
+      if(c.lengthSq()<area*1e-12)continue;
+      c.normalize();
+      for(const prev of constraints)c.addScaledVector(prev,-c.dot(prev));
+      if(c.lengthSq()>1e-6)constraints.push(c.normalize());
+    }
+  }
+  return{moved,affected,planarEps,constraints};
+}
+function maFaceMoveClosestPlanarDelta(rec,dl){
+  const basis=rec.faceDeformSupport?.constraints;
+  if(!basis?.length)return null;
+  const projected=dl.clone();
+  for(const normal of basis)projected.addScaledVector(normal,-projected.dot(normal));
+  // Preserve the requested push/pull distance on the selected face. The
+  // tangential component can be inferred; the normal amount must never jump.
+  const n=rec.faceSweep.normal;
+  const originalNormal=dl.dot(n),newNormal=projected.dot(n);
+  if(Math.abs(newNormal-originalNormal)>Math.max(2e-5,Math.abs(originalNormal)*.01))return null;
+  return projected;
+}
+function maFaceMoveCanDeform(rec,dl){
+  const support=rec.faceDeformSupport;
+  if(!support||!Number.isFinite(dl.x+dl.y+dl.z))return false;
+  const src=rec.startPositions,moved=support.moved;
+  const read=i=>new THREE.Vector3(src[3*i]+(moved.has(i)?dl.x:0),src[3*i+1]+(moved.has(i)?dl.y:0),src[3*i+2]+(moved.has(i)?dl.z:0));
+  for(const tris of support.affected){
+    let planeNormal=null,planePoint=null;
+    for(const tri of tris){
+      const [a,b,c]=tri.ids.map(read);
+      const n=b.clone().sub(a).cross(c.clone().sub(a));
+      if(n.lengthSq()<1e-17)return false;
+      n.normalize();
+      // Do not invert a face or let part of a triangulated plane fold.
+      if(n.dot(tri.normal)<1e-5)return false;
+      if(!planeNormal){planeNormal=n;planePoint=a;}
+      if(n.dot(planeNormal)<.9999||[a,b,c].some(v=>Math.abs(v.clone().sub(planePoint).dot(planeNormal))>support.planarEps))return false;
+    }
+  }
+  return true;
+}
+function maApplyFaceDeformation(rec,dl,{allowPlanarInference=true}={}){
+  let moveDelta=dl;
+  if(!maFaceMoveCanDeform(rec,moveDelta)){
+    if(!allowPlanarInference)return false;
+    moveDelta=maFaceMoveClosestPlanarDelta(rec,dl);
+    if(!moveDelta||!maFaceMoveCanDeform(rec,moveDelta))return false;
+  }
+  // A former Boolean preview has a different vertex count; restore the exact
+  // starting topology before attempting the direct, coherent deformation.
+  if(rec.faceBoolean||rec.faceBooleanEmpty)maRestoreFaceMoveBase(rec);
+  const m=rec.m,g=m.mesh.geometry,p=g.attributes.position,src=rec.startPositions;
+  if(!p||p.count*3!==src.length)return false;
+  for(const i of rec.indices)p.setXYZ(i,src[i*3]+moveDelta.x,src[i*3+1]+moveDelta.y,src[i*3+2]+moveDelta.z);
+  p.needsUpdate=true;
+  g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();
+  // Authored edges follow the moved vertices, rather than inferring new edges
+  // from the changed triangle normals. This keeps a planar surface clean.
+  m.edges.geometry.dispose();m.edges.geometry=outlineGeometryForMass(g,m.type);
+  invalidateMassGeometryDerivedState(m,{invalidateManifold:true});
+  rec.faceBoolean=false;rec.faceBooleanEmpty=false;rec.faceDeformed=true;
+  m.mesh.visible=true;m.edges.visible=outlinesEnabled&&viewMode!=='shadow'&&viewMode!=='depth';
+  rec.lastFaceDelta=moveDelta.clone();
+  return true;
+}
+
+// Boolean fallback creates the SAME oriented closed prism as v9.102, but sends
+// its triangle positions straight to Manifold. No temporary Three.js geometry,
+// normals, bounding boxes or compactSolidGeometry pass is needed each frame.
+function maSweptFacePrismPositions(face,dl,eps){
+  const sign=Math.sign(face.normal.dot(dl));
+  if(!sign)return null;
+  const startOffset=face.normal.clone().multiplyScalar(-sign*eps);
+  const coords=[];
+  const pushTri=(a,b,c)=>coords.push(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z);
+  for(const vs of face.patches){
+    const [a,b,c]=vs,aa=a.clone().add(startOffset),bb=b.clone().add(startOffset),cc=c.clone().add(startOffset);
+    const a1=a.clone().add(dl),b1=b.clone().add(dl),c1=c.clone().add(dl);
+    if(sign>0){pushTri(cc,bb,aa);pushTri(a1,b1,c1);}
+    else{pushTri(aa,bb,cc);pushTri(c1,b1,a1);}
+  }
+  for(const {a,b} of face.edges){
+    const a0=a.clone().add(startOffset),b0=b.clone().add(startOffset);
+    const a1=a.clone().add(dl),b1=b.clone().add(dl);
+    if(sign>0){pushTri(a0,b0,b1);pushTri(a0,b1,a1);}
+    else{pushTri(a0,b1,b0);pushTri(a0,a1,b1);}
+  }
+  return new Float32Array(coords);
+}
+function maSweptFacePrismSolid(face,dl,eps){
+  const coords=maSweptFacePrismPositions(face,dl,eps);
+  if(!coords||!coords.length)return null;
+  const triVerts=new Uint32Array(coords.length/3);
+  for(let i=0;i<triVerts.length;i++)triVerts[i]=i;
+  const mesh=new ManifoldMesh({numProp:3,vertProperties:coords,triVerts});
+  mesh.merge();
+  const solid=new ManifoldSolid(mesh),status=solid.status();
+  if(status!=='NoError'){solid.delete();throw new Error('Invalid Face Move prism: '+status);}
+  return solid;
+}
+function maReleaseFaceMoveResources(rec){
+  rec.faceBaseSolid?.delete();rec.faceBaseSolid=null;
+  rec.faceBase?.dispose();rec.faceBase=null;
+}
+function maRestoreFaceMoveBase(rec){
+  const m=rec.m;
+  if(rec.faceBoolean||rec.faceBooleanEmpty){
+    const g=rec.faceBase.clone();
+    setMassGeometry(m,g,true,{smooth:false,preview:true});
+    m.mesh.visible=true;m.edges.visible=outlinesEnabled&&viewMode!=='shadow'&&viewMode!=='depth';
+    rec.faceBoolean=false;rec.faceBooleanEmpty=false;
+  }
+}
+function maApplyFaceSolidMove(rec,dl,{final=false}={}){
+  const face=rec.faceSweep,amount=face.normal.dot(dl);
+  // In-plane movement is a deformation, not an extrusion. Near-zero sweeps
+  // never enter Manifold, retaining the v9.102 geometry behaviour.
+  const minTravel=Math.max(1e-5,face.tolerance*4);
+  if(Math.abs(amount)<minTravel||Math.abs(amount)/Math.max(dl.length(),1e-10)<.035)return false;
+  const eps=Math.max(1e-5,face.tolerance*1.5);
+  let cutter=null,result=null,cleaned=null,next=null,empty=false;
+  try{
+    // The base never changes during a drag. Reuse its WASM solid, rather
+    // than rebuilding it from thousands of mesh vertices every time.
+    if(!rec.faceBaseSolid)rec.faceBaseSolid=geometryToManifold(rec.faceBase);
+    cutter=maSweptFacePrismSolid(face,dl,eps);
+    if(!cutter)return false;
+    result=amount>0?rec.faceBaseSolid.add(cutter):rec.faceBaseSolid.subtract(cutter);
+    const status=result.status();
+    if(status!=='NoError')throw new Error('Boolean result: '+status);
+    empty=result.isEmpty();
+    if(!empty){
+      if(final){
+        // Simplification and persistent manifold caches are needed only for
+        // the committed geometry, not for every transient pointer position.
+        const span=rec.faceBase.boundingBox.getSize(new THREE.Vector3()).length();
+        cleaned=result.simplify(Math.max(1,span)*1e-6);
+      }
+      next=manifoldToGeometry(cleaned||result,{cache:final});
+      setMassGeometry(rec.m,next,true,{smooth:false,preview:!final});
+      next=null;
+      rec.m.mesh.visible=true;rec.m.edges.visible=outlinesEnabled&&viewMode!=='shadow'&&viewMode!=='depth';
+    }else{
+      rec.m.mesh.visible=false;rec.m.edges.visible=false;
+    }
+    rec.faceBoolean=true;rec.faceBooleanEmpty=empty;
+    rec.lastFaceDelta=dl.clone();
+    return true;
+  }catch(err){
+    if(!rec.faceBooleanWarned){console.warn('MA Face Move solid rebuild failed',err);rec.faceBooleanWarned=true;}
+    return false;
+  }finally{
+    next?.dispose();cleaned?.delete();result?.delete();cutter?.delete();
+  }
+}
+function maRelinkMovedFace(rec){
+  const part=selectedGeometryParts.get(rec.m.id);
+  if(!part||!rec.faceSweep||rec.faceBooleanEmpty)return false;
+  const topology=selectTopology(rec.m),pos=rec.m.mesh.geometry.attributes.position;
+  const destination=rec.faceSweep.center.clone().add(rec.lastFaceDelta||new THREE.Vector3());
+  const bb=rec.m.mesh.geometry.boundingBox;
+  const span=Math.max(.01,bb?.getSize(new THREE.Vector3()).length()||1);
+  let best=null,bestDist=Infinity;
+  for(const f of topology.faces){
+    const reps=[...f.reps];if(!reps.length)continue;
+    const centroid=new THREE.Vector3();
+    for(const r of reps)centroid.add(topology.repGroups.get(r).local);
+    centroid.multiplyScalar(1/reps.length);
+    const planeDistance=Math.abs(centroid.clone().sub(destination).dot(rec.faceSweep.normal));
+    if(planeDistance>Math.max(.002,span*.008))continue;
+    let aligned=false;
+    for(const t of f.triangles){
+      const i=3*t,a=new THREE.Vector3().fromBufferAttribute(pos,i),b=new THREE.Vector3().fromBufferAttribute(pos,i+1),c=new THREE.Vector3().fromBufferAttribute(pos,i+2);
+      const n=b.sub(a).cross(c.sub(a));
+      if(n.lengthSq()>1e-15){aligned=n.normalize().dot(rec.faceSweep.normal)>.94;break;}
+    }
+    if(!aligned)continue;
+    const dist=centroid.distanceToSquared(destination);
+    if(dist<bestDist){best=f;bestDist=dist;}
+  }
+  if(!best||Math.sqrt(bestDist)>span*.75)return false;
+  part.components={vertex:new Set(),line:new Set(),face:new Set([best.id])};
+  part.indices=geometryPartIndices(rec.m,part);
+  return true;
+}
+function maFinishFaceMovePart(rec){
+  if(!rec.faceBoolean)return;
+  // A face that has cut through the whole mass genuinely leaves no solid.
+  if(rec.faceBooleanEmpty){
+    selectedGeometryParts.delete(rec.m.id);
+    removeMassForMirror(rec.m);
+  }else if(!maRelinkMovedFace(rec))selectedGeometryParts.delete(rec.m.id);
+}
+function applySelectedGeometryMove(st,worldDelta,{force=false,final=false}={}){
+  // Adapt preview cadence to actual boolean cost, avoiding batches of expensive
+  // calculations on mobile. Each published preview is still a real solid.
+  const hasFaceSweep=[...st.parts.values()].some(r=>r.faceSweep);
+  const needsBooleanCadence=[...st.parts.values()].some(r=>r.faceSweep&&(r.faceBoolean||!r.faceDeformSupport));
+  // Direct planar deformation is cheap enough to follow the normal render loop;
+  // retain adaptive throttling for the WASM Boolean fallback on iPhone/iPad.
+  const spacing=needsBooleanCadence?Math.max(22,Math.min(85,(st.maBooleanPreviewMs||24)*.65)):16;
+  if(hasFaceSweep&&!force&&st.maBooleanFrameAt&&performance.now()-st.maBooleanFrameAt<spacing){
+    st.maDeferredDelta=worldDelta.clone();return;
+  }
+  const beganAt=performance.now();
+  st.maDeferredDelta=null;
   for(const rec of st.parts.values()){
-    const m=rec.m,g=m.mesh.geometry,pos=g.attributes.position;
-    const p0=m.group.worldToLocal(st.grab.clone()),p1=m.group.worldToLocal(st.grab.clone().add(worldDelta)),dl=p1.sub(p0),src=rec.startPositions;
+    const m=rec.m;
+    const p0=m.group.worldToLocal(st.grab.clone()),p1=m.group.worldToLocal(st.grab.clone().add(worldDelta)),dl=p1.sub(p0);
+    if(rec.faceSweep){
+      // Keep existing planar regions planar and their original edge graph.
+      // Only genuine topology-changing moves need a swept-solid Boolean.
+      if(maApplyFaceDeformation(rec,dl,{allowPlanarInference:!axisLock&&!st.autoAxis}))continue;
+      if(maApplyFaceSolidMove(rec,dl,{final})){
+        rec.faceDeformed=false;
+        continue;
+      }
+      maRestoreFaceMoveBase(rec);
+      rec.faceDeformed=false;
+    }
+    const g=m.mesh.geometry,pos=g.attributes.position,src=rec.startPositions;
+    if(pos.count!==src.length/3)continue;
     for(const i of rec.indices)pos.setXYZ(i,src[i*3]+dl.x,src[i*3+1]+dl.y,src[i*3+2]+dl.z);
     pos.needsUpdate=true;g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();
     m.edges.geometry.dispose();m.edges.geometry=outlineGeometryForMass(g,m.type);
     invalidateMassGeometryDerivedState(m,{invalidateManifold:true});
   }
   st.changed=st.changed||worldDelta.lengthSq()>1e-10;
+  if(st.changed)markViewPlaneSectionDirty();
+  const completedAt=performance.now();
+  st.maBooleanFrameAt=completedAt;
+  if(hasFaceSweep&&!final){
+    const elapsed=completedAt-beganAt;
+    st.maBooleanPreviewMs=st.maBooleanPreviewMs==null?elapsed:(st.maBooleanPreviewMs*.7+elapsed*.3);
+  }
 }
 function updateSelectedGeometryMoveAt(x,y){
   const st=interaction;if(!st||st.kind!=='geometryMove')return;
@@ -9980,17 +10420,32 @@ function endSelectedGeometryMove(){
   const st=interaction;if(!st||st.kind!=='geometryMove')return;
   if(rafGeometryMove){cancelAnimationFrame(rafGeometryMove);rafGeometryMove=0;}if(pendingGeometryMove){const p=pendingGeometryMove;pendingGeometryMove=null;updateSelectedGeometryMoveAt(p.x,p.y);}
   mobileMovePointerId=null;penActive=false;
-  if(st.changed&&[...st.parts.values()].some(rec=>!geometryTrianglesValid(rec.m.mesh.geometry,rec.startPositions))){
+  const finalizedDeferred=!!st.maDeferredDelta;
+  if(finalizedDeferred)applySelectedGeometryMove(st,st.maDeferredDelta,{force:true,final:true});
+  if(st.changed&&[...st.parts.values()].some(rec=>!rec.faceBoolean&&!geometryTrianglesValid(rec.m.mesh.geometry,rec.startPositions,new Set(rec.indices)))){
+    for(const rec of st.parts.values())maReleaseFaceMoveResources(rec);
     interaction=null;clearSnapVisual();clearMoveAxisDots();axisLock=null;restoreState(st.before);showToast('MOVE FAILED · RESTORED');return;
   }
   if(st.changed){
     for(const rec of st.parts.values()){
-      const m=rec.m,finalPositions=serializeGeometry(m.mesh.geometry),oldCount=rec.startPositions.length/3;setMassGeometry(m,geometryFromPositions(finalPositions),true);
+      if(rec.faceBoolean){
+        // Recalculate the LAST exact pointer destination with all final caches.
+        // If the deferred update already did so, there is nothing to repeat.
+        if(!finalizedDeferred&&!rec.faceBooleanEmpty){
+          if(!maApplyFaceSolidMove(rec,rec.lastFaceDelta,{final:true}))
+            syncMassValueOverlay(rec.m,{resetFaceValues:false});
+        }
+        maFinishFaceMovePart(rec);maReleaseFaceMoveResources(rec);continue;
+      }
+      const m=rec.m,finalPositions=serializeGeometry(m.mesh.geometry),oldCount=rec.startPositions.length/3;
+      const next=geometryFromPositions(finalPositions);maCopyStructuralEdges(m.mesh.geometry,next);
+      setMassGeometry(m,next,true);
       const part=selectedGeometryParts.get(m.id);
       if(part&&m.mesh.geometry.attributes.position.count===oldCount)part.indices=new Set(rec.indices);else if(part)selectedGeometryParts.delete(m.id);
+      maReleaseFaceMoveResources(rec);
     }
     rebuildSelectedGeometryElementsFromIndices();recordHistory();
-  }
+  }else for(const rec of st.parts.values())maReleaseFaceMoveResources(rec);
   interaction=null;clearSnapVisual();clearMoveAxisDots();axisLock=null;syncSelectGeometryHighlight();syncRotateGizmo();updateMobileDrawUI();
   if(st.changed)showToast(`${selectElementModeLabel()} MOVED`);
 }
@@ -10015,13 +10470,19 @@ function modifyTopology(m){
     rec.indices.push(i);
   }
 
-  // EdgesGeometry is intentional here: Modify exposes only real visible/hard
-  // model edges, never the triangulation diagonals used internally by faces.
-  const eg=new THREE.EdgesGeometry(g,20),ep=eg.attributes.position;
+  // Structure comes from the solid's authored edge graph if available.
+  // Only newly created masses infer edges using the triangle dihedral angle.
+  const structural=maStructuralEdges(g),eg=structural?null:new THREE.EdgesGeometry(g,20);
+  const ep=eg?.attributes?.position;
   const edges=[],visibleKeys=new Set(),seen=new Set();
-  for(let i=0;i+1<ep.count;i+=2){
-    const a=new THREE.Vector3().fromBufferAttribute(ep,i);
-    const b=new THREE.Vector3().fromBufferAttribute(ep,i+1);
+  const edgeCount=structural?structural.pairs.length/2:Math.floor((ep?.count||0)/2);
+  for(let i=0;i<edgeCount;i++){
+    const a=new THREE.Vector3(),b=new THREE.Vector3();
+    if(structural){
+      const ia=structural.pairs[i*2],ib=structural.pairs[i*2+1];
+      if(ia<0||ib<0||ia>=pos.count||ib>=pos.count)continue;
+      a.fromBufferAttribute(pos,ia);b.fromBufferAttribute(pos,ib);
+    }else{a.fromBufferAttribute(ep,i*2);b.fromBufferAttribute(ep,i*2+1);}
     const ka=quantKey3(a,tol),kb=quantKey3(b,tol);
     if(ka===kb||!groups.has(ka)||!groups.has(kb))continue;
     const pair=ka<kb?ka+'|'+kb:kb+'|'+ka;
@@ -10029,7 +10490,7 @@ function modifyTopology(m){
     seen.add(pair);visibleKeys.add(ka);visibleKeys.add(kb);
     edges.push({ka,kb,a:groups.get(ka).local.clone(),b:groups.get(kb).local.clone()});
   }
-  eg.dispose();
+  eg?.dispose();
 
   const topology={geometry:g,tol,groups,visibleKeys,edges};
   m._modifyTopologyGeometry=g;m._modifyTopology=topology;
@@ -10075,6 +10536,7 @@ function beginModify(e){
   const handle=nearestModifyHandle(e.clientX,e.clientY,m);if(!handle)return;
 
   const topo=modifyTopology(m),g=m.mesh.geometry,pos=g.attributes.position;
+  maRememberStructuralEdges(m);
   const selectedIndices=new Set();
   for(const key of handle.keys){
     const rec=topo.groups.get(key);if(rec)for(const i of rec.indices)selectedIndices.add(i);
@@ -10159,7 +10621,7 @@ function scheduleModify(x,y){
   });
 }
 
-function geometryTrianglesValid(g,startPositions=null){
+function geometryTrianglesValid(g,startPositions=null,changedIndices=null){
   const pos=g?.attributes?.position;if(!pos||pos.count<3)return false;
   g.computeBoundingBox();
   const diag=Math.max(1e-5,g.boundingBox.getSize(new THREE.Vector3()).length());
@@ -10170,8 +10632,21 @@ function geometryTrianglesValid(g,startPositions=null){
   for(let i=0;i+2<pos.count;i+=3){
     a.fromBufferAttribute(pos,i);b.fromBufferAttribute(pos,i+1);c.fromBufferAttribute(pos,i+2);
     if(!Number.isFinite(a.x+a.y+a.z+b.x+b.y+b.z+c.x+c.y+c.z))return false;
-    const newArea2=new THREE.Vector3().subVectors(b,a).cross(new THREE.Vector3().subVectors(c,a)).lengthSq();
-    if(newArea2>=minArea2)continue;
+    const newNormal=new THREE.Vector3().subVectors(b,a).cross(new THREE.Vector3().subVectors(c,a));
+    const newArea2=newNormal.lengthSq();
+    if(newArea2>=minArea2){
+      if(hasBaseline&&changedIndices){
+        const changed=Number(changedIndices.has(i))+Number(changedIndices.has(i+1))+Number(changedIndices.has(i+2));
+        if(changed>0&&changed<3){
+          oldA.set(startPositions[i*3],startPositions[i*3+1],startPositions[i*3+2]);
+          oldB.set(startPositions[(i+1)*3],startPositions[(i+1)*3+1],startPositions[(i+1)*3+2]);
+          oldC.set(startPositions[(i+2)*3],startPositions[(i+2)*3+1],startPositions[(i+2)*3+2]);
+          const oldNormal=new THREE.Vector3().subVectors(oldB,oldA).cross(new THREE.Vector3().subVectors(oldC,oldA));
+          if(oldNormal.lengthSq()>=minArea2&&oldNormal.dot(newNormal)<=oldNormal.lengthSq()*1e-5)return false;
+        }
+      }
+      continue;
+    }
 
     // Some authored Shape meshes can already contain a tiny/degenerate triangle
     // from their original triangulation. A sub-element edit must not be rejected
@@ -10194,7 +10669,7 @@ function endModify(){
   if(pendingModify){const p=pendingModify;pendingModify=null;updateModifyAt(p.x,p.y);}
 
   const m=st.m;
-  if(st.changed&&!geometryTrianglesValid(m.mesh.geometry,st.startPositions)){
+  if(st.changed&&!geometryTrianglesValid(m.mesh.geometry,st.startPositions,new Set(st.selectedIndices))){
     interaction=null;clearSnapVisual();axisLock=null;
     restoreState(st.before);
     showToast('MODIFY FAILED · RESTORED');
@@ -10205,7 +10680,8 @@ function endModify(){
     // Recreate from final positions once, so smooth mass types recover their
     // creased/smooth normals and every derived outline is rebuilt from geometry.
     const finalPositions=serializeGeometry(m.mesh.geometry);
-    setMassGeometry(m,geometryFromPositions(finalPositions),true);
+    const next=geometryFromPositions(finalPositions);maCopyStructuralEdges(m.mesh.geometry,next);
+    setMassGeometry(m,next,true);
   }
   interaction=null;clearSnapVisual();axisLock=null;
   if(st.changed){recordHistory();showToast(st.handle.kind==='vertex'?'CORNER MODIFIED':'EDGE MODIFIED');}
@@ -10461,7 +10937,9 @@ function beginSelectionTransform(kind){
   transformDragging=true;
   if(selectedGeometryParts.size){
     const byMass=selectedGeometryIndicesByMass(),parts=new Map();
-    for(const [id,indices] of byMass){const m=massById(id),pos=m?.mesh?.geometry?.attributes?.position;if(!m||!pos)continue;m.mesh.updateWorldMatrix(true,false);parts.set(id,{m,indices:[...indices],startPositions:new Float32Array(pos.array),startWorld:m.mesh.matrixWorld.clone(),startWorldInv:m.mesh.matrixWorld.clone().invert()});}
+    for(const [id,indices] of byMass){const m=massById(id),pos=m?.mesh?.geometry?.attributes?.position;if(!m||!pos)continue;
+      maRememberStructuralEdges(m);
+      m.mesh.updateWorldMatrix(true,false);parts.set(id,{m,indices:[...indices],startPositions:new Float32Array(pos.array),startWorld:m.mesh.matrixWorld.clone(),startWorldInv:m.mesh.matrixWorld.clone().invert()});}
     selectionPivot.updateMatrixWorld(true);
     interaction={kind,before:snapshot(),subGeometry:true,parts,startPivotMatrix:selectionPivot.matrixWorld.clone()};
     clearSelectGeometryHighlight();
@@ -10487,12 +10965,14 @@ function endSelectionTransform(){
   transformDragging=false;
   if(interaction&&(interaction.kind==='rotate'||interaction.kind==='scale')){
     const st=interaction;
-    if(st.subGeometry&&[...st.parts.values()].some(rec=>!geometryTrianglesValid(rec.m.mesh.geometry,rec.startPositions))){
+    if(st.subGeometry&&[...st.parts.values()].some(rec=>!geometryTrianglesValid(rec.m.mesh.geometry,rec.startPositions,new Set(rec.indices)))){
       interaction=null;finalizeRotatePivot(false);restoreState(st.before);showToast('TRANSFORM FAILED · RESTORED');return;
     }
     if(st.subGeometry){
       for(const rec of st.parts.values()){
-        const m=rec.m,finalPositions=serializeGeometry(m.mesh.geometry),oldCount=rec.startPositions.length/3;setMassGeometry(m,geometryFromPositions(finalPositions),true);
+        const m=rec.m,finalPositions=serializeGeometry(m.mesh.geometry),oldCount=rec.startPositions.length/3;
+      const next=geometryFromPositions(finalPositions);maCopyStructuralEdges(m.mesh.geometry,next);
+      setMassGeometry(m,next,true);
         const part=selectedGeometryParts.get(m.id);
         if(part&&m.mesh.geometry.attributes.position.count===oldCount)part.indices=new Set(rec.indices);else if(part)selectedGeometryParts.delete(m.id);
       }
@@ -10602,6 +11082,10 @@ function applySerializedMassDataInPlace(m,d){
     g.computeBoundingBox();g.computeBoundingSphere();
   }else{g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();}
 
+  if(d.structuralEdges&&Array.isArray(d.structuralEdges.pairs)&&
+     d.structuralEdges.count===g.attributes.position.count){
+    g.userData.maStructuralEdges={count:g.attributes.position.count,pairs:d.structuralEdges.pairs.slice()};
+  }
   const old=m.mesh.geometry;m.mesh.geometry=g;old?.dispose?.();
   m.type=massType;
   m.profile=profile;
@@ -11086,6 +11570,7 @@ function lockWorkplaneFromHover(){
 }
 
 function cancelInteraction(restore=false){
+  if(interaction?.kind==='geometryMove')for(const rec of interaction.parts.values())maReleaseFaceMoveResources(rec);
   if(restore&&interaction?.before)restoreState(interaction.before);interaction=null;pendingMove=null;pendingModify=null;pendingGeometryMove=null;if(rafMove){cancelAnimationFrame(rafMove);rafMove=0;}if(rafModify){cancelAnimationFrame(rafModify);rafModify=0;}if(rafGeometryMove){cancelAnimationFrame(rafGeometryMove);rafGeometryMove=0;}clearPreview();clearSnapVisual();clearMoveAxisDots();clearSpherePreview();hideMarquee();axisLock=null;mobileMovePointerId=null;mobileSelectTap=null;
 }
 
@@ -13358,12 +13843,7 @@ function beginRelativeSelectButtonMove(e,press){
   // actual thing that is currently highlighted.
   if(selectedGeometryParts.size){
     const grab=selectedGeometryWorldCenter();if(!grab)return false;
-    const byMass=selectedGeometryIndicesByMass(),parts=new Map();
-    for(const [id,indices] of byMass){
-      const m=massById(id),pos=m?.mesh?.geometry?.attributes?.position;if(!m||!pos)continue;
-      parts.set(id,{m,indices:[...indices],startPositions:new Float32Array(pos.array)});
-    }
-    if(!parts.size)return false;
+    const parts=maCreateSelectedGeometryMoveParts();if(!parts.size)return false;
     const viewNormal=new THREE.Vector3();camera.getWorldDirection(viewNormal).normalize();
     const movePlane=new THREE.Plane().setFromNormalAndCoplanarPoint(viewNormal,grab);
     const virtualStart=worldToClient(grab);
