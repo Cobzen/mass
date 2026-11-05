@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="ma-build" content="9.118">
+<meta name="ma-build" content="9.119">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -11,10 +11,10 @@
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <!-- MA 3D · object value mode -->
-<title>MA 3D · v9.118</title>
+<title>MA 3D · v9.119</title>
 <script>
 (() => {
-  const CURRENT_BUILD = '9.118';
+  const CURRENT_BUILD = '9.119';
   const CHECK_INTERVAL = 30000;
   let lastCheck = 0;
   let checking = false;
@@ -15696,11 +15696,13 @@ document.addEventListener('touchmove',handleDocumentStylusMove,{capture:true,pas
 document.addEventListener('touchend',e=>handleDocumentStylusEnd(e,false),{capture:true,passive:false});
 document.addEventListener('touchcancel',e=>handleDocumentStylusEnd(e,true),{capture:true,passive:false});
 
-// v9.118 — During a selected-face Move: second finger tap in empty workspace
-// still arms Extrude on touch devices; desktop right mouse DOWN arms Extrude
-// immediately, anywhere, even on the face. Browsers emit mouse `mousedown`
-// for the second button while left is held, but do NOT emit a second `pointerdown`
-// for the same already-active mouse pointer. Keep the two input paths separate.
+// v9.119 — Tap-to-Extrude during a selected FACE Move.
+// On touch devices, the second contact still taps empty workspace.
+// On desktop, right mouse DOWN while left-dragging does NOT send a second
+// pointerdown; preventing the original left pointerdown also suppresses
+// compatibility mouse events such as mousedown. Observe the right-button bit
+// of the actual ongoing pointer stream and the browser's native contextmenu
+// event instead. Never interrupt the left-button pointermove or its capture.
 let maExtrudeTapCandidate=null;
 function maArmExtrudeDuringMove(){
   const st=interaction;
@@ -15713,15 +15715,31 @@ function maArmExtrudeDuringMove(){
   showToast('EXTRUDE · ORIGINAL EDGE');
   return true;
 }
-// Desktop: the native mousedown event fires for every new mouse button,
-// including a right press during an ongoing left-button drag. Listening at the
-// window capture stage also works when the canvas has captured the drag pointer.
-window.addEventListener('mousedown',e=>{
-  if(MA_DRAW_MOBILE||e.button!==2)return;
+function maDesktopCanArmExtrude(){
   const st=interaction;
-  if(st?.kind!=='geometryMove'||![...st.parts.values()].some(rec=>!!rec.faceSweep))return;
+  return !MA_DRAW_MOBILE&&st?.kind==='geometryMove'&&
+    [...st.parts.values()].some(rec=>!!rec.faceSweep);
+}
+// Chromium, Safari and Firefox may expose the SECOND mouse-button press as
+// pointermove (buttons 1 -> 3) instead of pointerdown or mousedown.
+window.addEventListener('pointermove',e=>{
+  if(e.pointerType!=='mouse'||!(e.buttons&2)||!(e.buttons&1))return;
+  if(maDesktopCanArmExtrude())maArmExtrudeDuringMove();
+  // Important: don't stop propagation. The same pointermove must still update
+  // the selected geometry under the held left mouse button.
+},{capture:true,passive:true});
+// Right-click normally fires contextmenu as soon as the button is pressed.
+// This also works without moving the mouse after the secondary press.
+window.addEventListener('contextmenu',e=>{
+  if(!maDesktopCanArmExtrude())return;
   maArmExtrudeDuringMove();
-  // Do not let the secondary button start another tool or a context action.
+  e.preventDefault();
+  e.stopImmediatePropagation();
+},{capture:true,passive:false});
+// Optional compatibility fallback for desktop/webviews that still emit it.
+window.addEventListener('mousedown',e=>{
+  if(e.button!==2||!maDesktopCanArmExtrude())return;
+  maArmExtrudeDuringMove();
   e.preventDefault();
   e.stopImmediatePropagation();
 },{capture:true,passive:false});
