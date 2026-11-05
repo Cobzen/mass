@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="ma-build" content="9.104">
+<meta name="ma-build" content="9.114">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -11,10 +11,10 @@
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <!-- MA 3D · object value mode -->
-<title>MA 3D · v9.104</title>
+<title>MA 3D · v9.114</title>
 <script>
 (() => {
-  const CURRENT_BUILD = '9.104';
+  const CURRENT_BUILD = '9.117';
   const CHECK_INTERVAL = 30000;
   let lastCheck = 0;
   let checking = false;
@@ -2381,6 +2381,75 @@ html.ma-unified-ui #streamlinePanel.ma-secondary-inline[data-side="right"] #stre
 }
 
 @media (max-width:560px){#valuePalette{padding:0 8px}html.ma-unified-ui #maBottomDock.valueMode.dock-vertical #valuePalette{padding:8px 0;}#valuePalette button{width:clamp(16px,calc(var(--ma-control-size) * 0.36),22px);height:clamp(16px,calc(var(--ma-control-size) * 0.36),22px);min-width:clamp(16px,calc(var(--ma-control-size) * 0.36),22px);min-height:clamp(16px,calc(var(--ma-control-size) * 0.36),22px)}}
+
+/* v9.105 — One slider system for desktop, iPad and iPhone. When the dock is
+   vertical, the exact same two inline controls rotate into the four middle
+   slots instead of reverting to a detached follower panel. */
+html.ma-unified-ui #sunDirPanel.ma-secondary-inline[data-side="left"],
+html.ma-unified-ui #sunDirPanel.ma-secondary-inline[data-side="right"],
+html.ma-unified-ui #depthRangePanel.ma-secondary-inline[data-side="left"],
+html.ma-unified-ui #depthRangePanel.ma-secondary-inline[data-side="right"],
+html.ma-unified-ui #safeFramePanel.maSafeFrameDockPanel.ma-secondary-inline[data-side="left"],
+html.ma-unified-ui #safeFramePanel.maSafeFrameDockPanel.ma-secondary-inline[data-side="right"] {
+  width:var(--ma-control-size) !important;
+  min-width:var(--ma-control-size) !important;
+  max-width:var(--ma-control-size) !important;
+  height:calc(4 * var(--ma-control-size) + 3 * var(--ma-control-gap)) !important;
+  min-height:calc(4 * var(--ma-control-size) + 3 * var(--ma-control-gap)) !important;
+  max-height:calc(4 * var(--ma-control-size) + 3 * var(--ma-control-gap)) !important;
+}
+html.ma-unified-ui #sunDirPanel.ma-secondary-inline[data-side="left"] > .maSecondaryInner,
+html.ma-unified-ui #sunDirPanel.ma-secondary-inline[data-side="right"] > .maSecondaryInner,
+html.ma-unified-ui #depthRangePanel.ma-secondary-inline[data-side="left"] > .maSecondaryInner,
+html.ma-unified-ui #depthRangePanel.ma-secondary-inline[data-side="right"] > .maSecondaryInner,
+html.ma-unified-ui #safeFramePanel.maSafeFrameDockPanel.ma-secondary-inline[data-side="left"] > .maSecondaryInner,
+html.ma-unified-ui #safeFramePanel.maSafeFrameDockPanel.ma-secondary-inline[data-side="right"] > .maSecondaryInner {
+  display:block !important;
+  position:relative !important;
+  width:100% !important;
+  height:100% !important;
+  padding:0 !important;
+}
+html.ma-unified-ui #sunDirPanel.ma-secondary-inline[data-side="left"] input[type="range"],
+html.ma-unified-ui #sunDirPanel.ma-secondary-inline[data-side="right"] input[type="range"],
+html.ma-unified-ui #depthRangePanel.ma-secondary-inline[data-side="left"] input[type="range"],
+html.ma-unified-ui #depthRangePanel.ma-secondary-inline[data-side="right"] input[type="range"],
+html.ma-unified-ui #safeFramePanel.maSafeFrameDockPanel.ma-secondary-inline[data-side="left"] input[type="range"],
+html.ma-unified-ui #safeFramePanel.maSafeFrameDockPanel.ma-secondary-inline[data-side="right"] input[type="range"] {
+  position:absolute !important;
+  left:50% !important;
+  width:calc((4 * var(--ma-control-size) + 3 * var(--ma-control-gap)) / 2 - 16px) !important;
+  height:28px !important;
+  margin:0 !important;
+  transform:translate(-50%,-50%) rotate(-90deg) !important;
+  transform-origin:center center !important;
+}
+html.ma-unified-ui #sunDirPanel.ma-secondary-inline[data-side="left"] input:nth-of-type(1),
+html.ma-unified-ui #sunDirPanel.ma-secondary-inline[data-side="right"] input:nth-of-type(1),
+html.ma-unified-ui #depthRangePanel.ma-secondary-inline[data-side="left"] input:nth-of-type(1),
+html.ma-unified-ui #depthRangePanel.ma-secondary-inline[data-side="right"] input:nth-of-type(1),
+html.ma-unified-ui #safeFramePanel.maSafeFrameDockPanel.ma-secondary-inline[data-side="left"] input:nth-of-type(1),
+html.ma-unified-ui #safeFramePanel.maSafeFrameDockPanel.ma-secondary-inline[data-side="right"] input:nth-of-type(1) {top:25% !important;}
+html.ma-unified-ui #sunDirPanel.ma-secondary-inline[data-side="left"] input:nth-of-type(2),
+html.ma-unified-ui #sunDirPanel.ma-secondary-inline[data-side="right"] input:nth-of-type(2),
+html.ma-unified-ui #depthRangePanel.ma-secondary-inline[data-side="left"] input:nth-of-type(2),
+html.ma-unified-ui #depthRangePanel.ma-secondary-inline[data-side="right"] input:nth-of-type(2),
+html.ma-unified-ui #safeFramePanel.maSafeFrameDockPanel.ma-secondary-inline[data-side="left"] input:nth-of-type(2),
+html.ma-unified-ui #safeFramePanel.maSafeFrameDockPanel.ma-secondary-inline[data-side="right"] input:nth-of-type(2) {top:75% !important;}
+</style>
+<style id="ma-uniform-scale-style">
+/* v9.117 — Three genuine axis arms and one blank round uniform-scale handle. */
+#maUniformScaleHandle{
+  position:fixed;display:none;left:0;top:0;transform:translate(-50%,-50%);
+  z-index:85;width:40px;height:40px;padding:0;border:1.5px solid rgba(40,40,38,.55);
+  border-radius:50%;background:rgba(248,248,245,.96);color:#1f1f1d;
+  box-shadow:0 2px 8px rgba(0,0,0,.10);
+  align-items:center;justify-content:center;
+  touch-action:none;cursor:ns-resize;user-select:none;-webkit-user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+#maUniformScaleHandle.maUniformDragging{background:#222221;border-color:#222221;}
+@media (max-width:560px){#maUniformScaleHandle{width:38px;height:38px}}
 </style>
 </head>
 <body>
@@ -2539,6 +2608,10 @@ html.ma-unified-ui #streamlinePanel.ma-secondary-inline[data-side="right"] #stre
   </div>
 
 </div>
+
+  <button id="maUniformScaleHandle" type="button" aria-label="Uniform scale. Drag up to enlarge, down to shrink." title="Uniform scale">
+    
+  </button>
 
   <button id="mainMenuButton" aria-label="Open menu" title="Menu">☰</button>
 
@@ -5162,6 +5235,33 @@ function setMassGeometry(m,g,baked=true,{smooth=true,preview=false}={}){
   m.cuts=[];
   return true;
 }
+// v9.110 — One finalization path for ALL direct topology-preserving edits.
+// A normal Move preview keeps its exact triangles and authored feature edges.
+// Calling smoothGeometryForType() on release would weld/re-triangulate a Square
+// Brush or Round Brush, dropping maStructuralEdges and exposing triangulation
+// diagonals as new dark creases. Committing a COPY of the already validated
+// geometry (new UUID for VALUE/undo caches) preserves the actual edited solid.
+function maFinishTopologyPreservingEdit(m){
+  if(!m?.mesh?.geometry)return false;
+  const source=m.mesh.geometry;
+  const next=source.clone();
+  maCopyStructuralEdges(source,next);
+  // Restore shading NORMALS in place, never alter triangle/vertex topology.
+  // Round Brush and smooth primitives need creased normals; other forms use
+  // their authoritative flat triangles. The flat-shaded Square Brush does not
+  // need an extra smoothing/welding pass.
+  if(!next.index&&(m.type==='curve'||m.type==='circle'||m.type==='sphere')){
+    const crease=m.type==='curve'?58:55;
+    restoreRoundBrushNormalsInPlace(next,null,crease);
+  }else if(!next.attributes.normal)next.computeVertexNormals();
+  if(!setMassGeometry(m,next,true,{smooth:false,preview:true})){
+    next.dispose();return false;
+  }
+  // Preview skips VALUE regeneration deliberately; do it ONCE on release,
+  // after replacing the geometry UUID so the cached surface cannot be stale.
+  syncMassValueOverlay(m,{resetFaceValues:false});
+  return true;
+}
 function normalizeCutAnchor(a){
   if(!a)return null;
   if(a.kind==='cap')return{kind:'cap',cap:a.cap==='far'?'far':'base',hostDepth:Number.isFinite(+a.hostDepth)?+a.hostDepth:0};
@@ -5315,7 +5415,9 @@ function makeMass(data,addHistory=false){
   const m={id,name:data.name||('MASS '+id),type:massType,profile,depth:data.depth,cuts:baked?[]:cuts,baked,groupId:data.groupId??null,mirrorPairId:data.mirrorPairId??null,mirrorRole:data.mirrorRole||null,valueLevel,faceValueLevels:data.faceValueLevels&&typeof data.faceValueLevels==='object'?{...data.faceValueLevels}:null,valueOverlayMesh:null,_valueFaceCache:null,group,mesh,edges};
   if(m.groupId!=null)nextGroupId=Math.max(nextGroupId,(m.groupId|0)+1);
   if(m.mirrorPairId!=null)nextMirrorPairId=Math.max(nextMirrorPairId,(m.mirrorPairId|0)+1);
-  masses.push(m);syncMassValueOverlay(m,{resetFaceValues:false});updateMassVisual(m);if(addHistory)recordHistory();return m;
+  masses.push(m);
+  if(viewMode==='color')syncMassValueOverlay(m,{resetFaceValues:false});
+  updateMassVisual(m);if(addHistory)recordHistory();return m;
 }
 function disposeMass(m){
   if(!m||m._disposed)return;
@@ -5343,8 +5445,15 @@ function getActiveBrushContainer(tool=null){
   return m;
 }
 
-function serializeMass(m){const geometryPositions=serializeGeometry(m.mesh.geometry),geometryNormals=m.type==='curve'?serializeGeometryNormals(m.mesh.geometry):null;const featureEdges=maStructuralEdges(m.mesh.geometry);return{id:m.id,structuralEdges:featureEdges?{count:featureEdges.count,pairs:featureEdges.pairs.slice()}:null,name:m.name,type:m.type,groupId:m.groupId??null,mirrorPairId:m.mirrorPairId??null,mirrorRole:m.mirrorRole||null,valueLevel:clamp(Math.round(+m.valueLevel||0),0,VALUE_LEVEL_COUNT-1),profile:m.profile.map(p=>({x:p.x,y:p.y})),depth:m.depth,cuts:m.baked?[]:(m.cuts||[]).map(serializeCut),baked:!!m.baked,geometryPositions:m.baked?null:geometryPositions,bakedPositions:m.baked?geometryPositions:null,geometryNormals,position:m.group.position.toArray(),quaternion:m.group.quaternion.toArray(),scale:m.group.scale.toArray()};}
-function snapshot(){return masses.map(m=>({...serializeMass(m),baked:!!m.baked,geometryPositions:serializeGeometry(m.mesh.geometry)}));}
+function serializeMass(m){const geometryPositions=serializeGeometry(m.mesh.geometry),geometryNormals=m.type==='curve'?serializeGeometryNormals(m.mesh.geometry):null;const featureEdges=maStructuralEdges(m.mesh.geometry);return{id:m.id,structuralEdges:featureEdges?{count:featureEdges.count,pairs:featureEdges.pairs.slice()}:null,name:m.name,type:m.type,groupId:m.groupId??null,mirrorPairId:m.mirrorPairId??null,mirrorRole:m.mirrorRole||null,valueLevel:clamp(Math.round(+m.valueLevel||0),0,VALUE_LEVEL_COUNT-1),faceValueLevels:m.faceValueLevels?{...m.faceValueLevels}:null,profile:m.profile.map(p=>({x:p.x,y:p.y})),depth:m.depth,cuts:m.baked?[]:(m.cuts||[]).map(serializeCut),baked:!!m.baked,geometryPositions:m.baked?null:geometryPositions,bakedPositions:m.baked?geometryPositions:null,geometryNormals,position:m.group.position.toArray(),quaternion:m.group.quaternion.toArray(),scale:m.group.scale.toArray()};}
+function snapshot(){return masses.map(m=>{
+  const d=serializeMass(m);
+  // The two fields are kept for backwards-compatible MA files, but one JS
+  // array is enough in memory. JSON export still emits both fields as before.
+  if(d.baked)d.geometryPositions=d.bakedPositions;
+  maRecordHistoryGeometryToken(m,d);
+  return d;
+});}
 function captureSceneView(){
   // A scene is a complete shot snapshot, not only a camera bookmark. Persist the
   // editable Light and Depth states even when another mood is currently visible.
@@ -5500,7 +5609,7 @@ function serializeProject(){
     version:MA_PROJECT_VERSION,
     savedAt:new Date().toISOString(),
     scene:{
-      masses:snapshot(),
+      masses:maIncrementalHistorySnapshot(historyIndex>=0?history[historyIndex]:null).state,
       camera:{
         position:perspectiveCamera.position.toArray(),
         target:(projectionMode==='perspective'?cameraTarget:perspectiveTarget).toArray(),
@@ -5794,10 +5903,28 @@ async function readLibraryProject(id){
   return best;
 }
 
+// v9.106 — Cached JSON for immutable mass history entries.
+// The per-mass cache is keyed by the ACTUAL immutable serialized snapshot, not
+// by an ID or guessed fingerprint. Modified solids create new snapshots.
+const maMassJSONCache=new WeakMap();
+function maMassJSON(d){
+  let json=maMassJSONCache.get(d);
+  if(json===undefined){json=JSON.stringify(d);maMassJSONCache.set(d,json);}
+  return json;
+}
+function maProjectJSON(project){
+  if(!project?.scene||!Array.isArray(project.scene.masses))return JSON.stringify(project);
+  const {scene,...outer}=project;
+  const {masses:massStates,...sceneOther}=scene;
+  const sceneProps=JSON.stringify(sceneOther).slice(1,-1);
+  const topProps=JSON.stringify(outer).slice(1,-1);
+  const massJSON=massStates.map(maMassJSON).join(',');
+  return `{${topProps}${topProps?',':''}"scene":{"masses":[${massJSON}]${sceneProps?','+sceneProps:''}}}`;
+}
 async function writeLibraryProject(record,{routine=false}={}){
   if(!record?.id||!record?.project)return false;
 
-  const projectJSON=JSON.stringify(record.project);
+  const projectJSON=typeof record.projectJSON==='string'?record.projectJSON:maProjectJSON(record.project);
   const stored={
     id:String(record.id),
     name:String(record.name||'Untitled'),
@@ -5962,11 +6089,14 @@ async function saveAutosaveNow({thumbnail=false,force=false,projectSnapshot=null
 function scheduleAutosave(){
   if(restoring||projectLibraryVisible||!currentLibraryProjectId)return;
   clearTimeout(autosaveTimer);
-  const delay=window.__MA_IS_IPAD__?3200:450;
+  // Shared mobile cadence: quick consecutive strokes coalesce into one save.
+  const delay=MA_DRAW_MOBILE?3200:1400;
   const run=async()=>{
     autosaveTimer=null;
-    // Keep iPad autosave off active Pencil/model interactions so routine persistence stays low-peak.
-    if(valueModePointer||interaction||transformDragging){autosaveTimer=setTimeout(run,1100);return;}
+    // Keep autosave off active Pencil/finger/mouse interactions to avoid visible frame stalls.
+    if(valueModePointer||interaction||transformDragging||pendingMove||pendingGeometryMove){autosaveTimer=setTimeout(run,1100);return;}
+    // Preserve the iPhone localStorage recovery fallback; iPad retains its
+    // established low-peak IndexedDB routine-save path.
     const ok=await saveAutosaveNow({routine:!!window.__MA_IS_IPAD__});
     if(!ok&&!projectLibraryVisible&&currentLibraryProjectId){autosaveTimer=setTimeout(run,2200);}
   };
@@ -6559,7 +6689,64 @@ function loadProjectObject(project,{fromAutosave=false}={}){
   if(!fromAutosave)scheduleAutosave();
   return true;
 }
-function recordHistory(){if(restoring)return;syncMirrorStateBeforeCommit();const s=snapshot(),json=JSON.stringify(s);if(historyIndex>=0&&JSON.stringify(history[historyIndex])===json){scheduleAutosave();return;}history.splice(historyIndex+1);history.push(s);if(history.length>60)history.shift();historyIndex=history.length-1;fitShadowCamera(true);scheduleAutosave();}
+// v9.106: A history entry is immutable; reuse it without rescanning every
+// Float32 vertex of previously committed circles. A versioned geometry token
+// works for new solids AND position edits (which set BufferAttribute.needsUpdate).
+// Restored/legacy history states without a token take the original exact path.
+const maHistoryGeometryToken = new WeakMap();
+function maRecordHistoryGeometryToken(m,d){
+  const geometry=m?.mesh?.geometry, position=geometry?.attributes?.position;
+  if(d&&geometry&&position)maHistoryGeometryToken.set(d,{geometry,position,version:position.version});
+}
+function maHistoryGeometryUnchanged(m,d){
+  const t=maHistoryGeometryToken.get(d),geometry=m?.mesh?.geometry,position=geometry?.attributes?.position;
+  return !!t&&t.geometry===geometry&&t.position===position&&t.version===position.version;
+}
+
+// v9.105: history snapshots share immutable per-mass data for unchanged objects.
+// In a scene with dozens of brush strokes, a new circle should allocate only
+// its OWN geometry, not copy every older stroke 60 times. Geometry comparisons
+// still use the real position buffers, not cached screen outlines.
+function maHistoryFaceValuesEqual(a,b){
+  const ak=Object.keys(a||{}),bk=Object.keys(b||{});
+  return ak.length===bk.length&&ak.every(k=>Object.prototype.hasOwnProperty.call(b||{},k)&&a[k]===b[k]);
+}
+function maHistoryMassMatches(m,d){
+  return massMatchesHistoryState(m,d,{skipVertexScan:maHistoryGeometryUnchanged(m,d)}) &&
+    (m.valueLevel|0)===(d.valueLevel|0) &&
+    maHistoryFaceValuesEqual(m.faceValueLevels,d.faceValueLevels);
+}
+function maIncrementalHistorySnapshot(previous){
+  if(!previous)return{state:snapshot(),changed:true};
+  const prior=new Map(previous.map(d=>[d.id,d]));
+  let changed=previous.length!==masses.length;
+  const state=masses.map((m,i)=>{
+    const old=prior.get(m.id);
+    if(old&&maHistoryMassMatches(m,old)){
+      if(previous[i]!==old)changed=true;
+      return old;
+    }
+    changed=true;
+    const d=serializeMass(m);
+    if(d.baked)d.geometryPositions=d.bakedPositions;
+    maRecordHistoryGeometryToken(m,d);
+    return d;
+  });
+  return{state,changed};
+}
+function recordHistory(){
+  if(restoring)return;
+  syncMirrorStateBeforeCommit();
+  const previous=historyIndex>=0?history[historyIndex]:null;
+  const {state,changed}=maIncrementalHistorySnapshot(previous);
+  if(!changed){scheduleAutosave();return;}
+  history.splice(historyIndex+1);
+  history.push(state);
+  if(history.length>60)history.shift();
+  historyIndex=history.length-1;
+  fitShadowCamera(true);
+  scheduleAutosave();
+}
 
 // Fast history restore: geometry remains the source of truth, but unchanged masses
 // are kept alive instead of rebuilding their mesh + EdgesGeometry on every Undo/Redo.
@@ -6578,7 +6765,7 @@ function historyCutEq(c,d){
   if(a.kind==='cap')return a.cap===b.cap&&historyNumberEq(a.hostDepth,b.hostDepth);
   return (a.edgeIndex|0)===(b.edgeIndex|0)&&historyArrayEq(a.baseMid?.toArray?.()||[],b.baseMid||[]);
 }
-function massMatchesHistoryState(m,d){
+function massMatchesHistoryState(m,d,{skipVertexScan=false}={}){
   if(!m||!d||m.id!==d.id||m.name!==(d.name||('MASS '+d.id))||m.type!==(d.type||'draw')||(m.groupId??null)!==(d.groupId??null)||(m.mirrorPairId??null)!==(d.mirrorPairId??null)||(m.mirrorRole||null)!==(d.mirrorRole||null))return false;
   if(!historyArrayEq(m.group.position.toArray(),d.position||[0,0,0]))return false;
   if(!historyArrayEq(m.group.quaternion.toArray(),d.quaternion||[0,0,0,1]))return false;
@@ -6591,7 +6778,9 @@ function massMatchesHistoryState(m,d){
   if(geometryPositions){
     const a=m.mesh.geometry?.attributes?.position?.array,b=geometryPositions;
     if(!a||a.length!==b.length)return false;
-    for(let i=0;i<a.length;i++)if(!historyNumberEq(a[i],b[i],1e-7))return false;
+    // Only a previous snapshot of this exact, unmodified attribute can bypass
+    // the expensive deep comparison. Undo/redo and loaded files remain exact.
+    if(!skipVertexScan)for(let i=0;i<a.length;i++)if(!historyNumberEq(a[i],b[i],1e-7))return false;
   }
   const edges=maStructuralEdges(m.mesh.geometry),targetEdges=d.structuralEdges;
   if(!!edges!==!!targetEdges)return false;
@@ -6661,6 +6850,10 @@ function restoreState(s){
     if(cur&&massMatchesHistoryState(cur,d)){
       cur._disposed=false;
       cur.valueLevel=clamp(Math.round(Number.isFinite(+d.valueLevel)?+d.valueLevel:0),0,VALUE_LEVEL_COUNT-1);
+      // Geometry can be reused, but VALUE assignments belong to each history
+      // state and must be restored even when every triangle stays identical.
+      cur.faceValueLevels=d.faceValueLevels?{...d.faceValueLevels}:null;
+      if(cur.valueOverlayMesh)applyMassValueOverlayColors(cur);
       masses.push(cur);
       reused.add(cur);
       nextId=Math.max(nextId,cur.id+1);
@@ -6839,12 +7032,31 @@ function selectTopology(m){
       const arr=edgeToTris.get(eid)||[];arr.push(t);edgeToTris.set(eid,arr);
     }
   }
+  // v9.110 — The visible line threshold is a DRAWING choice, not a face
+  // definition. A square/round brush may have consecutive side panels that
+  // turn by only a few degrees: no outline belongs between those panels, but
+  // they are *not* one planar editable face. Never flood-fill selection across
+  // a real bend just because its line is hidden. This rule is universal for
+  // Shape, Rect, Circle, Square/Round Brush and Boolean-created solids.
   const visibleEdgeIds=new Set(topo.edgeById.keys());
+  const planeTolerance=Math.max(2e-6,topo.tol*2);
+  const normalAlignment=.99999;
+  const triPlane=new Array(triCount);
+  const a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3();
+  for(let t=0;t<triCount;t++){
+    const ids=[0,1,2].map(k=>index?index.getX(t*3+k):t*3+k);
+    a.fromBufferAttribute(pos,ids[0]);
+    b.fromBufferAttribute(pos,ids[1]);
+    c.fromBufferAttribute(pos,ids[2]);
+    const normal=b.clone().sub(a).cross(c.clone().sub(a));
+    triPlane[t]=normal.lengthSq()>1e-20?{point:a.clone(),normal:normal.normalize()}:null;
+  }
   const faceIds=new Int32Array(triCount);faceIds.fill(-1);
   const faces=[];
   for(let t=0;t<triCount;t++){
     if(faceIds[t]!==-1)continue;
     const id=faces.length,stack=[t],triangles=[],reps=new Set();
+    const seed=triPlane[t];
     faceIds[t]=id;
     while(stack.length){
       const cur=stack.pop();triangles.push(cur);
@@ -6852,8 +7064,23 @@ function selectTopology(m){
       for(const [a,b] of [[0,1],[1,2],[2,0]]){
         const ra=r[a],rb=r[b],eid=ra<rb?`${ra}|${rb}`:`${rb}|${ra}`;
         if(visibleEdgeIds.has(eid))continue;
-        for(const other of edgeToTris.get(eid)||[]){
+        const joined=edgeToTris.get(eid)||[];
+        // More than two triangles on an edge is not a planar manifold patch.
+        if(joined.length!==2)continue;
+        for(const other of joined){
           if(faceIds[other]!==-1)continue;
+          const plane=triPlane[other];
+          if(!seed||!plane||seed.normal.dot(plane.normal)<normalAlignment)continue;
+          // Compare every candidate against the ORIGINAL seed plane, rather
+          // than against its immediate neighbour. Otherwise 140 tiny brush
+          // segments can accumulate a large non-planar drift through a chain.
+          const triangle=triReps[other];
+          let coplanar=true;
+          for(const rep of triangle){
+            const point=topo.repGroups.get(rep)?.local;
+            if(!point||Math.abs(point.clone().sub(seed.point).dot(seed.normal))>planeTolerance){coplanar=false;break;}
+          }
+          if(!coplanar)continue;
           faceIds[other]=id;stack.push(other);
         }
       }
@@ -8261,8 +8488,25 @@ function showDrawGuide(fromUV,toUV){
 function showDrawEndpoint(uv,label='CLOSE'){
   clearDrawEndpoint();const g=new THREE.BufferGeometry().setFromPoints([worldFromUV(uv)]);drawEndpointMarker=new THREE.Points(g,drawEndpointMat);drawEndpointMarker.renderOrder=3100;scene.add(drawEndpointMarker);showInference(label);
 }
+// v9.107 — Apple Pencil commonly delivers 120 Hz pointer updates. Recreating
+// a Mesh + shader material each time causes avoidable WebGL resource/GC pressure.
+// The pooled mesh renders the EXACT new brush geometry, not an approximation.
+const maPooledBrushPreviewAddMaterial=new THREE.MeshPhongMaterial({
+  color:0xffffff,emissive:0x111111,transparent:true,opacity:.62,
+  side:THREE.DoubleSide,depthWrite:false
+});
+const maPooledBrushPreviewEraseMaterial=new THREE.MeshPhongMaterial({
+  color:0x777777,emissive:0x000000,transparent:true,opacity:.58,
+  side:THREE.DoubleSide,depthWrite:false
+});
+let maPooledBrushPreviewMesh=null;
 function disposePreviewObject(o){
   if(!o)return;
+  if(o===maPooledBrushPreviewMesh){
+    o.visible=false;
+    if(o.geometry){o.geometry.dispose();o.geometry=null;}
+    return; // Reuse scene object and materials for the next preview frame.
+  }
   scene.remove(o);
   o.traverse?.(n=>{
     if(n.geometry)n.geometry.dispose?.();
@@ -8626,6 +8870,17 @@ function commitShapeFill(st,points){
   showToast(st.rectFillMode?'RECT CREATED':st.circleProfileMode?'CIRCLE CREATED':st.polylineProfileMode?'POLY CREATED':'SHAPE CREATED');
 }
 
+let maBrushPreviewFrame=0,maBrushPreviewPending=null;
+function scheduleBrushStrokePreview(st){
+  maBrushPreviewPending=st;
+  if(maBrushPreviewFrame)return;
+  maBrushPreviewFrame=requestAnimationFrame(()=>{
+    maBrushPreviewFrame=0;
+    const current=maBrushPreviewPending;
+    maBrushPreviewPending=null;
+    if(current&&interaction===current)updateBrushStrokePreview(current);
+  });
+}
 function updateBrushStrokePreview(st){
   clearPreview();
   if(!st?.points?.length)return;
@@ -8651,17 +8906,18 @@ function updateBrushStrokePreview(st){
     // tube builder. Recomputing normals after toNonIndexed() would make the live
     // preview look faceted again. Other draw geometries keep the old behavior.
     if(st.tool==='boxbrush'||!g.getAttribute('normal'))g.computeVertexNormals();
-    const fillMat=new THREE.MeshPhongMaterial({
-      color:st.eraseMode?0x777777:0xffffff,
-      emissive:st.eraseMode?0x000000:0x111111,
-      transparent:true,
-      opacity:st.eraseMode?0.58:0.62,
-      side:THREE.DoubleSide,
-      depthWrite:false
-    });
-    previewFill=new THREE.Mesh(g,fillMat);
-    previewFill.renderOrder=1950;
-    scene.add(previewFill);
+    if(!maPooledBrushPreviewMesh){
+      maPooledBrushPreviewMesh=new THREE.Mesh(g,
+        st.eraseMode?maPooledBrushPreviewEraseMaterial:maPooledBrushPreviewAddMaterial);
+      maPooledBrushPreviewMesh.renderOrder=1950;
+      scene.add(maPooledBrushPreviewMesh);
+    }else{
+      maPooledBrushPreviewMesh.geometry=g;
+      maPooledBrushPreviewMesh.material=st.eraseMode
+        ?maPooledBrushPreviewEraseMaterial:maPooledBrushPreviewAddMaterial;
+    }
+    maPooledBrushPreviewMesh.visible=true;
+    previewFill=maPooledBrushPreviewMesh;
 
     // v8.61 — Round/Square Brush previews are surface-only. Internal tube/box
     // tessellation is implementation geometry and should never read as modeling
@@ -9272,6 +9528,21 @@ function finishPolyline(){
   if(st.polylineProfileMode)commitShapeFill(st,st.points);
   else commitProfile(st,st.points);
 }
+// One UI preview build per animation frame, irrespective of Pencil sample rate.
+// Commit always reads the latest model points directly; the RAF is visual-only.
+let maLiveProfilePreviewRAF=0,maLiveProfilePreviewPending=null;
+function scheduleLiveProfilePreview(st,kind){
+  maLiveProfilePreviewPending={st,kind};
+  if(maLiveProfilePreviewRAF)return;
+  maLiveProfilePreviewRAF=requestAnimationFrame(()=>{
+    maLiveProfilePreviewRAF=0;
+    const queued=maLiveProfilePreviewPending;
+    maLiveProfilePreviewPending=null;
+    if(!queued||interaction!==queued.st)return;
+    if(queued.kind==='circle')updatePreview(queued.st.points,true);
+    else updateShapeFillPreview(queued.st);
+  });
+}
 function updateDraw(e,{finalSample=false}={}){
   const st=interaction;
   if(!st||st.kind!=='draw')return;
@@ -9294,7 +9565,7 @@ function updateDraw(e,{finalSample=false}={}){
     ];
     st.rawPoints=st.points.map(q=>q.clone());
     st.hover=uv.clone();
-    updateShapeFillPreview(st);
+    scheduleLiveProfilePreview(st,'rect');
     clearDrawEndpoint();
     showInference('RECT');
     return;
@@ -9378,7 +9649,7 @@ function updateDraw(e,{finalSample=false}={}){
         st.brushSamples.push(currentBrushSample(st.spatialDepth||0));
       }
       st.lastScreen.copy(s);
-      updateBrushStrokePreview(st);
+      scheduleBrushStrokePreview(st);
       clearDrawEndpoint();
       showInference('STRAIGHT');
       return;
@@ -9413,12 +9684,15 @@ function updateDraw(e,{finalSample=false}={}){
         updateActiveBrushSample();
       }
     }
-    updateBrushStrokePreview(st);clearDrawEndpoint();showInference('');
+    scheduleBrushStrokePreview(st);clearDrawEndpoint();showInference('');
   }
   else if(st.tool==='box'){const a=st.start,b=uv;st.points=[vec2(a.x,a.y),vec2(b.x,a.y),vec2(b.x,b.y),vec2(a.x,b.y)];updatePreview(st.points,true);}
-  else if(st.tool==='circle'){const r=st.start.distanceTo(uv),N=96;st.points=Array.from({length:N},(_,i)=>vec2(st.start.x+Math.cos(i/N*Math.PI*2)*r,st.start.y+Math.sin(i/N*Math.PI*2)*r));updatePreview(st.points,true);}
+  else if(st.tool==='circle'){const r=st.start.distanceTo(uv),N=96;st.points=Array.from({length:N},(_,i)=>vec2(st.start.x+Math.cos(i/N*Math.PI*2)*r,st.start.y+Math.sin(i/N*Math.PI*2)*r));scheduleLiveProfilePreview(st,'circle');}
 }
 function endDraw(){
+  // Pointer-up already contains the final point. No preview should run after commit.
+  maBrushPreviewPending=null;
+  maLiveProfilePreviewPending=null;
   clearMobileStraightHold();
   const st=interaction;if(!st||st.kind!=='draw')return;let p=st.points.map(q=>q.clone());
 
@@ -9836,8 +10110,9 @@ function rebaseActiveGeometryMoveAtCurrentPosition(){
     if(rec.faceSweep){
       // Axis changes rebase the gesture on the CURRENT mass, whether the last
       // preview used direct deformation or a topology-changing Boolean.
-      if(rec.faceBoolean&&!maRelinkMovedFace(rec))return false;
+      if((rec.faceBoolean||rec.faceExtruded)&&!maRelinkMovedFace(rec))return false;
       maReleaseFaceMoveResources(rec);
+      rec.faceExtrusionTemplate=null;rec.faceExtruded=false;
       rec.faceBase=rec.m.mesh.geometry.clone();
       rec.faceBase.computeBoundingBox();
       const part=selectedGeometryParts.get(rec.m.id);
@@ -10099,7 +10374,7 @@ function maFaceSweepSource(m,part){
   if(!edges.length||[...boundary.values()].some(e=>e.count>2))return null;
   const center=new THREE.Vector3();for(const v of unique.values())center.add(v);
   center.multiplyScalar(1/unique.size);
-  return{patches,edges,normal,center,tolerance};
+  return{patches,edges,normal,center,tolerance,triangleIds:f.triangles.slice()};
 }
 // v9.104 — A face MOVE is first a deformation of the *existing* solid.
 // The previous sweep-union changed topology even for a perfectly ordinary
@@ -10109,40 +10384,279 @@ function maFaceSweepSource(m,part){
 // adjacent surface non-planar or invert its triangles.
 // All tested triangles and face groups come from the original mesh; previews
 // never rebase on a previous preview and cannot accumulate numerical drift.
-function maFaceMoveDeformationSupport(m,movedIndices,source){
-  const topo=selectTopology(m),g=m?.mesh?.geometry,idx=g?.index;
-  if(!topo?.faces?.length||!source?.length)return null;
-  const moved=new Set(movedIndices),affected=[];
-  const size=g.boundingBox?.getSize(new THREE.Vector3()).length()||1;
-  const planarEps=Math.max(2e-6,size*1.5e-5);
-  const read=(i)=>new THREE.Vector3(source[i*3],source[i*3+1],source[i*3+2]);
-  for(const face of topo.faces){
-    const touched=face.triangles.some(t=>[0,1,2].some(k=>moved.has(idx?idx.getX(t*3+k):t*3+k)));
-    if(!touched)continue;
-    const triangles=[];
-    let baseNormal=null,basePoint=null;
-    for(const t of face.triangles){
-      const ids=[0,1,2].map(k=>idx?idx.getX(t*3+k):t*3+k);
-      const [a,b,c]=ids.map(read),n=b.clone().sub(a).cross(c.clone().sub(a));
-      if(n.lengthSq()<1e-18)return null;
-      n.normalize();
-      if(!baseNormal){baseNormal=n;basePoint=a;}
-      if(n.dot(baseNormal)<.9999||ids.some(i=>Math.abs(read(i).sub(basePoint).dot(baseNormal))>planarEps))return null;
-      triangles.push({ids,normal:n});
+// v9.109 — Geometry, not visible outlines, defines the planar patches that
+// can deform with a selected Face. Freehand SHAPE has many adjacent side panels
+// at angles below the 20° outline threshold: selectTopology intentionally
+// groups them for selection, but they must NEVER be treated as one plane.
+// Use true triangle adjacency + original coplanarity for the move validation.
+// This is calculated only once at gesture start; the fast per-frame deformation
+// and the existing swept-solid fallback are unchanged.
+// v9.112 — Editable faces are surface regions, not just a set of triangle
+// corners. In particular, Square/RECT Brush ends are triangulated as fans with
+// an interior center vertex. Translating only the selected top/boundary corners
+// leaves that helper center fixed. The end cap then stops being planar, forcing
+// Move into an unnecessary Boolean sweep and adding the visible wedge.
+//
+// Fit the original boundary's binary motion (selected=1, fixed=0) as an affine
+// field on each ORIGINAL planar patch. Only truly INTERIOR, non-authored helper
+// vertices may receive a fractional movement. An affine field preserves each
+// planar patch as a plane for ANY delta; shared geometric vertices receive the
+// same weight across all triangle copies. No topology or edges are created.
+function maFaceMoveInteriorWeights(g,source,moved,affected,weldTol){
+  const keyFor=i=>quantKey3(new THREE.Vector3(source[3*i],source[3*i+1],source[3*i+2]),weldTol);
+  const indicesByKey=new Map();
+  for(let i=0;i<source.length/3;i++){
+    const k=keyFor(i),arr=indicesByKey.get(k);
+    if(arr)arr.push(i);else indicesByKey.set(k,[i]);
+  }
+  const weights=new Map();
+  for(const i of moved)weights.set(i,1);
+  const featureKeys=new Set(),authored=maStructuralEdges(g);
+  if(authored)for(const i of authored.pairs)if(i>=0&&i<source.length/3)featureKeys.add(keyFor(i));
+  const weightedKeys=new Map();
+  const p=i=>new THREE.Vector3(source[3*i],source[3*i+1],source[3*i+2]);
+  for(const patch of affected){
+    const vs=new Map(),edges=new Map();
+    for(const tri of patch){
+      for(let j=0;j<3;j++){
+        const k=tri.keys[j];
+        if(!vs.has(k))vs.set(k,{key:k,point:p(tri.ids[j]),selected:moved.has(tri.ids[j])?1:0});
+        else if(moved.has(tri.ids[j]))vs.get(k).selected=1;
+        const other=tri.keys[(j+1)%3];
+        if(k===other)continue;
+        const eid=k<other?k+'|'+other:other+'|'+k;
+        edges.set(eid,{a:k,b:other,count:(edges.get(eid)?.count||0)+1});
+      }
     }
-    affected.push(triangles);
+    if([...edges.values()].some(e=>e.count>2))continue;
+    const border=new Set();
+    for(const e of edges.values())if(e.count===1){border.add(e.a);border.add(e.b);}
+    const boundary=[...border].map(k=>vs.get(k)).filter(Boolean);
+    if(boundary.length<3)continue;
+    const internal=[...vs.values()].filter(v=>!border.has(v.key)&&!featureKeys.has(v.key));
+    if(!internal.length)continue;
+
+    // Find a well-spread triangle on the boundary, avoiding tiny/collinear
+    // brush segments which would make the interpolation numerically unstable.
+    const p0=boundary[0];
+    let p1=null,maxLen=0;
+    for(const v of boundary){const len=v.point.distanceToSquared(p0.point);if(len>maxLen){maxLen=len;p1=v;}}
+    if(!p1||maxLen<1e-16)continue;
+    const u=p1.point.clone().sub(p0.point);
+    let p2=null,maxArea=0;
+    for(const v of boundary){
+      const area=new THREE.Vector3().crossVectors(u,v.point.clone().sub(p0.point)).lengthSq();
+      if(area>maxArea){maxArea=area;p2=v;}
+    }
+    if(!p2||maxArea<maxLen*maxLen*1e-10)continue;
+    const v=p2.point.clone().sub(p0.point);
+    const uu=u.dot(u),uv=u.dot(v),vv=v.dot(v),det=uu*vv-uv*uv;
+    if(det<=1e-20)continue;
+    const weightAt=point=>{
+      const d=point.clone().sub(p0.point),du=d.dot(u),dv=d.dot(v);
+      const a=(du*vv-dv*uv)/det,b=(dv*uu-du*uv)/det;
+      return p0.selected+a*(p1.selected-p0.selected)+b*(p2.selected-p0.selected);
+    };
+    // Never interpolate across a non-affine/multi-feature boundary. Such cases
+    // are left to the existing validator/Boolean path rather than moving real
+    // modeling features unexpectedly.
+    if(boundary.some(b=>Math.abs(weightAt(b.point)-b.selected)>.002))continue;
+    const candidate=[];
+    for(const interior of internal){
+      const w=weightAt(interior.point);
+      if(!Number.isFinite(w)||w<-.002||w>1.002){candidate.length=0;break;}
+      const desired=Math.max(0,Math.min(1,w));
+      if((interior.selected===1&&Math.abs(desired-1)>.002)||
+         (weightedKeys.has(interior.key)&&Math.abs(weightedKeys.get(interior.key)-desired)>.002)){
+        candidate.length=0;break;
+      }
+      candidate.push([interior.key,desired]);
+    }
+    if(!candidate.length)continue;
+    for(const [key,w] of candidate)weightedKeys.set(key,w);
+  }
+  for(const [key,weight] of weightedKeys){
+    for(const i of indicesByKey.get(key)||[])if(!moved.has(i))weights.set(i,weight);
+  }
+  return weights;
+}
+// v9.113 — Tap-to-extrude is topological, not a drawn helper outline.
+// Keep every original wall triangle, omit ONLY the original selected cap,
+// translate that cap to its new position and stitch its original perimeter
+// with actual new wall triangles. This preserves the source rim as a selectable
+// edge and adds a new cap rim, even for a fan-triangulated RECT/SQUARE Brush.
+// Both rims and their connecting corner edges reference real mesh vertices.
+function maBuildFaceExtrusionTemplate(rec){
+  const face=rec.faceSweep,base=rec.faceBase,p=base?.attributes?.position,idx=base?.index;
+  if(!face?.triangleIds?.length||!face.edges?.length||!p)return null;
+  const removed=new Set(face.triangleIds),coords=[],moving=[],fixedMap=new Map(),movingMap=new Map();
+  const tol=Math.max(1e-6,face.tolerance);
+  const key=v=>quantKey3(v,tol);
+  const put=(v,shift=false)=>{
+    const i=coords.length/3;coords.push(v.x,v.y,v.z);
+    if(shift){moving.push(i);if(!movingMap.has(key(v)))movingMap.set(key(v),i);}
+    else if(!fixedMap.has(key(v)))fixedMap.set(key(v),i);
+  };
+  const putTriangle=(a,b,c,moveA=false,moveB=false,moveC=false)=>{
+    put(a,moveA);put(b,moveB);put(c,moveC);
+  };
+  const temp=new THREE.Vector3();
+  const triangles=Math.floor((idx?idx.count:p.count)/3);
+  for(let t=0;t<triangles;t++){
+    if(removed.has(t))continue;
+    const vertices=[0,1,2].map(k=>temp.clone().fromBufferAttribute(p,idx?idx.getX(3*t+k):3*t+k));
+    putTriangle(vertices[0],vertices[1],vertices[2]);
+  }
+  // Keep the original outward cap winding unchanged at its new location.
+  for(const [a,b,c] of face.patches)putTriangle(a,b,c,true,true,true);
+  // Each perimeter edge follows the selected cap's winding. Therefore these
+  // two triangles have outward side normals for an outward displacement.
+  for(const {a,b} of face.edges){
+    putTriangle(a,b,b,false,false,true);
+    putTriangle(a,b,a,false,true,true);
+  }
+  const pairs=[],seen=new Set();
+  const addPair=(i,j)=>{
+    if(i==null||j==null||i===j)return;
+    const id=i<j?i+'|'+j:j+'|'+i;
+    if(seen.has(id))return;
+    seen.add(id);pairs.push(i,j);
+  };
+  const oldEdges=maStructuralEdges(base);
+  if(oldEdges){
+    for(let k=0;k<oldEdges.pairs.length;k+=2){
+      const ia=oldEdges.pairs[k],ib=oldEdges.pairs[k+1];
+      if(ia>=p.count||ib>=p.count)continue;
+      const a=temp.clone().fromBufferAttribute(p,ia),b=temp.clone().fromBufferAttribute(p,ib);
+      addPair(fixedMap.get(key(a)),fixedMap.get(key(b)));
+    }
+  }
+  const dirs=new Map();
+  for(const {a,b} of face.edges){
+    // Actual start and end rims — no coplanar triangulation diagonals.
+    addPair(fixedMap.get(key(a)),fixedMap.get(key(b)));
+    addPair(movingMap.get(key(a)),movingMap.get(key(b)));
+    const d=b.clone().sub(a);
+    if(d.lengthSq()<1e-16)continue;
+    d.normalize();
+    const ka=key(a),kb=key(b);
+    if(!dirs.has(ka))dirs.set(ka,[]);
+    if(!dirs.has(kb))dirs.set(kb,[]);
+    dirs.get(ka).push(d);dirs.get(kb).push(d.clone().negate());
+  }
+  // Expose vertical corner edges at genuine sharp turns only, not at every
+  // sampled point along a curved brush's smooth silhouette.
+  const cornerLimit=Math.cos(THREE.MathUtils.degToRad(edgeThresholdForMassType(rec.m.type)));
+  for(const [k,near] of dirs){
+    if(near.length!==2||near[0].dot(near[1])>-cornerLimit)
+      addPair(fixedMap.get(k),movingMap.get(k));
+  }
+  return{source:new Float32Array(coords),moving,edges:{count:coords.length/3,pairs}};
+}
+function maApplyFaceExtrusion(rec,dl){
+  const face=rec.faceSweep;
+  if(!face||!Number.isFinite(dl.x+dl.y+dl.z))return false;
+  // An inward push removes material; its original outer rim is no longer on
+  // the surface, so it cannot be a visible selectable seam of a solid.
+  if(face.normal.dot(dl)<=Math.max(1e-5,face.tolerance*4))return false;
+  if(!rec.faceExtrusionTemplate){
+    rec.faceExtrusionTemplate=maBuildFaceExtrusionTemplate(rec);
+    if(!rec.faceExtrusionTemplate)return false;
+  }
+  const tpl=rec.faceExtrusionTemplate,m=rec.m;
+  if(rec.faceBoolean||rec.faceBooleanEmpty)rec.faceExtruded=false;
+  if(!rec.faceExtruded){
+    const g=geometryFromPositions(tpl.source);
+    g.userData.maStructuralEdges={count:tpl.edges.count,pairs:tpl.edges.pairs.slice()};
+    setMassGeometry(m,g,true,{smooth:false,preview:true});
+    rec.faceExtruded=true;rec.faceBoolean=false;rec.faceBooleanEmpty=false;rec.faceDeformed=false;
+  }
+  const g=m.mesh.geometry,pos=g.attributes.position,source=tpl.source;
+  if(pos.count!==source.length/3){rec.faceExtruded=false;return false;}
+  for(const i of tpl.moving){
+    pos.setXYZ(i,source[3*i]+dl.x,source[3*i+1]+dl.y,source[3*i+2]+dl.z);
+  }
+  pos.needsUpdate=true;
+  g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();
+  m.edges.geometry.dispose();m.edges.geometry=outlineGeometryForMass(g,m.type);
+  invalidateMassGeometryDerivedState(m,{invalidateManifold:true});
+  m.mesh.visible=true;m.edges.visible=outlinesEnabled&&viewMode!=='shadow'&&viewMode!=='depth';
+  rec.lastFaceDelta=dl.clone();
+  return true;
+}
+function maFaceMoveDeformationSupport(m,movedIndices,source){
+  const g=m?.mesh?.geometry,idx=g?.index;
+  if(!g?.attributes?.position||!source?.length)return null;
+  const moved=new Set(movedIndices);
+  const size=Math.max(1e-4,g.boundingBox?.getSize(new THREE.Vector3()).length()||1);
+  const planarEps=Math.max(2e-6,size*1.5e-5);
+  const weldTol=Math.max(1e-7,size*1e-7);
+  const triCount=Math.floor((idx?idx.count:source.length/3)/3);
+  const read=i=>new THREE.Vector3(source[i*3],source[i*3+1],source[i*3+2]);
+  const tris=new Array(triCount),edgeToTriangles=new Map();
+  let hasMovedTriangles=false;
+  // Only original geometry defines triangles/edge sharing. Display/selection
+  // outlines are deliberately not consulted at any stage of this calculation.
+  for(let t=0;t<triCount;t++){
+    const ids=[0,1,2].map(k=>idx?idx.getX(t*3+k):t*3+k);
+    const [a,b,c]=ids.map(read);
+    const n=b.clone().sub(a).cross(c.clone().sub(a));
+    const area2=n.lengthSq();
+    const touched=ids.some(i=>moved.has(i));
+    if(touched)hasMovedTriangles=true;
+    // SHAPE's sampled silhouette can contain triangles that were *already*
+    // virtually zero-area. They cannot define a reliable plane and must not
+    // force the whole move into a Boolean extrusion that adds a stray wedge.
+    const valid=area2>Math.max(1e-22,Math.pow(size,4)*1e-19);
+    const keys=ids.map(i=>quantKey3(read(i),weldTol));
+    tris[t]={ids,normal:valid?n.normalize():null,point:a,area2,touched,keys};
+    if(!valid)continue;
+    for(let k=0;k<3;k++){
+      const ka=keys[k],kb=keys[(k+1)%3];
+      if(ka===kb)continue;
+      const key=ka<kb?ka+'|'+kb:kb+'|'+ka;
+      if(!edgeToTriangles.has(key))edgeToTriangles.set(key,[]);
+      edgeToTriangles.get(key).push(t);
+    }
+  }
+  if(!hasMovedTriangles)return null;
+  const affected=[],seen=new Uint8Array(triCount);
+  for(let t=0;t<triCount;t++){
+    if(seen[t]||!tris[t].normal)continue;
+    const group=[],stack=[t];seen[t]=1;
+    // A patch contains triangles that are truly connected AND coplanar; a
+    // shallow bend in a freehand SHAPE is still a boundary between patches.
+    while(stack.length){
+      const k=stack.pop(),tri=tris[k];group.push(tri);
+      for(let j=0;j<3;j++){
+        const a=tri.keys[j],b=tri.keys[(j+1)%3];
+        if(a===b)continue;
+        const eid=a<b?a+'|'+b:b+'|'+a;
+        for(const neighbor of edgeToTriangles.get(eid)||[]){
+          if(seen[neighbor])continue;
+          const other=tris[neighbor];
+          // A shallowly curved brush has many consecutive side panels whose
+          // normals are very close, but which are still distinct geometric
+          // faces. Loose grouping could join them and falsely reject a valid
+          // upward Move after the bend becomes more pronounced.
+          if(!other.normal||other.normal.dot(tri.normal)<.9999999999)continue;
+          if(other.ids.some(i=>Math.abs(read(i).sub(tri.point).dot(tri.normal))>planarEps))continue;
+          if(tri.ids.some(i=>Math.abs(read(i).sub(other.point).dot(other.normal))>planarEps))continue;
+          seen[neighbor]=1;stack.push(neighbor);
+        }
+      }
+    }
+    if(group.some(tri=>tri.touched))affected.push(group);
   }
   if(!affected.length)return null;
-  // Planarity of each neighboring polygon is a linear constraint on a rigidly
-  // translated set of its vertices. Precompute an orthonormal constraint basis
-  // so free drags can drop only the unwanted off-plane component, rather than
-  // inventing a new fold or defaulting to a skewed Boolean prism.
+  const weights=maFaceMoveInteriorWeights(g,source,moved,affected,weldTol);
   const constraints=[];
   for(const triangles of affected){
     const vertices=new Map();
     for(const tri of triangles)for(const i of tri.ids){
-      const p=read(i),key=quantKey3(p,Math.max(1e-6,size*1e-6));
-      if(!vertices.has(key))vertices.set(key,{p,moved:moved.has(i)});
+      const p=read(i),key=quantKey3(p,weldTol);
+      if(!vertices.has(key))vertices.set(key,{p,weight:weights.get(i)||0});
+      else vertices.get(key).weight=Math.max(vertices.get(key).weight,weights.get(i)||0);
     }
     const vs=[...vertices.values()];if(vs.length<4)continue;
     const p0=vs[0],p1=vs.slice(1).reduce((best,v)=>v.p.distanceToSquared(p0.p)>best.p.distanceToSquared(p0.p)?v:best,vs[1]);
@@ -10154,10 +10668,10 @@ function maFaceMoveDeformationSupport(m,movedIndices,source){
       if(ar>area){area=ar;p2=v;}
     }
     if(!p2||area<1e-18)continue;
-    const v=p2.p.clone().sub(p0.p),a1=Number(p1.moved)-Number(p0.moved),a2=Number(p2.moved)-Number(p0.moved);
+    const v=p2.p.clone().sub(p0.p),a1=p1.weight-p0.weight,a2=p2.weight-p0.weight;
     for(const p3 of vs){
       if(p3===p0||p3===p1||p3===p2)continue;
-      const w=p3.p.clone().sub(p0.p),a3=Number(p3.moved)-Number(p0.moved);
+      const w=p3.p.clone().sub(p0.p),a3=p3.weight-p0.weight;
       const c=new THREE.Vector3().crossVectors(v,w).multiplyScalar(a1)
         .add(new THREE.Vector3().crossVectors(w,u).multiplyScalar(a2))
         .add(new THREE.Vector3().crossVectors(u,v).multiplyScalar(a3));
@@ -10167,7 +10681,7 @@ function maFaceMoveDeformationSupport(m,movedIndices,source){
       if(c.lengthSq()>1e-6)constraints.push(c.normalize());
     }
   }
-  return{moved,affected,planarEps,constraints};
+  return{moved,weights,affected,planarEps,constraints};
 }
 function maFaceMoveClosestPlanarDelta(rec,dl){
   const basis=rec.faceDeformSupport?.constraints;
@@ -10184,14 +10698,17 @@ function maFaceMoveClosestPlanarDelta(rec,dl){
 function maFaceMoveCanDeform(rec,dl){
   const support=rec.faceDeformSupport;
   if(!support||!Number.isFinite(dl.x+dl.y+dl.z))return false;
-  const src=rec.startPositions,moved=support.moved;
-  const read=i=>new THREE.Vector3(src[3*i]+(moved.has(i)?dl.x:0),src[3*i+1]+(moved.has(i)?dl.y:0),src[3*i+2]+(moved.has(i)?dl.z:0));
+  const src=rec.startPositions,weights=support.weights;
+  const read=i=>{
+    const w=weights.get(i)||0;
+    return new THREE.Vector3(src[3*i]+w*dl.x,src[3*i+1]+w*dl.y,src[3*i+2]+w*dl.z);
+  };
   for(const tris of support.affected){
     let planeNormal=null,planePoint=null;
     for(const tri of tris){
       const [a,b,c]=tri.ids.map(read);
       const n=b.clone().sub(a).cross(c.clone().sub(a));
-      if(n.lengthSq()<1e-17)return false;
+      if(n.lengthSq()<Math.max(1e-22,tri.area2*1e-10))return false;
       n.normalize();
       // Do not invert a face or let part of a triangulated plane fold.
       if(n.dot(tri.normal)<1e-5)return false;
@@ -10210,10 +10727,12 @@ function maApplyFaceDeformation(rec,dl,{allowPlanarInference=true}={}){
   }
   // A former Boolean preview has a different vertex count; restore the exact
   // starting topology before attempting the direct, coherent deformation.
-  if(rec.faceBoolean||rec.faceBooleanEmpty)maRestoreFaceMoveBase(rec);
+  if(rec.faceBoolean||rec.faceBooleanEmpty||rec.faceExtruded)maRestoreFaceMoveBase(rec);
   const m=rec.m,g=m.mesh.geometry,p=g.attributes.position,src=rec.startPositions;
   if(!p||p.count*3!==src.length)return false;
-  for(const i of rec.indices)p.setXYZ(i,src[i*3]+moveDelta.x,src[i*3+1]+moveDelta.y,src[i*3+2]+moveDelta.z);
+  for(const [i,w] of rec.faceDeformSupport.weights){
+    p.setXYZ(i,src[i*3]+w*moveDelta.x,src[i*3+1]+w*moveDelta.y,src[i*3+2]+w*moveDelta.z);
+  }
   p.needsUpdate=true;
   g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();
   // Authored edges follow the moved vertices, rather than inferring new edges
@@ -10263,14 +10782,15 @@ function maSweptFacePrismSolid(face,dl,eps){
 function maReleaseFaceMoveResources(rec){
   rec.faceBaseSolid?.delete();rec.faceBaseSolid=null;
   rec.faceBase?.dispose();rec.faceBase=null;
+  rec.faceExtrusionTemplate=null;
 }
 function maRestoreFaceMoveBase(rec){
   const m=rec.m;
-  if(rec.faceBoolean||rec.faceBooleanEmpty){
+  if(rec.faceBoolean||rec.faceBooleanEmpty||rec.faceExtruded){
     const g=rec.faceBase.clone();
     setMassGeometry(m,g,true,{smooth:false,preview:true});
     m.mesh.visible=true;m.edges.visible=outlinesEnabled&&viewMode!=='shadow'&&viewMode!=='depth';
-    rec.faceBoolean=false;rec.faceBooleanEmpty=false;
+    rec.faceBoolean=false;rec.faceBooleanEmpty=false;rec.faceExtruded=false;
   }
 }
 function maApplyFaceSolidMove(rec,dl,{final=false}={}){
@@ -10305,7 +10825,7 @@ function maApplyFaceSolidMove(rec,dl,{final=false}={}){
     }else{
       rec.m.mesh.visible=false;rec.m.edges.visible=false;
     }
-    rec.faceBoolean=true;rec.faceBooleanEmpty=empty;
+    rec.faceBoolean=true;rec.faceBooleanEmpty=empty;rec.faceExtruded=false;
     rec.lastFaceDelta=dl.clone();
     return true;
   }catch(err){
@@ -10366,10 +10886,14 @@ function applySelectedGeometryMove(st,worldDelta,{force=false,final=false}={}){
   }
   const beganAt=performance.now();
   st.maDeferredDelta=null;
+  st.lastWorldDelta=worldDelta.clone();
   for(const rec of st.parts.values()){
     const m=rec.m;
     const p0=m.group.worldToLocal(st.grab.clone()),p1=m.group.worldToLocal(st.grab.clone().add(worldDelta)),dl=p1.sub(p0);
     if(rec.faceSweep){
+      // Once armed by a second empty-workspace tap, show actual extrusion
+      // geometry during the SAME Move gesture, not a decorative preview line.
+      if(st.extrudeArmed&&maApplyFaceExtrusion(rec,dl))continue;
       // Keep existing planar regions planar and their original edge graph.
       // Only genuine topology-changing moves need a swept-solid Boolean.
       if(maApplyFaceDeformation(rec,dl,{allowPlanarInference:!axisLock&&!st.autoAxis}))continue;
@@ -10422,7 +10946,26 @@ function endSelectedGeometryMove(){
   mobileMovePointerId=null;penActive=false;
   const finalizedDeferred=!!st.maDeferredDelta;
   if(finalizedDeferred)applySelectedGeometryMove(st,st.maDeferredDelta,{force:true,final:true});
-  if(st.changed&&[...st.parts.values()].some(rec=>!rec.faceBoolean&&!geometryTrianglesValid(rec.m.mesh.geometry,rec.startPositions,new Set(rec.indices)))){
+  let extrusionFailed=false,extrusionSucceeded=false;
+  if(st.changed&&st.extrudeArmed){
+    for(const rec of st.parts.values()){
+      if(!rec.faceExtruded)continue;
+      let solid=null;
+      try{
+        // Validate closed manifold once, on release, never on every Pencil frame.
+        solid=geometryToManifold(rec.m.mesh.geometry);
+        extrusionSucceeded=true;
+      }catch(err){
+        console.warn('MA extrusion invalid; keeping regular Move',err);
+        extrusionFailed=true;
+        const delta=rec.lastFaceDelta?.clone()||new THREE.Vector3();
+        maRestoreFaceMoveBase(rec);
+        if(!maApplyFaceDeformation(rec,delta,{allowPlanarInference:!axisLock&&!st.autoAxis}))
+          maApplyFaceSolidMove(rec,delta,{final:true});
+      }finally{solid?.delete();}
+    }
+  }
+  if(st.changed&&[...st.parts.values()].some(rec=>!rec.faceBoolean&&!rec.faceExtruded&&!geometryTrianglesValid(rec.m.mesh.geometry,rec.startPositions,new Set(rec.faceDeformSupport?.weights?.keys()||rec.indices)))){
     for(const rec of st.parts.values())maReleaseFaceMoveResources(rec);
     interaction=null;clearSnapVisual();clearMoveAxisDots();axisLock=null;restoreState(st.before);showToast('MOVE FAILED · RESTORED');return;
   }
@@ -10437,17 +10980,18 @@ function endSelectedGeometryMove(){
         }
         maFinishFaceMovePart(rec);maReleaseFaceMoveResources(rec);continue;
       }
-      const m=rec.m,finalPositions=serializeGeometry(m.mesh.geometry),oldCount=rec.startPositions.length/3;
-      const next=geometryFromPositions(finalPositions);maCopyStructuralEdges(m.mesh.geometry,next);
-      setMassGeometry(m,next,true);
+      const m=rec.m,oldCount=rec.startPositions.length/3;
+      if(rec.faceExtruded&&!maRelinkMovedFace(rec))selectedGeometryParts.delete(m.id);
+      maFinishTopologyPreservingEdit(m);
       const part=selectedGeometryParts.get(m.id);
-      if(part&&m.mesh.geometry.attributes.position.count===oldCount)part.indices=new Set(rec.indices);else if(part)selectedGeometryParts.delete(m.id);
+      if(part&&rec.faceExtruded){ /* relink already supplied the new cap indices */ }
+      else if(part&&m.mesh.geometry.attributes.position.count===oldCount)part.indices=new Set(rec.indices);else if(part)selectedGeometryParts.delete(m.id);
       maReleaseFaceMoveResources(rec);
     }
     rebuildSelectedGeometryElementsFromIndices();recordHistory();
   }else for(const rec of st.parts.values())maReleaseFaceMoveResources(rec);
   interaction=null;clearSnapVisual();clearMoveAxisDots();axisLock=null;syncSelectGeometryHighlight();syncRotateGizmo();updateMobileDrawUI();
-  if(st.changed)showToast(`${selectElementModeLabel()} MOVED`);
+  if(st.changed)showToast(extrusionSucceeded?'EXTRUDED · ORIGINAL EDGE KEPT':(extrusionFailed?'EXTRUSION INVALID · MOVE KEPT':(st.extrudeArmed?'MOVE KEPT · EXTRUDE OUTWARD':`${selectElementModeLabel()} MOVED`)));
 }
 // --- Modify: move real geometry corners / edges ---------------------------------
 let pendingModify=null,rafModify=0;
@@ -10677,11 +11221,9 @@ function endModify(){
   }
 
   if(st.changed){
-    // Recreate from final positions once, so smooth mass types recover their
-    // creased/smooth normals and every derived outline is rebuilt from geometry.
-    const finalPositions=serializeGeometry(m.mesh.geometry);
-    const next=geometryFromPositions(finalPositions);maCopyStructuralEdges(m.mesh.geometry,next);
-    setMassGeometry(m,next,true);
+    // The same topology-safe finalization is used by vertex and edge Move.
+    // Do not rebuild the mesh through a brush smoothing pass here either.
+    maFinishTopologyPreservingEdit(m);
   }
   interaction=null;clearSnapVisual();axisLock=null;
   if(st.changed){recordHistory();showToast(st.handle.kind==='vertex'?'CORNER MODIFIED':'EDGE MODIFIED');}
@@ -10694,25 +11236,55 @@ scene.add(transformHelper);
 transformHelper.visible=false;
 transform.setMode('scale');
 transform.setSpace('local');
-transform.setSize(.82);
+transform.setSize(1.0);
 
-// v9.02 — TransformControls already supports uniform XYZ scaling from its
-// centre handle. Make that handle deliberately easier to see and hit on
-// iPhone/iPad/Pencil while leaving the X/Y/Z axis handles unchanged.
-function enlargeUniformScaleHandle(control){
-  const helper=control?.getHelper?.();
-  if(!helper)return;
-  helper.traverse(obj=>{
-    if(obj?.name!=='XYZ'||!obj.geometry||obj.userData?.maUniformScaleHandle)return;
-    obj.geometry=obj.geometry.clone();
-    // The visible centre cube and the hidden picker both use the XYZ name.
-    // A larger picker makes proportional scale reliable without changing the
-    // actual scale maths or the axis-specific handles.
-    obj.geometry.scale(1.75,1.75,1.75);
-    obj.userData.maUniformScaleHandle=true;
-  });
+// v9.117 — Exactly one positive X/Y/Z arm and cube, plus the separate blank
+// uniform-scale circle. In Three.js r179, setupGizmo() BAKES handle offsets
+// into each geometry and resets object.position to zero. Its updateMatrixWorld()
+// also resets handle.visible each frame. Therefore hiding by object.position or
+// setting visible=false does not work: remove unwanted children directly from
+// the Scale gizmo AND its invisible raycast pickers instead.
+function simplifyScaleGizmo(control){
+  const root=control?.getHelper?.();
+  let gizmo=control?._gizmo||null;
+  if(!gizmo&&root)root.traverse(obj=>{if(obj.isTransformControlsGizmo)gizmo=obj;});
+  if(!gizmo?.gizmo?.scale||!gizmo?.picker?.scale)return false;
+  if(gizmo.userData.maMinimalThreeAxisScale)return true;
+  const axisCoord={X:'x',Y:'y',Z:'z'};
+  function prune(group){
+    for(const handle of [...group.children]){
+      const axis=axisCoord[handle.name];
+      let keep=false;
+      if(axis&&handle.geometry?.attributes?.position){
+        // Geometry already contains all translations/rotations from setupGizmo.
+        // The positive arm/cube lies on the positive half-axis; the rear cube
+        // and picker are on the negative half-axis.
+        handle.geometry.computeBoundingBox();
+        const bounds=handle.geometry.boundingBox;
+        const positive=bounds.max[axis];
+        const negative=bounds.min[axis];
+        keep=positive>0.08 && positive>Math.abs(negative)+0.02;
+      }
+      if(!keep){
+        group.remove(handle);
+        // setupGizmo gives each handle its own baked geometry, so releasing it
+        // does not affect the remaining axis handles or other transform modes.
+        handle.geometry?.dispose?.();
+      }
+    }
+  }
+  prune(gizmo.gizmo.scale);
+  prune(gizmo.picker.scale);
+  // The axis-specific helper lines are redundant with the three visible arms.
+  // They are not used for hit testing or computing Scale deltas.
+  for(const handle of [...(gizmo.helper?.scale?.children||[])]){
+    gizmo.helper.scale.remove(handle);
+    handle.geometry?.dispose?.();
+  }
+  gizmo.userData.maMinimalThreeAxisScale=true;
+  return true;
 }
-enlargeUniformScaleHandle(transform);
+simplifyScaleGizmo(transform);
 
 const rotateTransform=new TransformControls(camera,renderer.domElement);
 const rotateTransformHelper=rotateTransform.getHelper();
@@ -10928,9 +11500,9 @@ function syncRotateGizmo(){
   }
   setSelectionGizmosEnabled(true);
 }
-function beginSelectionTransform(kind){
+function beginSelectionTransform(kind,{explicitUIHandle=false}={}){
   if(!selectedMasses().length)return false;
-  if(ipadPencilMode&&transformEventPointerType!=='pen'){
+  if(ipadPencilMode&&transformEventPointerType!=='pen'&&!explicitUIHandle){
     transformDragging=false;
     return false;
   }
@@ -11001,6 +11573,92 @@ transform.addEventListener('mouseDown',()=>beginSelectionTransform('scale'));
 transform.addEventListener('mouseUp',endSelectionTransform);
 rotateTransform.addEventListener('mouseDown',()=>beginSelectionTransform('rotate'));
 rotateTransform.addEventListener('mouseUp',endSelectionTransform);
+
+// v9.114 — Uniform SCALE is a first-class, easily grabbed control, not a tiny
+// overlapping target at the TransformControls origin. It operates on the SAME
+// selectionPivot/transaction as axis scale, including sub-face/edge selection.
+// Its screen-space drag is deliberately independent of camera direction, so
+// Pencil, finger, and mouse all feel the same in landscape/portrait.
+const maUniformScaleHandle=document.getElementById('maUniformScaleHandle');
+let maUniformScaleGesture=null;
+function syncUniformScaleHandle(){
+  const visible=transformHoldMode==='scale'&&transformHelper.visible&&
+    selectedMasses().length>0&&!projectLibraryVisible&&viewMode==='workspace';
+  if(!visible){
+    maUniformScaleHandle.style.display='none';
+    return;
+  }
+  selectionPivot.updateWorldMatrix(true,false);
+  const ndc=selectionPivot.getWorldPosition(new THREE.Vector3()).project(camera);
+  if(ndc.z< -1||ndc.z>1||!Number.isFinite(ndc.x+ndc.y)){
+    maUniformScaleHandle.style.display='none';return;
+  }
+  const r=renderer.domElement.getBoundingClientRect();
+  if(r.width<1||r.height<1){maUniformScaleHandle.style.display='none';return;}
+  const centerX=r.left+(ndc.x*.5+.5)*r.width;
+  const centerY=r.top+(-ndc.y*.5+.5)*r.height;
+  // Offset the dedicated XYZ grab target away from the three axis handles.
+  // Flip on narrow screens; never put the grab target under a screen edge.
+  const offsetX=centerX>r.right-102?-64:64;
+  const offsetY=centerY<r.top+102?64:-64;
+  // Round to stable CSS pixels; don't invalidate layout on every render frame
+  // while the camera and pivot are stationary (important on iPad).
+  const left=`${Math.round(clamp(centerX+offsetX,r.left+30,r.right-30))}px`;
+  const top=`${Math.round(clamp(centerY+offsetY,r.top+30,r.bottom-30))}px`;
+  if(maUniformScaleHandle.style.left!==left)maUniformScaleHandle.style.left=left;
+  if(maUniformScaleHandle.style.top!==top)maUniformScaleHandle.style.top=top;
+  if(maUniformScaleHandle.style.display!=='flex')maUniformScaleHandle.style.display='flex';
+}
+maUniformScaleHandle.addEventListener('pointerdown',e=>{
+  if((e.pointerType==='mouse'&&e.button!==0)||maUniformScaleGesture||
+     transformDragging||transformHoldMode!=='scale'||!selectedMasses().length)return;
+  e.preventDefault();e.stopPropagation();
+  // A finger on a dedicated UI control is intentional, even in iPad Pencil
+  // mode (fingers elsewhere on the canvas remain navigation-only).
+  if(!beginSelectionTransform('scale',{explicitUIHandle:true}))return;
+  maUniformScaleGesture={id:e.pointerId,startY:e.clientY,initial:selectionPivot.scale.x,changed:false};
+  unifiedUIPointers.add(e.pointerId);
+  maUniformScaleHandle.classList.add('maUniformDragging');
+  if(e.pointerType==='pen'){
+    lastNativePenPointerAt=performance.now();registerIPadPencil();
+  }
+  try{maUniformScaleHandle.setPointerCapture(e.pointerId);}catch(_){}
+},{passive:false});
+maUniformScaleHandle.addEventListener('pointermove',e=>{
+  const st=maUniformScaleGesture;
+  if(!st||st.id!==e.pointerId)return;
+  e.preventDefault();e.stopPropagation();
+  const travel=st.startY-e.clientY;
+  if(!st.changed&&Math.abs(travel)<2)return;
+  st.changed=true;
+  // Logarithmic scaling keeps the interaction even and predictable.
+  const factor=clamp(Math.exp(travel*.010),.07,18);
+  selectionPivot.scale.setScalar(st.initial*factor);
+  selectionPivot.updateMatrixWorld(true);
+  applySelectedGeometryTransform();
+},{passive:false});
+function maUniformScaleFinish(e){
+  const st=maUniformScaleGesture;
+  if(!st||st.id!==e.pointerId)return;
+  e.preventDefault();e.stopPropagation();
+  maUniformScaleGesture=null;
+  unifiedUIPointers.delete(e.pointerId);
+  try{maUniformScaleHandle.releasePointerCapture(e.pointerId);}catch(_){}
+  maUniformScaleHandle.classList.remove('maUniformDragging');
+  if(st.changed)endSelectionTransform();
+  else{
+    // A tap without scaling must not create a new undo/history entry.
+    transformDragging=false;
+    interaction=null;
+    syncRotateGizmo();
+    if(selectedGeometryParts.size)syncSelectGeometryHighlight();
+    updateMobileDrawUI();
+  }
+}
+maUniformScaleHandle.addEventListener('pointerup',maUniformScaleFinish,{passive:false});
+// iOS can cancel a Pencil contact; finish from the last valid scale rather than
+// leaving the pivot attached or losing the previous geometry state.
+maUniformScaleHandle.addEventListener('pointercancel',maUniformScaleFinish,{passive:false});
 
 
 // --- Selection / editing --------------------------------------------------------
@@ -12012,10 +12670,13 @@ function syncInlineRangeThumbLetters(panel){
     const max=Number.isFinite(+range.max)?+range.max:100;
     const value=Number.isFinite(+range.value)?+range.value:min;
     const t=max>min?clamp((value-min)/(max-min),0,1):0;
-    const thumbRadius=Math.min(10,Math.max(7,rr.height*.38));
-    const usable=Math.max(0,rr.width-2*thumbRadius);
-    const x=(rr.left-ir.left)+thumbRadius+t*usable;
-    const y=(rr.top-ir.top)+rr.height*.5;
+    const vertical=panel.dataset.side==='left'||panel.dataset.side==='right';
+    // getBoundingClientRect already describes the ROTATED range in page pixels.
+    const travel=vertical?rr.height:rr.width;
+    const thumbRadius=Math.min(10,Math.max(7,(vertical?rr.width:rr.height)*.38));
+    const usable=Math.max(0,travel-2*thumbRadius);
+    const x=vertical?(rr.left-ir.left)+rr.width*.5:(rr.left-ir.left)+thumbRadius+t*usable;
+    const y=vertical?(rr.bottom-ir.top)-thumbRadius-t*usable:(rr.top-ir.top)+rr.height*.5;
     marker.style.left=`${x}px`;
     marker.style.top=`${y}px`;
   }
@@ -12049,7 +12710,8 @@ function positionSecondaryViewPanels(){
   const {w:W,h:H}=dockLayoutViewportSize();
   const inlineIds=new Set(['sunDirPanel','depthRangePanel','safeFramePanel','streamlinePanel']);
   const streamPanel=panels.find(panel=>panel.id==='streamlinePanel'&&getComputedStyle(panel).display!=='none')||null;
-  const inlinePanel=streamPanel || ((!vertical&&!safeFrameRatioPickerActive)
+  // All devices use the same four-slot slider editor in either dock direction.
+  const inlinePanel=streamPanel || (!safeFrameRatioPickerActive
     ?panels.find(panel=>inlineIds.has(panel.id)&&getComputedStyle(panel).display!=='none')
     :null);
   if(inlinePanel){maControlsDock.classList.add('secondaryDockMode');if(inlinePanel.id==='streamlinePanel')maControlsDock.classList.add('streamlineDockMode');}
@@ -14730,7 +15392,12 @@ const PENCIL_UI_ROOT_SELECTOR=[
 
 function secondaryRangeAtPoint(x,y){
   const hit=document.elementFromPoint(x,y);
-  return hit?.closest?.('#sunDirPanel input[type="range"],#depthRangePanel input[type="range"],#safeFramePanel input[type="range"],#streamlinePanel input[type="range"],#fovSettingsPanel input[type="range"]')||null;
+  const direct=hit?.closest?.('#sunDirPanel input[type="range"],#depthRangePanel input[type="range"],#safeFramePanel input[type="range"],#streamlinePanel input[type="range"],#fovSettingsPanel input[type="range"]');
+  if(direct)return direct;
+  // Pencil TouchEvent fallback must work over the FULL inline slider capsule,
+  // not just the 28px native input (especially when the dock is vertical).
+  const inlinePanel=hit?.closest?.('#sunDirPanel.ma-secondary-inline,#depthRangePanel.ma-secondary-inline,#safeFramePanel.ma-secondary-inline,#streamlinePanel.ma-secondary-inline');
+  return inlinePanel?secondaryPanelRangeForPoint(inlinePanel,x,y):null;
 }
 function pencilUIControlAtPoint(x,y){
   const hit=document.elementFromPoint(x,y);
@@ -14752,7 +15419,9 @@ function setSecondaryRangeFromClient(range,x,y,{commit=false}={}){
   if(!range)return false;
   const r=range.getBoundingClientRect();
   if(r.width<1||r.height<1)return false;
-  const vertical=!!range.closest('#sunDirPanel,#depthRangePanel,#safeFramePanel')?.classList.contains('ma-secondary-vertical');
+  const panel=range.closest('#sunDirPanel,#depthRangePanel,#safeFramePanel,#streamlinePanel');
+  const vertical=!!(panel?.classList.contains('ma-secondary-vertical') ||
+    (panel?.classList.contains('ma-secondary-inline') && (panel.dataset.side==='left'||panel.dataset.side==='right')));
   let t=vertical?(r.bottom-y)/Math.max(1,r.height):(x-r.left)/Math.max(1,r.width);
   t=clamp(t,0,1);
   const min=Number.isFinite(+range.min)?+range.min:0;
@@ -14761,8 +15430,11 @@ function setSecondaryRangeFromClient(range,x,y,{commit=false}={}){
   let value=min+t*(max-min);
   if(step)value=min+Math.round((value-min)/step)*step;
   value=clamp(value,min,max);
-  range.value=String(value);
-  range.dispatchEvent(new Event('input',{bubbles:true}));
+  const changed=Math.abs((+range.value)-value)>1e-9;
+  if(changed){
+    range.value=String(value);
+    range.dispatchEvent(new Event('input',{bubbles:true}));
+  }
   if(commit)range.dispatchEvent(new Event('change',{bubbles:true}));
   return true;
 }
@@ -14778,7 +15450,8 @@ function secondaryPanelRangeForPoint(panel,x,y){
   if(ranges.length===1)return ranges[0];
   const r=panel.getBoundingClientRect();
   if(r.width<1||r.height<1)return ranges[0];
-  const vertical=panel.classList.contains('ma-secondary-vertical');
+  const vertical=panel.classList.contains('ma-secondary-vertical') ||
+    (panel.classList.contains('ma-secondary-inline') && (panel.dataset.side==='left'||panel.dataset.side==='right'));
   const stackedInline=panel.classList.contains('ma-secondary-inline');
   const t=(vertical||stackedInline)?(y-r.top)/r.height:(x-r.left)/r.width;
   return ranges[t<.5?0:1]||ranges[0];
@@ -14786,7 +15459,7 @@ function secondaryPanelRangeForPoint(panel,x,y){
 function installSecondaryPanelDirectDrag(panel){
   if(!panel)return;
   let active=null;
-  const isDirectPointer=e=>e.pointerType==='touch'||e.pointerType==='pen'||(!MA_DRAW_MOBILE&&e.pointerType==='mouse'&&e.button===0);
+  const isDirectPointer=e=>e.pointerType==='touch'||e.pointerType==='pen'||(e.pointerType==='mouse'&&e.button===0);
 
   panel.addEventListener('pointerdown',e=>{
     if(!isDirectPointer(e)||active)return;
@@ -14833,6 +15506,10 @@ for(const id of ['sunDirAzimuth','sunDirElevation','depthNear','depthFar']){
   range.addEventListener('change',sync,{passive:true});
 }
 installSecondaryPanelDirectDrag(document.getElementById('safeFramePanel'));
+// v9.108 — STREAM uses the SAME drag surface as Light / Depth / Safe Frame.
+// The old native-only range was unreliable for finger/Pencil in iPad's
+// vertically rotated dock, even though the slider looked identical.
+installSecondaryPanelDirectDrag(document.getElementById('streamlinePanel'));
 
 for(const range of secondaryPencilRanges){
   let activePenPointer=null;
@@ -15018,6 +15695,54 @@ document.addEventListener('touchstart',handleDocumentStylusStart,{capture:true,p
 document.addEventListener('touchmove',handleDocumentStylusMove,{capture:true,passive:false});
 document.addEventListener('touchend',e=>handleDocumentStylusEnd(e,false),{capture:true,passive:false});
 document.addEventListener('touchcancel',e=>handleDocumentStylusEnd(e,true),{capture:true,passive:false});
+
+// v9.113 — Secondary finger tap in EMPTY workspace during a selected-face MOVE
+// switches to actual EXTRUDE. It must not become an iPad navigation gesture,
+// iPhone selection tap or two-finger UNDO. Desktop: right-click empty workspace
+// while left-dragging the selected face (one mouse pointer has multiple buttons).
+let maExtrudeTapCandidate=null;
+function maArmExtrudeDuringMove(){
+  const st=interaction;
+  if(st?.kind!=='geometryMove'||st.extrudeArmed)return false;
+  if(![...st.parts.values()].some(rec=>!!rec.faceSweep))return false;
+  flushPendingGeometryMoveNow();
+  st.extrudeArmed=true;
+  const currentDelta=st.maDeferredDelta||st.lastWorldDelta;
+  if(currentDelta)applySelectedGeometryMove(st,currentDelta,{force:true});
+  showToast('EXTRUDE · ORIGINAL EDGE');
+  return true;
+}
+renderer.domElement.addEventListener('pointerdown',e=>{
+  const st=interaction;
+  if(st?.kind!=='geometryMove')return;
+  if(![...st.parts.values()].some(rec=>!!rec.faceSweep))return;
+  const desktopRight=e.pointerType==='mouse'&&e.button===2;
+  const secondContact=(e.pointerType==='touch'||e.pointerType==='pen')&&e.pointerId!==st.pointerId;
+  if(!desktopRight&&!secondContact)return;
+  // Empty really means empty: don't turn a second geometry selection into an extrusion.
+  if(massFromHit(raycastMasses(e.clientX,e.clientY)))return;
+  if(desktopRight){
+    maArmExtrudeDuringMove();
+  }else{
+    maExtrudeTapCandidate={id:e.pointerId,x:e.clientX,y:e.clientY,time:performance.now(),moved:false,canArm:!st.extrudeArmed};
+    renderer.domElement.setPointerCapture?.(e.pointerId);
+  }
+  e.preventDefault();e.stopImmediatePropagation();
+},{capture:true,passive:false});
+window.addEventListener('pointermove',e=>{
+  const t=maExtrudeTapCandidate;if(!t||t.id!==e.pointerId)return;
+  if(Math.hypot(e.clientX-t.x,e.clientY-t.y)>12)t.moved=true;
+  e.preventDefault();e.stopImmediatePropagation();
+},{capture:true,passive:false});
+function maFinishExtrudeTap(e,cancel=false){
+  const t=maExtrudeTapCandidate;
+  if(!t||t.id!==e.pointerId)return;
+  maExtrudeTapCandidate=null;
+  if(!cancel&&t.canArm&&!t.moved&&performance.now()-t.time<650)maArmExtrudeDuringMove();
+  e.preventDefault();e.stopImmediatePropagation();
+}
+window.addEventListener('pointerup',e=>maFinishExtrudeTap(e,false),{capture:true,passive:false});
+window.addEventListener('pointercancel',e=>maFinishExtrudeTap(e,true),{capture:true,passive:false});
 
 // Scale / Rotate are held in the dock, but manipulated on the model gizmo.
 renderer.domElement.addEventListener('pointerdown',e=>{
@@ -16256,7 +16981,7 @@ window.addEventListener('orientationchange',()=>{
   for(const delay of [80,180,360,620,900])setTimeout(scheduleViewportResize,delay);
 },{passive:true});
 
-function animate(){requestAnimationFrame(animate);renderViewport();}animate();
+function animate(){requestAnimationFrame(animate);syncUniformScaleHandle();renderViewport();}animate();
 window.addEventListener('pointerup',()=>scheduleAutosave());
 
 // v5.92 — A suspended iOS standalone app may resume without a clean pointer end.
