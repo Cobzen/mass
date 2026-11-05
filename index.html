@@ -14,7 +14,7 @@
 <title>MA 3D · v9.120</title>
 <script>
 (() => {
-  const CURRENT_BUILD = '9.120';
+  const CURRENT_BUILD = '9.121';
   const CHECK_INTERVAL = 30000;
   let lastCheck = 0;
   let checking = false;
@@ -7303,7 +7303,7 @@ function closeValuePalette(){}
 function toggleValuePalette(){}
 function setSelectedValueLevel(level,{announce=true,autosave=true,closePalette=true}={}){valueLevelSelected=clamp(Math.round(+level||0),0,VALUE_LEVEL_COUNT-1);syncValuePalette();updateAllMassVisuals();if(autosave)scheduleAutosave();if(announce)showToast(`VALUE ${valueLevelSelected+1}/10`);}
 function setMassValueLevel(m,level=valueLevelSelected,{history=true,announce=true}={}){if(!m||m._disposed)return false;const next=clamp(Math.round(+level||0),0,VALUE_LEVEL_COUNT-1);const hadFace=clearMassFaceValues(m);if(m.valueLevel===next&&!hadFace){if(announce)showToast(`VALUE ${next+1}/10`);return false;}m.valueLevel=next;syncMassValueOverlay(m,{resetFaceValues:false});updateMassVisual(m);if(history)recordHistory();if(announce)showToast(`VALUE ${next+1}/10`);return true;}
-function valueModePointerIsUI(e){const t=e?.target;return !!(t instanceof Element&&t.closest('#projectLibrary,#maBottomDock,#valuePalette,#viewJoystick,#lookJoystick,#dockDragHandle,#mainMenuButton,#sunDirPanel,#depthRangePanel,#safeFramePanel,#shortcutPanel,#streamlinePanel,#fovSettingsPanel,#brushPalettePanel'));}
+function valueModePointerIsUI(e){const t=e?.target;return !!(t instanceof Element&&t.closest('#projectLibrary,#maBottomDock,#valuePalette,#viewJoystick,#lookJoystick,#dockDragHandle,#mainMenuButton,#sunDirPanel,#depthRangePanel,#safeFramePanel,#shortcutPanel,#streamlinePanel,#fovSettingsPanel,#brushPalettePanel,#maUniformScaleHandle'));}
 function valueModePointerCanBucket(e){if(viewMode!=='color'||primaryDockMode()!=='base'||valueModePointerIsUI(e))return false;if(!valueModeClientInside(e.clientX,e.clientY))return false;if(!MA_DRAW_MOBILE)return e.pointerType==='mouse'?e.button===0:e.pointerType==='pen';if(MA_IS_IPAD&&ipadPencilMode)return e.pointerType==='pen';return e.pointerType==='touch'||e.pointerType==='pen';}
 function valueModeClientInside(x,y){const r=document.getElementById('viewport')?.getBoundingClientRect?.();return !!r&&x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;}
 function beginValueModePointer(e){if(valueModePointer){if(e.pointerId!==valueModePointer.pointerId)valueModePointer.moved=true;return false;}if(!valueModePointerCanBucket(e))return false;const hit=raycastMasses(e.clientX,e.clientY),m=massFromHit(hit);if(!m)return false;valueModePointer={pointerId:e.pointerId,startX:e.clientX,startY:e.clientY,massId:m.id,moved:false};return true;}
@@ -13182,6 +13182,105 @@ if(mainMenuButton){
   }
 }
 
+// v9.121 — Pencil + finger are independent concurrent input sources.
+// Native iPadOS may cancel a dock finger's PointerEvent when Pencil lands,
+// despite its physical TouchEvent continuing. The TouchEvent lifecycle is the
+// authority for *dock modifiers*; PointerEvents remain authoritative for Pencil
+// modelling and for all other platforms. No modelling gesture is synthesized.
+const maIPadDockFingers=new Map();
+const maIPadDockFingerOwners={select:null,view:null};
+const maIPadDockTouchHooks={selectStart:null,selectMove:null,selectEnd:null,viewStart:null,viewMove:null,viewEnd:null};
+function maIPadDockFingerKind(target){
+  if(!(target instanceof Element))return null;
+  if(target.closest('#selectHoldBtn'))return 'select';
+  if(target.closest('#viewJoystick'))return 'view';
+  return null;
+}
+function maIPadHasDockFinger(kind){
+  return maIPadDockFingerOwners[kind]!=null&&maIPadDockFingers.has(maIPadDockFingerOwners[kind]);
+}
+function maIPadDockSyntheticEvent(pointerId,t){
+  return{pointerId,pointerType:'touch',isTrusted:false,button:0,buttons:1,
+    target:t?.target||null,currentTarget:null,clientX:t?.clientX||0,clientY:t?.clientY||0,
+    preventDefault(){},stopPropagation(){},stopImmediatePropagation(){}};
+}
+function maIPadPencilOwnsWorkspace(){
+  return nativePencilContactPointers.size>0||penActive||
+    (performance.now()-lastNativePenPointerAt<180);
+}
+// If WebKit cancels a dock pointer before the physical touch ends, do NOT
+// interpret it as a finger lift. Release on the actual touchend; if the OS
+// loses touch events altogether, expire the stranded modifier *after* Pencil
+// activity ends rather than leaving a stuck tool forever.
+function maIPadRecoverCancelledDockPointer(kind,active,finish){
+  if(!MA_IS_IPAD||!ipadPencilMode)return false;
+  const check=()=>{
+    if(!active())return;
+    if(maIPadHasDockFinger(kind))return; // live touchend is authoritative
+    if(maIPadPencilOwnsWorkspace() ||
+       performance.now()-lastNativePencilContactEndAt<1450){
+      setTimeout(check,200);return;
+    }
+    finish();
+  };
+  setTimeout(check,180);
+  return true;
+}
+if(MA_IS_IPAD){
+  document.addEventListener('touchstart',e=>{
+    if(!ipadPencilMode)return;
+    for(const t of e.changedTouches||[]){
+      const kind=maIPadDockFingerKind(t.target);
+      if(!kind)continue;
+      maIPadDockFingers.set(t.identifier,{kind});
+      if(maIPadDockFingerOwners[kind]!=null)continue;
+      maIPadDockFingerOwners[kind]=t.identifier;
+      // Normally pointerdown arrives before touchstart. On WebKit variants
+      // which suppress that pointer while Pencil is in contact, start the same
+      // dock modifier from the finger TouchEvent instead.
+      queueMicrotask(()=>{
+        if(maIPadDockFingerOwners[kind]===t.identifier &&
+           maIPadDockFingers.has(t.identifier))
+          maIPadDockTouchHooks[kind+'Start']?.(t);
+      });
+    }
+  },{capture:true,passive:true});
+  document.addEventListener('touchmove',e=>{
+    if(!ipadPencilMode)return;
+    for(const t of e.changedTouches||[]){
+      const finger=maIPadDockFingers.get(t.identifier);
+      if(!finger||maIPadDockFingerOwners[finger.kind]!==t.identifier)continue;
+      const hook=maIPadDockTouchHooks[finger.kind+'Move'];
+      hook?.(t);
+    }
+  },{capture:true,passive:true});
+  document.addEventListener('touchend',e=>{
+    for(const t of e.changedTouches||[]){
+      const finger=maIPadDockFingers.get(t.identifier);
+      if(!finger)continue;
+      maIPadDockFingers.delete(t.identifier);
+      if(maIPadDockFingerOwners[finger.kind]!==t.identifier)continue;
+      maIPadDockFingerOwners[finger.kind]=null;
+      maIPadDockTouchHooks[finger.kind+'End']?.(t);
+    }
+  },{capture:true,passive:true});
+  document.addEventListener('touchcancel',e=>{
+    for(const t of e.changedTouches||[]){
+      const finger=maIPadDockFingers.get(t.identifier);
+      if(!finger)continue;
+      maIPadDockFingers.delete(t.identifier);
+      // Touchcancel may arrive *before* the Pencil PointerEvent. Give the
+      // upcoming Pencil contact time to register instead of dropping the
+      // dock modifier immediately.
+      const kind=finger.kind;
+      maIPadRecoverCancelledDockPointer(kind,
+        ()=>kind==='select'?!!selectButtonPress?.ipadPencil:
+           !!(viewJoystickGesture?.pointerType==='touch'),
+        ()=>maIPadDockTouchHooks[kind+'End']?.(t));
+    }
+  },{capture:true,passive:true});
+}
+
 // v9.56 — native Pencil owns the iPad workspace while its tip is down.
 // A resting palm can arrive as a normal touch pointer just before/while Pencil draws.
 // If that touch starts navigation it can keep workspace state alive and make the next
@@ -13189,7 +13288,7 @@ if(mainMenuButton){
 // remain valid while Pencil owns the workspace.
 function palmTouchIsUI(e){
   const t=e?.target;
-  return !!(t instanceof Element&&t.closest('#projectLibrary,#maBottomDock,#maModeBar,#viewJoystick,#lookJoystick,#dockDragHandle,#mainMenuButton,#sunDirPanel,#depthRangePanel,#safeFramePanel,#shortcutPanel,#streamlinePanel,#fovSettingsPanel,#brushPalettePanel'));
+  return !!(t instanceof Element&&t.closest('#projectLibrary,#maBottomDock,#maModeBar,#viewJoystick,#lookJoystick,#dockDragHandle,#mainMenuButton,#sunDirPanel,#depthRangePanel,#safeFramePanel,#shortcutPanel,#streamlinePanel,#fovSettingsPanel,#brushPalettePanel,#maUniformScaleHandle'));
 }
 function clearWorkspaceTouchStateForPencil(){
   if(!MA_IS_IPAD)return;
@@ -13427,7 +13526,7 @@ function beginViewJoystick(e){
     startX:e.clientX,startY:e.clientY,
     dir:null,axis:null,
     directionSince:performance.now(),
-    usedAsLock:false
+    usedAsLock:false,lastNativeMoveAt:performance.now(),cancelledByWebKit:false
   };
   e.currentTarget?.setPointerCapture?.(e.pointerId);
   setJoystickKnob('view',null);
@@ -13436,6 +13535,7 @@ function updateViewJoystick(e){
   const st=viewJoystickGesture;
   if(!st||st.pointerId!==e.pointerId)return;
   e.preventDefault();e.stopPropagation();
+  if(e.isTrusted!==false)st.lastNativeMoveAt=performance.now();
 
   // A MOVE that was started by the axis-hold gesture keeps that axis frozen.
   if(st.usedAsLock&&interaction?.axisHoldMove)return;
@@ -13607,7 +13707,17 @@ function setupJoystick(id,kind){
     el.addEventListener('pointerdown',beginViewJoystick,{passive:false});
     el.addEventListener('pointermove',updateViewJoystick,{passive:false});
     el.addEventListener('pointerup',e=>endViewJoystick(e,false),{passive:false});
-    el.addEventListener('pointercancel',e=>endViewJoystick(e,true),{passive:false});
+    el.addEventListener('pointercancel',e=>{
+      const st=viewJoystickGesture;
+      if(MA_IS_IPAD&&ipadPencilMode&&e.pointerType==='touch'&&st?.pointerId===e.pointerId){
+        st.cancelledByWebKit=true;
+        maIPadRecoverCancelledDockPointer('view',
+          ()=>viewJoystickGesture===st,
+          ()=>endViewJoystick(maIPadDockSyntheticEvent(st.pointerId),true));
+        return;
+      }
+      endViewJoystick(e,true);
+    },{passive:false});
   }else{
     el.addEventListener('pointerdown',beginLookJoystick,{passive:false});
     el.addEventListener('pointermove',updateLookJoystick,{passive:false});
@@ -13616,6 +13726,23 @@ function setupJoystick(id,kind){
   }
 }
 setupJoystick('viewJoystick','view');
+maIPadDockTouchHooks.viewStart=t=>{
+  if(viewJoystickGesture)return;
+  beginViewJoystick(maIPadDockSyntheticEvent(-2000000-t.identifier,t));
+};
+maIPadDockTouchHooks.viewMove=t=>{
+  const st=viewJoystickGesture;
+  if(!st||st.pointerType!=='touch')return;
+  if(!st.cancelledByWebKit&&performance.now()-(st.lastNativeMoveAt||0)<42)return;
+  updateViewJoystick(maIPadDockSyntheticEvent(st.pointerId,t));
+};
+maIPadDockTouchHooks.viewEnd=t=>{
+  const st=viewJoystickGesture;
+  if(st?.pointerType==='touch'){
+    endViewJoystick(maIPadDockSyntheticEvent(st.pointerId,t),false);
+    if(st.pointerId<0)unifiedUIPointers.delete(st.pointerId);
+  }
+};
 setupJoystick('lookJoystick','look');
 
 // v8.26 — desktop does not need joystick drags. Clicking a printed letter is
@@ -14041,6 +14168,8 @@ function enterIPadFingerMode({announce=true}={}){
   transformHoldPointerCancelledForPen=false;
   penActive=false;
   stylusTouchFallbackIds.clear();
+  maIPadDockFingers.clear();
+  maIPadDockFingerOwners.select=null;maIPadDockFingerOwners.view=null;
 
   // Pencil mode uses latched tools. Finger mode goes back to the normal
   // hold-based workflow, so do not leave a latent ADD/ERASE or transform on.
@@ -14501,7 +14630,19 @@ const SELECT_RELATIVE_MOVE_START_PX=8;
 function selectHasMovableSelection(){
   return selectedGeometryParts.size>0||selectedMasses().length>0;
 }
+function maIPadHandoffToSelectDrag(press){
+  if(!MA_IS_IPAD||!ipadPencilMode||!press?.ipadPencil)return;
+  if(mobileSelectTap?.pointerType==='pen')mobileSelectTap=null;
+  if(!penActive||!interaction||interaction.relativeSelectButton)return;
+  if(interaction.kind==='geometryMove')endSelectedGeometryMove();
+  else if(interaction.kind==='move')endMove();
+  else return; // don't interrupt a Pencil brush stroke or another tool
+  // The Pencil remains a contact, but the new modelling transaction belongs
+  // exclusively to the SELECT dock finger until its actual release.
+  penActive=false;
+}
 function beginRelativeSelectButtonMove(e,press){
+  maIPadHandoffToSelectDrag(press);
   if(!press||!selectHasMovableSelection()||interaction||transformDragging)return false;
   const physicalStart=vec2(press.startX??e.clientX,press.startY??e.clientY);
 
@@ -14560,6 +14701,7 @@ function endRelativeSelectButtonMove(press,{cancel=false}={}){
 // It deliberately works with a finger in Pencil mode: the dock is an explicit
 // UI handle, while the workspace gizmo remains Pencil-only.
 function beginRelativeSelectButtonScale(press){
+  maIPadHandoffToSelectDrag(press);
   if(!press?.scaleCandidate||transformHoldMode!=='scale'||
      !selectHasMovableSelection()||interaction||transformDragging||
      maUniformScaleGesture||!transformHelper.visible)return false;
@@ -14590,9 +14732,25 @@ function finishRelativeSelectButtonScale(press){
   }
   return true;
 }
+// v9.121 — finger SELECT + Pencil is an immediate additive modifier, not a
+// timer race. Promote the finger BEFORE the Pencil reaches canvas selection.
+// SCALE/relative SELECT-drags are exempt: they own a separate transform.
+function maIPadPromoteSelectModifierForPencil(e){
+  if(!MA_IS_IPAD||!ipadPencilMode||e.pointerType!=='pen'||
+     !(e.target===renderer.domElement||renderer.domElement.contains(e.target)))return;
+  const press=selectButtonPress;
+  if(!press?.ipadPencil||press.held||press.relativeMove||press.relativeScale||
+     press.scaleCandidate||!selectModeActive)return;
+  if(press.timer){clearTimeout(press.timer);press.timer=null;}
+  beginSelectModeHold(press.event);
+  if(!selectModeHeld)return;
+  press.held=true;
+  updateMobileDrawUI();
+}
+window.addEventListener('pointerdown',maIPadPromoteSelectModifierForPencil,{capture:true,passive:true});
 const selectHoldBtn=document.getElementById('selectHoldBtn');
 if(selectHoldBtn){
-  selectHoldBtn.addEventListener('pointerdown',e=>{
+  const maBeginSelectButtonPointer=e=>{
     e.preventDefault();e.stopPropagation();
     unifiedUIPointers.add(e.pointerId);
     try{selectHoldBtn.setPointerCapture?.(e.pointerId);}catch(_){}
@@ -14618,7 +14776,8 @@ if(selectHoldBtn){
       // Snapshot SCALE at pointer-down, before movement or the hold timer can
       // change the Select context. Normal Move and Multi Select remain intact.
       scaleCandidate:transformHoldMode==='scale'&&selectHasMovableSelection(),
-      relativeScale:false,scaleChanged:false
+      relativeScale:false,scaleChanged:false,
+      lastNativeMoveAt:performance.now(),cancelledByWebKit:false
     };
 
     // Select is available immediately. Holding the button changes only the
@@ -14634,7 +14793,11 @@ if(selectHoldBtn){
       beginSelectModeHold(press.event);
       updateMobileDrawUI();showToast('MULTI SELECT');
     },SELECT_BUTTON_HOLD_MS);
-  },{passive:false});
+  };
+  selectHoldBtn.addEventListener('pointerdown',maBeginSelectButtonPointer,{passive:false});
+  maIPadDockTouchHooks.selectStart=t=>{
+    if(!selectButtonPress)maBeginSelectButtonPointer(maIPadDockSyntheticEvent(-2000000-t.identifier,t));
+  };
 
   const finishSelectButton=e=>{
     const press=selectButtonPress;
@@ -14668,8 +14831,9 @@ if(selectHoldBtn){
     selectButtonPress=null;updateMobileDrawUI();
   };
 
-  selectHoldBtn.addEventListener('pointermove',e=>{
+  const maHandleSelectButtonPointerMove=e=>{
     const press=selectButtonPress;
+    if(press&&e.isTrusted!==false)press.lastNativeMoveAt=performance.now();
     if(!press||press.pointerId!==e.pointerId||press.desktopHold)return;
     if(press.relativeScale){updateRelativeSelectButtonScale(e,press);return;}
     if(press.relativeMove){e.preventDefault();e.stopPropagation();updateRelativeSelectButtonMove(e,press);return;}
@@ -14682,10 +14846,34 @@ if(selectHoldBtn){
         if(beginRelativeSelectButtonScale(press))updateRelativeSelectButtonScale(e,press);
       }else if(beginRelativeSelectButtonMove(e,press))updateRelativeSelectButtonMove(e,press);
     }
-  },{passive:false});
+  };
+  selectHoldBtn.addEventListener('pointermove',maHandleSelectButtonPointerMove,{passive:false});
+  maIPadDockTouchHooks.selectMove=t=>{
+    const press=selectButtonPress;
+    if(!press?.ipadPencil)return;
+    if(!press.cancelledByWebKit&&performance.now()-(press.lastNativeMoveAt||0)<42)return;
+    maHandleSelectButtonPointerMove(maIPadDockSyntheticEvent(press.pointerId,t));
+  };
+  maIPadDockTouchHooks.selectEnd=t=>{
+    const press=selectButtonPress;
+    if(press?.ipadPencil){
+      finishSelectButton(maIPadDockSyntheticEvent(press.pointerId,t));
+      if(press.pointerId<0)unifiedUIPointers.delete(press.pointerId);
+    }
+  };
   selectHoldBtn.addEventListener('pointerup',finishSelectButton,{passive:false});
   selectHoldBtn.addEventListener('pointercancel',e=>{
     const press=selectButtonPress;if(!press||press.pointerId!==e.pointerId)return;
+    // The Pencil may cancel the *finger's pointer* while the finger remains
+    // physically held. Don't drop MULTI, axis-independent relative MOVE or
+    // relative SCALE. Their real release comes from the finger touchend.
+    if(MA_IS_IPAD&&ipadPencilMode&&press.ipadPencil){
+      press.cancelledByWebKit=true;
+      maIPadRecoverCancelledDockPointer('select',
+        ()=>selectButtonPress===press,
+        ()=>finishSelectButton(maIPadDockSyntheticEvent(press.pointerId)));
+      return;
+    }
     if(press.timer)clearTimeout(press.timer);iphoneSelectPressPreview=false;
     if(press.relativeScale){
       // Same as the round handle on iOS: commit the last valid geometry if
@@ -16092,6 +16280,16 @@ renderer.domElement.addEventListener('pointerdown',e=>{
         return;
       }
 
+      // A finger holding the VIEW axis joystick can start a Pencil MOVE on
+      // that axis, even if the Pencil landed after the finger started holding.
+      if(viewAxisHold?.axis&&viewAxisHold.pointerType==='touch'&&
+         canAxisLockSelectedMove()&&!interaction){
+        viewAxisHold.usedAsLock=true;
+        penActive=true;
+        if(beginAxisLockedMoveAnywhere(e,viewAxisHold.axis))return;
+        penActive=false;
+      }
+
       if(desktopAxisMoveArmed&&canAxisLockSelectedMove()){
         const axis=desktopAxisMoveArmed;
         desktopAxisMoveArmed=null;
@@ -16366,6 +16564,7 @@ window.addEventListener('pointermove',e=>{
     }
 
     if(e.pointerType==='pen'){
+      if(interaction?.relativeSelectButton&&interaction.pointerId!==e.pointerId)return;
       if(MA_IS_IPAD&&ipadInputModePreference==='finger')return;
       if(currentAppMode()==='select'&&transformHoldMode){
         // TransformControls owns this Pencil gesture.
@@ -16591,6 +16790,9 @@ window.addEventListener('pointerup',e=>{
     }
 
     if(e.pointerType==='pen'){
+      if(interaction?.relativeSelectButton&&interaction.pointerId!==e.pointerId){
+        penActive=false;return;
+      }
       if(MA_IS_IPAD&&ipadInputModePreference==='finger'){penActive=false;return;}
       clearMobileStraightHold();
 
@@ -16819,6 +17021,9 @@ window.addEventListener('pointercancel',e=>{
     }
 
     if(e.pointerType==='pen'){
+      if(interaction?.relativeSelectButton&&interaction.pointerId!==e.pointerId){
+        penActive=false;return;
+      }
       if(MA_IS_IPAD&&ipadInputModePreference==='finger'){penActive=false;return;}
       penActive=false;
 
