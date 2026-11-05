@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="ma-build" content="9.119">
+<meta name="ma-build" content="9.120">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -11,10 +11,10 @@
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <!-- MA 3D · object value mode -->
-<title>MA 3D · v9.119</title>
+<title>MA 3D · v9.120</title>
 <script>
 (() => {
-  const CURRENT_BUILD = '9.119';
+  const CURRENT_BUILD = '9.120';
   const CHECK_INTERVAL = 30000;
   let lastCheck = 0;
   let checking = false;
@@ -11609,6 +11609,15 @@ function syncUniformScaleHandle(){
   if(maUniformScaleHandle.style.top!==top)maUniformScaleHandle.style.top=top;
   if(maUniformScaleHandle.style.display!=='flex')maUniformScaleHandle.style.display='flex';
 }
+// Uniform scale has one mathematical path regardless of whether the user
+// drags the round handle or the SELECT dock button. Keep both in sync and
+// update geometry via the existing authoritative scale transaction.
+function maApplyUniformScaleDrag(initial,startY,clientY){
+  const factor=clamp(Math.exp((startY-clientY)*.010),.07,18);
+  selectionPivot.scale.setScalar(initial*factor);
+  selectionPivot.updateMatrixWorld(true);
+  applySelectedGeometryTransform();
+}
 maUniformScaleHandle.addEventListener('pointerdown',e=>{
   if((e.pointerType==='mouse'&&e.button!==0)||maUniformScaleGesture||
      transformDragging||transformHoldMode!=='scale'||!selectedMasses().length)return;
@@ -11631,11 +11640,7 @@ maUniformScaleHandle.addEventListener('pointermove',e=>{
   const travel=st.startY-e.clientY;
   if(!st.changed&&Math.abs(travel)<2)return;
   st.changed=true;
-  // Logarithmic scaling keeps the interaction even and predictable.
-  const factor=clamp(Math.exp(travel*.010),.07,18);
-  selectionPivot.scale.setScalar(st.initial*factor);
-  selectionPivot.updateMatrixWorld(true);
-  applySelectedGeometryTransform();
+  maApplyUniformScaleDrag(st.initial,st.startY,e.clientY);
 },{passive:false});
 function maUniformScaleFinish(e){
   const st=maUniformScaleGesture;
@@ -14549,6 +14554,42 @@ function endRelativeSelectButtonMove(press,{cancel=false}={}){
   syncSelectGeometryHighlight();syncRotateGizmo();updateMobileDrawUI();
   return true;
 }
+// v9.120 — SELECT-drag doubles as proportional scale whenever the SCALE gizmo
+// is active. Unlike normal SELECT-drag (relative Move), this uses exactly the
+// same pivot, geometry handling and history as the round uniform-scale control.
+// It deliberately works with a finger in Pencil mode: the dock is an explicit
+// UI handle, while the workspace gizmo remains Pencil-only.
+function beginRelativeSelectButtonScale(press){
+  if(!press?.scaleCandidate||transformHoldMode!=='scale'||
+     !selectHasMovableSelection()||interaction||transformDragging||
+     maUniformScaleGesture||!transformHelper.visible)return false;
+  if(!beginSelectionTransform('scale',{explicitUIHandle:true}))return false;
+  press.relativeScale=true;
+  press.scaleInitial=selectionPivot.scale.x;
+  press.scaleChanged=false;
+  return true;
+}
+function updateRelativeSelectButtonScale(e,press){
+  if(!press?.relativeScale||!transformDragging||interaction?.kind!=='scale')return false;
+  e.preventDefault();e.stopPropagation();
+  if(!press.scaleChanged&&Math.abs(e.clientY-press.startY)<2)return true;
+  press.scaleChanged=true;
+  maApplyUniformScaleDrag(press.scaleInitial,press.startY,e.clientY);
+  return true;
+}
+function finishRelativeSelectButtonScale(press){
+  if(!press?.relativeScale)return false;
+  if(press.scaleChanged)endSelectionTransform();
+  else{
+    // An unchanged drag should not consume an undo/redo step.
+    transformDragging=false;
+    interaction=null;
+    syncRotateGizmo();
+    if(selectedGeometryParts.size)syncSelectGeometryHighlight();
+    updateMobileDrawUI();
+  }
+  return true;
+}
 const selectHoldBtn=document.getElementById('selectHoldBtn');
 if(selectHoldBtn){
   selectHoldBtn.addEventListener('pointerdown',e=>{
@@ -14573,7 +14614,11 @@ if(selectHoldBtn){
       startedActive:!!selectModeActive,timer:null,event:syntheticHoldEvent(e),
       iphone:!!(MA_IS_IPHONE&&e.pointerType==='touch'),
       ipadPencil:!!(MA_IS_IPAD&&ipadPencilMode&&e.pointerType==='touch'),
-      startX:e.clientX,startY:e.clientY,relativeMove:false
+      startX:e.clientX,startY:e.clientY,relativeMove:false,
+      // Snapshot SCALE at pointer-down, before movement or the hold timer can
+      // change the Select context. Normal Move and Multi Select remain intact.
+      scaleCandidate:transformHoldMode==='scale'&&selectHasMovableSelection(),
+      relativeScale:false,scaleChanged:false
     };
 
     // Select is available immediately. Holding the button changes only the
@@ -14581,8 +14626,10 @@ if(selectHoldBtn){
     if(!selectModeActive){pencilSelectManuallyOff=false;activateSelectMode();}
     iphoneSelectPressPreview=!!press.iphone;
     updateMobileDrawUI();
-    press.timer=setTimeout(()=>{
-      if(selectButtonPress!==press||press.relativeMove)return;
+    // While SCALE is armed, an extended SELECT press must remain available
+    // for proportional dragging; it must not silently turn into Multi Select.
+    if(!press.scaleCandidate)press.timer=setTimeout(()=>{
+      if(selectButtonPress!==press||press.relativeMove||press.relativeScale)return;
       press.held=true;iphoneSelectPressPreview=false;
       beginSelectModeHold(press.event);
       updateMobileDrawUI();showToast('MULTI SELECT');
@@ -14596,6 +14643,11 @@ if(selectHoldBtn){
     if(press.timer)clearTimeout(press.timer);
     iphoneSelectPressPreview=false;
 
+    if(press.relativeScale){
+      finishRelativeSelectButtonScale(press);
+      selectButtonPress=null;updateMobileDrawUI();
+      return;
+    }
     if(press.relativeMove){
       endRelativeSelectButtonMove(press,{cancel:false});
       selectButtonPress=null;updateMobileDrawUI();
@@ -14619,19 +14671,28 @@ if(selectHoldBtn){
   selectHoldBtn.addEventListener('pointermove',e=>{
     const press=selectButtonPress;
     if(!press||press.pointerId!==e.pointerId||press.desktopHold)return;
+    if(press.relativeScale){updateRelativeSelectButtonScale(e,press);return;}
     if(press.relativeMove){e.preventDefault();e.stopPropagation();updateRelativeSelectButtonMove(e,press);return;}
     if(press.held)return; // a stationary hold has already become Multi Select
     const travel=Math.hypot(e.clientX-(press.startX??e.clientX),e.clientY-(press.startY??e.clientY));
     if(travel>=SELECT_RELATIVE_MOVE_START_PX&&selectHasMovableSelection()){
       if(press.timer){clearTimeout(press.timer);press.timer=null;}
       e.preventDefault();e.stopPropagation();
-      if(beginRelativeSelectButtonMove(e,press))updateRelativeSelectButtonMove(e,press);
+      if(press.scaleCandidate){
+        if(beginRelativeSelectButtonScale(press))updateRelativeSelectButtonScale(e,press);
+      }else if(beginRelativeSelectButtonMove(e,press))updateRelativeSelectButtonMove(e,press);
     }
   },{passive:false});
   selectHoldBtn.addEventListener('pointerup',finishSelectButton,{passive:false});
   selectHoldBtn.addEventListener('pointercancel',e=>{
     const press=selectButtonPress;if(!press||press.pointerId!==e.pointerId)return;
     if(press.timer)clearTimeout(press.timer);iphoneSelectPressPreview=false;
+    if(press.relativeScale){
+      // Same as the round handle on iOS: commit the last valid geometry if
+      // the system cancels a contact while the artist is scaling.
+      finishRelativeSelectButtonScale(press);
+      selectButtonPress=null;updateMobileDrawUI();return;
+    }
     if(press.relativeMove){
       endRelativeSelectButtonMove(press,{cancel:true});
       selectButtonPress=null;updateMobileDrawUI();return;
