@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="ma-build" content="9.114">
+<meta name="ma-build" content="9.118">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -11,10 +11,10 @@
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <!-- MA 3D · object value mode -->
-<title>MA 3D · v9.114</title>
+<title>MA 3D · v9.118</title>
 <script>
 (() => {
-  const CURRENT_BUILD = '9.117';
+  const CURRENT_BUILD = '9.118';
   const CHECK_INTERVAL = 30000;
   let lastCheck = 0;
   let checking = false;
@@ -15696,10 +15696,11 @@ document.addEventListener('touchmove',handleDocumentStylusMove,{capture:true,pas
 document.addEventListener('touchend',e=>handleDocumentStylusEnd(e,false),{capture:true,passive:false});
 document.addEventListener('touchcancel',e=>handleDocumentStylusEnd(e,true),{capture:true,passive:false});
 
-// v9.113 — Secondary finger tap in EMPTY workspace during a selected-face MOVE
-// switches to actual EXTRUDE. It must not become an iPad navigation gesture,
-// iPhone selection tap or two-finger UNDO. Desktop: right-click empty workspace
-// while left-dragging the selected face (one mouse pointer has multiple buttons).
+// v9.118 — During a selected-face Move: second finger tap in empty workspace
+// still arms Extrude on touch devices; desktop right mouse DOWN arms Extrude
+// immediately, anywhere, even on the face. Browsers emit mouse `mousedown`
+// for the second button while left is held, but do NOT emit a second `pointerdown`
+// for the same already-active mouse pointer. Keep the two input paths separate.
 let maExtrudeTapCandidate=null;
 function maArmExtrudeDuringMove(){
   const st=interaction;
@@ -15712,21 +15713,29 @@ function maArmExtrudeDuringMove(){
   showToast('EXTRUDE · ORIGINAL EDGE');
   return true;
 }
+// Desktop: the native mousedown event fires for every new mouse button,
+// including a right press during an ongoing left-button drag. Listening at the
+// window capture stage also works when the canvas has captured the drag pointer.
+window.addEventListener('mousedown',e=>{
+  if(MA_DRAW_MOBILE||e.button!==2)return;
+  const st=interaction;
+  if(st?.kind!=='geometryMove'||![...st.parts.values()].some(rec=>!!rec.faceSweep))return;
+  maArmExtrudeDuringMove();
+  // Do not let the secondary button start another tool or a context action.
+  e.preventDefault();
+  e.stopImmediatePropagation();
+},{capture:true,passive:false});
+
 renderer.domElement.addEventListener('pointerdown',e=>{
   const st=interaction;
   if(st?.kind!=='geometryMove')return;
   if(![...st.parts.values()].some(rec=>!!rec.faceSweep))return;
-  const desktopRight=e.pointerType==='mouse'&&e.button===2;
   const secondContact=(e.pointerType==='touch'||e.pointerType==='pen')&&e.pointerId!==st.pointerId;
-  if(!desktopRight&&!secondContact)return;
-  // Empty really means empty: don't turn a second geometry selection into an extrusion.
+  if(!secondContact)return;
+  // Touch retains the original empty-workspace tap rule.
   if(massFromHit(raycastMasses(e.clientX,e.clientY)))return;
-  if(desktopRight){
-    maArmExtrudeDuringMove();
-  }else{
-    maExtrudeTapCandidate={id:e.pointerId,x:e.clientX,y:e.clientY,time:performance.now(),moved:false,canArm:!st.extrudeArmed};
-    renderer.domElement.setPointerCapture?.(e.pointerId);
-  }
+  maExtrudeTapCandidate={id:e.pointerId,x:e.clientX,y:e.clientY,time:performance.now(),moved:false,canArm:!st.extrudeArmed};
+  renderer.domElement.setPointerCapture?.(e.pointerId);
   e.preventDefault();e.stopImmediatePropagation();
 },{capture:true,passive:false});
 window.addEventListener('pointermove',e=>{
