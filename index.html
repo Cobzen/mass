@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="ma-build" content="9.120">
+<meta name="ma-build" content="9.123">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -11,10 +11,10 @@
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <!-- MA 3D · object value mode -->
-<title>MA 3D · v9.120</title>
+<title>MA 3D · v9.123</title>
 <script>
 (() => {
-  const CURRENT_BUILD = '9.121';
+  const CURRENT_BUILD = '9.123';
   const CHECK_INTERVAL = 30000;
   let lastCheck = 0;
   let checking = false;
@@ -13196,6 +13196,30 @@ function maIPadDockFingerKind(target){
   if(target.closest('#viewJoystick'))return 'view';
   return null;
 }
+// The Touch target is NOT necessarily the element beneath this finger: iOS
+// can target a whole multi-touch sequence at the element of its first contact
+// (often the Pencil canvas). Hit-test each finger's real start coordinates.
+// Read the live dock rectangles as a fallback when the DOM target is stale.
+function maIPadDockFingerKindAt(x,y){
+  const hit=document.elementFromPoint?.(x,y);
+  const directly=maIPadDockFingerKind(hit);
+  if(directly)return directly;
+  // Never send touches aimed at other UI controls to Select/VIEW, even if a
+  // moving dock happens to overlap their underlying screen rectangle.
+  if(hit instanceof Element && hit.closest('#maUniformScaleHandle,#mainMenuButton,#lookJoystick,#brushPalettePanel,#sunDirPanel,#depthRangePanel,#safeFramePanel,#streamlinePanel,#fovSettingsPanel,#shortcutPanel,#projectLibrary'))return null;
+  for(const [id,kind] of [['selectHoldBtn','select'],['viewJoystick','view']]){
+    const r=document.getElementById(id)?.getBoundingClientRect();
+    if(r&&r.width>0&&r.height>0&&x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom)return kind;
+  }
+  return null;
+}
+function maIPadDockFingerKindForTouch(t){
+  const type=String(t?.touchType||'').toLowerCase();
+  if(type==='stylus'||type==='pencil')return null;
+  // The coordinates are authoritative. touch.target is only a fallback for
+  // WebKit builds where elementFromPoint is temporarily unavailable.
+  return maIPadDockFingerKindAt(t.clientX,t.clientY)||maIPadDockFingerKind(t.target);
+}
 function maIPadHasDockFinger(kind){
   return maIPadDockFingerOwners[kind]!=null&&maIPadDockFingers.has(maIPadDockFingerOwners[kind]);
 }
@@ -13230,9 +13254,12 @@ if(MA_IS_IPAD){
   document.addEventListener('touchstart',e=>{
     if(!ipadPencilMode)return;
     for(const t of e.changedTouches||[]){
-      const kind=maIPadDockFingerKind(t.target);
+      const kind=maIPadDockFingerKindForTouch(t);
       if(!kind)continue;
       maIPadDockFingers.set(t.identifier,{kind});
+      // An interrupted contact must never reserve a dock button forever.
+      const previousOwner=maIPadDockFingerOwners[kind];
+      if(previousOwner!=null&&!maIPadDockFingers.has(previousOwner))maIPadDockFingerOwners[kind]=null;
       if(maIPadDockFingerOwners[kind]!=null)continue;
       maIPadDockFingerOwners[kind]=t.identifier;
       // Normally pointerdown arrives before touchstart. On WebKit variants
@@ -13269,10 +13296,13 @@ if(MA_IS_IPAD){
       const finger=maIPadDockFingers.get(t.identifier);
       if(!finger)continue;
       maIPadDockFingers.delete(t.identifier);
-      // Touchcancel may arrive *before* the Pencil PointerEvent. Give the
-      // upcoming Pencil contact time to register instead of dropping the
-      // dock modifier immediately.
       const kind=finger.kind;
+      if(maIPadDockFingerOwners[kind]!==t.identifier)continue;
+      // touchcancel is the end of *this* Touch identifier, even if Pencil
+      // temporarily cancelled it. Clear its ownership immediately. The
+      // modifier itself stays live via the separate cancellation-recovery
+      // lifecycle, which deliberately waits for Pencil to finish.
+      maIPadDockFingerOwners[kind]=null;
       maIPadRecoverCancelledDockPointer(kind,
         ()=>kind==='select'?!!selectButtonPress?.ipadPencil:
            !!(viewJoystickGesture?.pointerType==='touch'),
@@ -13288,8 +13318,18 @@ if(MA_IS_IPAD){
 // remain valid while Pencil owns the workspace.
 function palmTouchIsUI(e){
   const t=e?.target;
-  return !!(t instanceof Element&&t.closest('#projectLibrary,#maBottomDock,#maModeBar,#viewJoystick,#lookJoystick,#dockDragHandle,#mainMenuButton,#sunDirPanel,#depthRangePanel,#safeFramePanel,#shortcutPanel,#streamlinePanel,#fovSettingsPanel,#brushPalettePanel,#maUniformScaleHandle'));
+  return !!((t instanceof Element&&t.closest('#projectLibrary,#maBottomDock,#maModeBar,#viewJoystick,#lookJoystick,#dockDragHandle,#mainMenuButton,#sunDirPanel,#depthRangePanel,#safeFramePanel,#shortcutPanel,#streamlinePanel,#fovSettingsPanel,#brushPalettePanel,#maUniformScaleHandle')) ||
+    (MA_IS_IPAD&&e?.pointerType==='touch'&&maIPadDockFingerKindAt(e.clientX,e.clientY)));
 }
+// When WebKit retargets a dock finger's PointerEvent to the Pencil canvas,
+// don't let the canvas start a second model/navigation gesture. The parallel
+// document TouchEvent owns its actual SELECT/VIEW dock action instead.
+window.addEventListener('pointerdown',e=>{
+  if(!MA_IS_IPAD||!ipadPencilMode||e.pointerType!=='touch')return;
+  if(maIPadDockFingerKind(e.target))return;
+  if(!maIPadDockFingerKindAt(e.clientX,e.clientY))return;
+  e.preventDefault();e.stopImmediatePropagation();
+},{capture:true,passive:false});
 function clearWorkspaceTouchStateForPencil(){
   if(!MA_IS_IPAD)return;
   for(const id of touchPointers.keys()){
@@ -13311,7 +13351,8 @@ function rejectWorkspacePalmPointer(e){
   // Existing quarantined contacts stay dead until their own pointerup/cancel.
   // A tiny post-Pencil grace catches WebKit's companion palm contact without
   // delaying a genuinely new finger navigation gesture in normal use.
-  const reject=palmRejectedTouchPointers.has(e.pointerId)||nativePencilContactPointers.size>0||(performance.now()-lastNativePencilContactEndAt<90);
+  const pencilMove=interaction?.kind==='geometryMove'&&penActive;
+  const reject=palmRejectedTouchPointers.has(e.pointerId)||nativePencilContactPointers.size>0||pencilMove||(performance.now()-lastNativePencilContactEndAt<90);
   if(!reject)return false;
   palmRejectedTouchPointers.add(e.pointerId);
   e.preventDefault();
@@ -16019,6 +16060,71 @@ function maFinishExtrudeTap(e,cancel=false){
 }
 window.addEventListener('pointerup',e=>maFinishExtrudeTap(e,false),{capture:true,passive:false});
 window.addEventListener('pointercancel',e=>maFinishExtrudeTap(e,true),{capture:true,passive:false});
+
+// v9.123 — Finger TAP in empty workspace while Apple Pencil MOVES a selected
+// face. Pencil-mode palm rejection intentionally blocks normal touch pointer
+// events, so the old renderer.pointerdown handler can never see this gesture.
+// TouchEvents are the independent input channel for this ONE deliberate tap.
+// Never synthesize another model pointer or modify the Pencil pointerId.
+// A resting palm / moving finger must not activate extrusion.
+const maIPadExtrudeFingerTaps=new Map();
+function maIPadPencilFaceMoveForExtrude(){
+  const st=interaction;
+  return MA_IS_IPAD&&ipadPencilMode&&st?.kind==='geometryMove'&&
+    !st.extrudeArmed&&!!st.parts&&
+    (penActive||nativePencilContactPointers.has(st.pointerId)||st.pointerId>=1000000)&&
+    [...st.parts.values()].some(rec=>!!rec.faceSweep);
+}
+function maIPadWorkspaceFingerAt(x,y){
+  const rect=renderer.domElement.getBoundingClientRect();
+  if(x<rect.left||x>rect.right||y<rect.top||y>rect.bottom)return false;
+  // iPadOS can retarget the *TouchEvent* to the Pencil's first contact.
+  // Always hit-test the physical finger's position instead of event.target.
+  const hit=document.elementFromPoint(x,y);
+  if(!(hit instanceof Element))return false;
+  if(hit.closest('#maBottomDock,#maModeBar,#projectLibrary,#viewJoystick,#lookJoystick,#mainMenuButton,#maUniformScaleHandle,#sunDirPanel,#depthRangePanel,#safeFramePanel,#streamlinePanel,#shortcutPanel,#brushPalettePanel,#fovSettingsPanel'))return false;
+  return hit===renderer.domElement||renderer.domElement.contains(hit)||!!hit.closest('#viewport');
+}
+if(MA_IS_IPAD){
+  document.addEventListener('touchstart',e=>{
+    if(!maIPadPencilFaceMoveForExtrude())return;
+    for(const t of e.changedTouches||[]){
+      if(isStylusTouch(t)||maIPadExtrudeFingerTaps.has(t.identifier))continue;
+      if(!maIPadWorkspaceFingerAt(t.clientX,t.clientY))continue;
+      if(massFromHit(raycastMasses(t.clientX,t.clientY)))continue;
+      maIPadExtrudeFingerTaps.set(t.identifier,{
+        x:t.clientX,y:t.clientY,time:performance.now(),moved:false,
+        movePointerId:interaction.pointerId
+      });
+      // Don't generate a second canvas gesture; the Pencil keeps Move.
+      e.preventDefault();
+    }
+  },{capture:true,passive:false});
+  document.addEventListener('touchmove',e=>{
+    for(const t of e.changedTouches||[]){
+      const tap=maIPadExtrudeFingerTaps.get(t.identifier);
+      if(!tap)continue;
+      if(Math.hypot(t.clientX-tap.x,t.clientY-tap.y)>12)tap.moved=true;
+      e.preventDefault();
+    }
+  },{capture:true,passive:false});
+  const finish=e=>{
+    const cancelled=e.type==='touchcancel';
+    for(const t of e.changedTouches||[]){
+      const tap=maIPadExtrudeFingerTaps.get(t.identifier);
+      if(!tap)continue;
+      maIPadExtrudeFingerTaps.delete(t.identifier);
+      e.preventDefault();
+      if(cancelled||tap.moved||Math.hypot(t.clientX-tap.x,t.clientY-tap.y)>12||
+         performance.now()-tap.time>=650)continue;
+      if(interaction?.pointerId!==tap.movePointerId)continue;
+      if(!maIPadPencilFaceMoveForExtrude())continue;
+      maArmExtrudeDuringMove();
+    }
+  };
+  document.addEventListener('touchend',finish,{capture:true,passive:false});
+  document.addEventListener('touchcancel',finish,{capture:true,passive:false});
+}
 
 // Scale / Rotate are held in the dock, but manipulated on the model gizmo.
 renderer.domElement.addEventListener('pointerdown',e=>{
