@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="ma-build" content="9.120">
+<meta name="ma-build" content="9.133">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -11,10 +11,10 @@
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <!-- MA 3D · object value mode -->
-<title>MA 3D · v9.120</title>
+<title>MA 3D · v9.133</title>
 <script>
 (() => {
-  const CURRENT_BUILD = '9.120';
+  const CURRENT_BUILD = '9.133';
   const CHECK_INTERVAL = 30000;
   let lastCheck = 0;
   let checking = false;
@@ -2451,10 +2451,22 @@ html.ma-unified-ui #safeFramePanel.maSafeFrameDockPanel.ma-secondary-inline[data
 #maUniformScaleHandle.maUniformDragging{background:#222221;border-color:#222221;}
 @media (max-width:560px){#maUniformScaleHandle{width:38px;height:38px}}
 </style>
+<style id="ma-hover-move-style">
+#maHoverMoveStatus{
+  position:fixed;z-index:90;left:50%;top:calc(env(safe-area-inset-top,0px) + 20px);
+  transform:translateX(-50%);pointer-events:none;display:none;
+  padding:9px 13px;border-radius:22px;background:rgba(28,28,27,.88);
+  color:white;box-shadow:0 2px 9px rgba(0,0,0,.12);
+  font:600 11px/1.25 system-ui,-apple-system,sans-serif;
+  letter-spacing:.035em;white-space:nowrap;
+}
+#maHoverMoveStatus[data-live="yes"]{background:rgba(34,70,55,.9)}
+</style>
 </head>
 <body>
 <div id="app">
   <div id="viewport"></div>
+  <div id="maHoverMoveStatus" role="status" aria-live="polite"></div>
 
   <section id="projectLibrary" aria-label="Project library">
     <header class="libraryHeader">
@@ -2725,6 +2737,12 @@ const {Manifold:ManifoldSolid,Mesh:ManifoldMesh}=manifoldWasm;
 // v4.91: Brush Size replaces draw-depth as the user-facing concept. F adjusts size in the viewport. Adds a Sphere brush.
 // -----------------------------------------------------------------------------
 const container=document.getElementById('viewport');
+// Hover session state is initialised before any UI/tool setup can run.
+let maHoverMoveSession=null;
+let maHoverMoveIgnoredPenRelease=null;
+const maHoverWorkspaceFingerTaps=new Map();
+const maHoverMoveStatus=document.getElementById('maHoverMoveStatus');
+
 // MA 3D is an application surface, not a scrolling document.
 // Block native WebKit page/sheet scrolling at the document level while keeping
 // the few intentionally scrollable panels native. Layout is untouched.
@@ -7187,6 +7205,12 @@ function selectByElementModeAt(m,x,y,additive=false){
 }
 function directSelectTap(m,x,y,{additive=false,pointerType='touch'}={}){
   if(!m)return false;
+  // v9.132: a short Pencil hold (not a double tap) selects the whole object.
+  // Finger double tap remains available on iPhone; desktop is unchanged.
+  if(pointerType==='pen'){
+    lastDirectSelectTap=null;
+    return selectByElementModeAt(m,x,y,additive);
+  }
   const now=performance.now();
   const prev=lastDirectSelectTap;
   const isDouble=!!(prev&&prev.massId===m.id&&prev.pointerType===pointerType&&now-prev.time<=420&&Math.hypot(x-prev.x,y-prev.y)<=28);
@@ -7979,7 +8003,9 @@ function updateMobileDrawUI(){
     label.classList.toggle('locked',
       (viewAxisHold?.axis===v&&viewAxisHold?.usedAsLock)||
       desktopAxisMoveArmed===v||
-      (interaction?.axisHoldMove&&interaction.axisHoldAxis===v)
+      (interaction?.axisHoldMove&&interaction.axisHoldAxis===v)||
+      (maHoverMoveSession?.phase==='hover'&&interaction===maHoverMoveSession.interaction&&
+       interaction?.midMoveAxisLock===v&&axisLock===v)
     );
   });
   document.querySelectorAll('#lookJoystick [data-joy-mode]').forEach(label=>{
@@ -7989,7 +8015,9 @@ function updateMobileDrawUI(){
     );
   });
   document.getElementById('viewJoystick')?.classList.toggle('locking',
-    !!viewAxisHold?.usedAsLock||!!desktopAxisMoveArmed||!!interaction?.axisHoldMove
+    !!viewAxisHold?.usedAsLock||!!desktopAxisMoveArmed||!!interaction?.axisHoldMove||
+    (maHoverMoveSession?.phase==='hover'&&interaction===maHoverMoveSession.interaction&&
+     !!interaction?.midMoveAxisLock&&!!axisLock)
   );
   syncWorkplaneLockUI();
 
@@ -12177,6 +12205,7 @@ function handleShortcutCapture(e){
 }
 loadShortcutBindings();
 function setTool(t){
+  if(maHoverMoveSession)maHoverMoveCommit();
   const prevTool=activeTool;
   cancelInteraction(false);clearSnapVisual();clearSpherePreview();
   if(prevTool!==t&&(prevTool==='draw'||prevTool==='boxbrush'||t==='draw'||t==='boxbrush'))clearActiveBrushContainer();
@@ -12233,6 +12262,7 @@ function lockWorkplaneFromHover(){
 }
 
 function cancelInteraction(restore=false){
+  maHoverMoveClear();
   if(interaction?.kind==='geometryMove')for(const rec of interaction.parts.values())maReleaseFaceMoveResources(rec);
   if(restore&&interaction?.before)restoreState(interaction.before);interaction=null;pendingMove=null;pendingModify=null;pendingGeometryMove=null;if(rafMove){cancelAnimationFrame(rafMove);rafMove=0;}if(rafModify){cancelAnimationFrame(rafModify);rafModify=0;}if(rafGeometryMove){cancelAnimationFrame(rafGeometryMove);rafGeometryMove=0;}clearPreview();clearSnapVisual();clearMoveAxisDots();clearSpherePreview();hideMarquee();axisLock=null;mobileMovePointerId=null;mobileSelectTap=null;
 }
@@ -13207,6 +13237,75 @@ function clearWorkspaceTouchStateForPencil(){
   cancelTouchFovArm?.();
   cancelTouchCameraUpdate?.();
 }
+// v9.132 — MOVE / EXTRUDE is ONE switch on the authoritative face-Move
+// transaction. A second workspace finger can toggle it during normal iPhone
+// Move (including SELECT-relative Move); iPad Pencil Hover uses the same
+// function. Each preview always regenerates from the ORIGINAL faceBase and
+// commits only on the primary Move release, so repeated taps add no history
+// entries and never stack extrusions on top of previous previews.
+function maCanToggleFaceMoveExtrusion(st=interaction){
+  return !!(st?.kind==='geometryMove'&&st.parts?.size&&
+    [...st.parts.values()].some(rec=>!!rec.faceSweep));
+}
+function maToggleFaceMoveExtrusion(){
+  const st=interaction;
+  if(!maCanToggleFaceMoveExtrusion(st))return false;
+  if(!st.extrudeArmed)return maArmExtrudeDuringMove();
+
+  // Complete any queued finger/hover movement before switching back. With
+  // extrudeArmed=false, the exact same delta rebuilds regular Move geometry,
+  // removing the extrusion itself rather than only hiding its outline.
+  flushPendingGeometryMoveNow();
+  const delta=st.maDeferredDelta?.clone()||st.lastWorldDelta?.clone()||null;
+  st.extrudeArmed=false;
+  if(delta)applySelectedGeometryMove(st,delta,{force:true});
+  else for(const rec of st.parts.values())if(rec.faceExtruded)maRestoreFaceMoveBase(rec);
+  showToast('MOVE · EXTRUDE OFF');
+  return true;
+}
+function maHoverWorkspaceExtrudeReady(){
+  const h=maHoverMoveSession;
+  return !!(MA_IS_IPAD&&ipadPencilMode&&h?.phase==='hover'&&
+    interaction===h.interaction&&maCanToggleFaceMoveExtrusion());
+}
+function maHoverWorkspaceToggleExtrude(){
+  return maHoverWorkspaceExtrudeReady()&&maToggleFaceMoveExtrusion();
+}
+function maHoverWorkspaceFingerDown(e){
+  const h=maHoverMoveSession;
+  if(e.pointerType!=='touch'||!MA_IS_IPAD||!ipadPencilMode||
+     h?.phase!=='hover'||interaction!==h.interaction||
+     palmTouchIsUI(e)||projectLibraryVisible||viewMode!=='workspace')return false;
+  // Reserve workspace touches for the active hover gesture. Repeated taps
+  // must toggle the mode, not fall through to SELECT's backtrack action.
+  // No need to find a perfectly empty patch of model.
+  const target=e.target;
+  if(!(target instanceof Element)||!target.closest('#viewport'))return false;
+  maHoverWorkspaceFingerTaps.set(e.pointerId,{
+    x:e.clientX,y:e.clientY,time:performance.now(),moved:false,
+    canToggle:maHoverWorkspaceExtrudeReady()
+  });
+  e.preventDefault();e.stopImmediatePropagation();
+  return true;
+}
+function maHoverWorkspaceFingerMove(e){
+  const tap=maHoverWorkspaceFingerTaps.get(e.pointerId);
+  if(!tap)return false;
+  if(Math.hypot(e.clientX-tap.x,e.clientY-tap.y)>14)tap.moved=true;
+  e.preventDefault();e.stopImmediatePropagation();
+  return true;
+}
+function maHoverWorkspaceFingerFinish(e,cancel=false){
+  const tap=maHoverWorkspaceFingerTaps.get(e.pointerId);
+  if(!tap)return false;
+  maHoverWorkspaceFingerTaps.delete(e.pointerId);
+  // Tap only: MOVE → EXTRUDE → MOVE → ...; a drag or long press does nothing.
+  if(!cancel&&tap.canToggle&&!tap.moved&&performance.now()-tap.time<650&&maHoverWorkspaceExtrudeReady()){
+    if(maHoverWorkspaceToggleExtrude())maHoverMoveApplyLastPosition();
+  }
+  e.preventDefault();e.stopImmediatePropagation();
+  return true;
+}
 function rejectWorkspacePalmPointer(e){
   if(!MA_IS_IPAD||!ipadPencilMode||e.pointerType!=='touch'||palmTouchIsUI(e))return false;
   // Existing quarantined contacts stay dead until their own pointerup/cancel.
@@ -13226,13 +13325,16 @@ window.addEventListener('pointerdown',e=>{
     clearWorkspaceTouchStateForPencil();
     return;
   }
+  if(maHoverWorkspaceFingerDown(e))return;
   rejectWorkspacePalmPointer(e);
 },{capture:true,passive:false});
 window.addEventListener('pointermove',e=>{
+  if(maHoverWorkspaceFingerMove(e))return;
   if(!MA_IS_IPAD||e.pointerType!=='touch'||!palmRejectedTouchPointers.has(e.pointerId))return;
   e.preventDefault();e.stopImmediatePropagation();
 },{capture:true,passive:false});
 function finishPalmRejectedPointer(e){
+  if(maHoverWorkspaceFingerFinish(e,e.type==='pointercancel'))return;
   if(!MA_IS_IPAD)return;
   if(e.pointerType==='pen'&&nativePencilContactPointers.has(e.pointerId)){
     nativePencilContactPointers.delete(e.pointerId);
@@ -13479,18 +13581,31 @@ function endViewJoystick(e,cancel=false){
   if(!st||st.pointerId!==e.pointerId)return;
   e.preventDefault();e.stopPropagation();
 
+  // v9.132 — iPad Safari temporarily pauses Pencil hover while a finger is
+  // on the joystick. Releasing that finger must NOT also release its axis.
+  // Keep the constraint until the next joystick direction or center tap.
+  const hover=maHoverMoveSession?.phase==='hover'&&
+    interaction===maHoverMoveSession.interaction;
+  const hoveringMove=hover&&(interaction?.kind==='move'||interaction?.kind==='geometryMove');
+  const isAxis=st.axis==='x'||st.axis==='y'||st.axis==='z';
+  const keepHoverAxis=hoveringMove&&isAxis&&st.usedAsLock&&
+    interaction.midMoveAxisLock===st.axis&&axisLock===st.axis;
+  const clearHoverAxis=hoveringMove&&!st.dir&&!!interaction.midMoveAxisLock;
+
   if(interaction?.kind==='move'&&interaction.axisHoldMove){
     try{endMove();}catch(_){cancelInteraction(true);}
     mobileMovePointerId=null;
     penActive=false;
     st.usedAsLock=true;
+  }else if(clearHoverAxis){
+    if(interaction.kind==='move')unlockActiveMoveAxis();
+    else unlockActiveGeometryMoveAxis();
+    st.usedAsLock=true;
   }else if(interaction?.kind==='move'&&interaction.midMoveAxisLock){
-    // This move existed before the joystick lock. Release only the lock;
-    // the original move pointer stays active.
-    unlockActiveMoveAxis();
+    if(!keepHoverAxis)unlockActiveMoveAxis();
     st.usedAsLock=true;
   }else if(interaction?.kind==='geometryMove'&&interaction.midMoveAxisLock){
-    unlockActiveGeometryMoveAxis();
+    if(!keepHoverAxis)unlockActiveGeometryMoveAxis();
     st.usedAsLock=true;
   }
 
@@ -13499,10 +13614,10 @@ function endViewJoystick(e,cancel=false){
 
   viewAxisHold=null;
   viewJoystickGesture=null;
-  axisLock=null;
+  if(!keepHoverAxis)axisLock=null;
   setJoystickKnob('view',null);
 
-  if(!cancel&&!st.dir&&primaryDockMode()==='base'){
+  if(!cancel&&!st.dir&&primaryDockMode()==='base'&&!hoveringMove){
     toggleWorkplaneLock();
   }else if(!cancel&&mode){
     if(
@@ -13519,6 +13634,9 @@ function endViewJoystick(e,cancel=false){
     }
   }
 
+  // Resume the SAME hover transaction using its last known Pencil position.
+  // Safari may only send new hover samples after the finger has lifted.
+  if(hoveringMove&&maHoverMoveSession?.phase==='hover')maHoverMoveApplyLastPosition();
   updateMobileDrawUI();
 }
 // v8.02 — a center tap on the real VIEW joystick toggles the current workplane lock.
@@ -14598,6 +14716,20 @@ if(selectHoldBtn){
     try{selectHoldBtn.setPointerCapture?.(e.pointerId);}catch(_){}
     if(!selectModeAvailable()){updateMobileDrawUI();return;}
 
+    // During Pencil Hover Move, a short finger TAP on SELECT finishes and
+    // commits Move. Dragging SELECT still moves relatively. Do not change
+    // Select mode on pointerdown: decide tap vs drag on pointerup instead.
+    if(e.pointerType==='touch'&&maHoverMoveSession?.phase==='hover'&&
+       interaction===maHoverMoveSession.interaction){
+      if(selectButtonPress)return;
+      selectButtonPress={pointerId:e.pointerId,pointerType:e.pointerType,
+        hoverRelative:true,hoverMoved:false,startedAt:performance.now(),
+        startX:e.clientX,startY:e.clientY,
+        baseOffsetX:maHoverMoveSession.offsetX,
+        baseOffsetY:maHoverMoveSession.offsetY};
+      return;
+    }
+
     // Desktop right-click is the hold equivalent: temporary Multi Select.
     if(!MA_DRAW_MOBILE&&e.pointerType==='mouse'&&e.button===2){
       if(selectButtonPress)return;
@@ -14643,6 +14775,21 @@ if(selectHoldBtn){
     if(press.timer)clearTimeout(press.timer);
     iphoneSelectPressPreview=false;
 
+    if(press.hoverRelative){
+      // A short, stationary SELECT tap ends Hover Move. A SELECT drag keeps
+      // its relative offset and leaves Hover Move active after finger release.
+      const tap=!press.hoverMoved&&
+        Math.hypot(e.clientX-press.startX,e.clientY-press.startY)<SELECT_RELATIVE_MOVE_START_PX&&
+        performance.now()-press.startedAt<500;
+      selectButtonPress=null;
+      if(tap&&maHoverMoveSession?.phase==='hover'&&
+         interaction===maHoverMoveSession.interaction){
+        maHoverMoveCommit();
+        showToast('HOVER MOVE · DONE');
+      }
+      updateMobileDrawUI();
+      return;
+    }
     if(press.relativeScale){
       finishRelativeSelectButtonScale(press);
       selectButtonPress=null;updateMobileDrawUI();
@@ -14671,6 +14818,18 @@ if(selectHoldBtn){
   selectHoldBtn.addEventListener('pointermove',e=>{
     const press=selectButtonPress;
     if(!press||press.pointerId!==e.pointerId||press.desktopHold)return;
+    if(press.hoverRelative){
+      e.preventDefault();e.stopPropagation();
+      if(!press.hoverMoved&&
+         Math.hypot(e.clientX-press.startX,e.clientY-press.startY)<SELECT_RELATIVE_MOVE_START_PX)return;
+      press.hoverMoved=true;
+      if(maHoverMoveSession?.phase==='hover'&&interaction===maHoverMoveSession.interaction){
+        maHoverMoveSession.offsetX=press.baseOffsetX+(e.clientX-press.startX);
+        maHoverMoveSession.offsetY=press.baseOffsetY+(e.clientY-press.startY);
+        maHoverMoveApplyLastPosition();
+      }
+      return;
+    }
     if(press.relativeScale){updateRelativeSelectButtonScale(e,press);return;}
     if(press.relativeMove){e.preventDefault();e.stopPropagation();updateRelativeSelectButtonMove(e,press);return;}
     if(press.held)return; // a stationary hold has already become Multi Select
@@ -14687,6 +14846,9 @@ if(selectHoldBtn){
   selectHoldBtn.addEventListener('pointercancel',e=>{
     const press=selectButtonPress;if(!press||press.pointerId!==e.pointerId)return;
     if(press.timer)clearTimeout(press.timer);iphoneSelectPressPreview=false;
+    if(press.hoverRelative){
+      selectButtonPress=null;updateMobileDrawUI();return;
+    }
     if(press.relativeScale){
       // Same as the round handle on iOS: commit the last valid geometry if
       // the system cancels a contact while the artist is scaling.
@@ -15757,6 +15919,187 @@ document.addEventListener('touchmove',handleDocumentStylusMove,{capture:true,pas
 document.addEventListener('touchend',e=>handleDocumentStylusEnd(e,false),{capture:true,passive:false});
 document.addEventListener('touchcancel',e=>handleDocumentStylusEnd(e,true),{capture:true,passive:false});
 
+// v9.132 — Pencil whole-object selection is a MICRO HOLD on the model.
+// A normal quick Pencil tap still starts Hover Move exactly as in v9.131.
+// Keep selection semantics separate: no Pencil double-tap / hover ambiguity.
+const MA_PENCIL_OBJECT_HOLD_MS=190;
+const MA_PENCIL_OBJECT_HOLD_DRIFT_PX=9;
+let maPencilObjectHold=null;
+let maPencilObjectHoldConsumedPointerId=null;
+function maClearPencilObjectHold(pointerId=null){
+  const h=maPencilObjectHold;
+  if(!h||(pointerId!=null&&h.pointerId!==pointerId))return;
+  clearTimeout(h.timer);
+  maPencilObjectHold=null;
+}
+function maTrackPencilObjectHold(e){
+  const h=maPencilObjectHold;
+  if(!h||e.pointerType!=='pen'||h.pointerId!==e.pointerId)return;
+  if(Math.hypot(e.clientX-h.x,e.clientY-h.y)>MA_PENCIL_OBJECT_HOLD_DRIFT_PX){
+    maClearPencilObjectHold(e.pointerId);
+  }
+}
+function maArmPencilObjectHold(e,m,source,additive=false){
+  if(!MA_IS_IPAD||!ipadPencilMode||e.pointerType!=='pen'||!m)return;
+  maClearPencilObjectHold();
+  const h={pointerId:e.pointerId,massId:m.id,x:e.clientX,y:e.clientY,source,additive,timer:null};
+  maPencilObjectHold=h;
+  h.timer=setTimeout(()=>{
+    if(maPencilObjectHold!==h)return;
+    const mass=massById(h.massId);
+    if(!mass){maClearPencilObjectHold(h.pointerId);return;}
+    if(h.source==='hover'){
+      // Hover starts on the first touch, but has not moved geometry until
+      // Pencil lifts. Convert this stationary contact into object selection.
+      const session=maHoverMoveSession;
+      if(!session||session.phase!=='contact'||session.pointerId!==h.pointerId||
+         interaction!==session.interaction)return;
+      cancelInteraction(false);
+    }else if(h.source==='select'){
+      if(!mobileSelectTap||mobileSelectTap.pointerId!==h.pointerId||
+         mobileSelectTap.moved)return;
+      mobileSelectTap=null;
+    }else return;
+    maClearPencilObjectHold(h.pointerId);
+    maPencilObjectHoldConsumedPointerId=h.pointerId;
+    lastDirectSelectTap=null;
+    selectedGeometryParts.clear();
+    clearSelectGeometryHighlight();
+    selectElementMode='object';
+    selectInteractive(mass,h.additive);
+    moveArmed=selectedMasses().length>0;
+    selectTransformMode=moveArmed?'move':'select';
+    syncRotateGizmo();
+    updateMobileDrawUI();
+    showToast('OBJECT');
+  },MA_PENCIL_OBJECT_HOLD_MS);
+}
+// v9.128 — Experimental Apple Pencil HOVER MOVE (iPad hover-capable models).
+// A short Pencil contact on an ALREADY SELECTED surface arms the existing Move.
+// On Pencil release, the Move remains active and follows pen hover with buttons=0.
+// Another Pencil contact commits exactly once, using existing geometry & history.
+// No synthetic touch events, scrolling or new mesh manipulation path.
+function maHoverMoveSetStatus(text,live=false){
+  if(!maHoverMoveStatus)return;
+  maHoverMoveStatus.textContent=text;
+  maHoverMoveStatus.style.display=text?'block':'none';
+  maHoverMoveStatus.dataset.live=live?'yes':'no';
+}
+function maHoverMoveClear(){
+  if(maHoverMoveSession?.phase==='contact')maClearPencilObjectHold(maHoverMoveSession.pointerId);
+  maHoverWorkspaceFingerTaps.clear();
+  maHoverMoveSession=null;
+  maHoverMoveSetStatus('');
+}
+function maHoverMoveCommit(){
+  const st=maHoverMoveSession;
+  if(!st)return false;
+  // Do not close a session after some unrelated operation has replaced Move.
+  if(interaction===st.interaction){
+    if(st.interaction.kind==='geometryMove')endSelectedGeometryMove();
+    else if(st.interaction.kind==='move')endMove();
+  }
+  maHoverMoveClear();
+  penActive=false;
+  return true;
+}
+function maHoverMoveEligible(){
+  return MA_IS_IPAD&&ipadPencilMode&&viewMode==='workspace'&&
+    currentAppMode()==='select'&&moveArmed&&!transformHoldMode&&
+    !selectModeHeld&&!ipadPencilMultiSelect&&!interaction&&!marqueeState&&
+    !projectLibraryVisible;
+}
+function maHoverMovePenDown(e){
+  if(!MA_IS_IPAD||e.pointerType!=='pen')return false;
+  if(maHoverMoveSession){
+    // Second Pencil tap confirms the hover position; the new contact never
+    // moves the mesh further or starts a second selection gesture.
+    if(maHoverMoveSession.phase==='hover'){
+      maHoverMoveIgnoredPenRelease=e.pointerId;
+      maHoverMoveCommit();
+      showToast('HOVER MOVE · DONE');
+    }
+    e.preventDefault();
+    return true;
+  }
+  if(!maHoverMoveEligible())return false;
+  const hit=raycastPencilSelectionTarget(e.clientX,e.clientY);
+  const mass=massFromHit(hit);
+  if(!mass||!selectionTargetIsSelectedAt(mass,e.clientX,e.clientY))return false;
+  const ok=selectedGeometryParts.size
+    ?beginSelectedGeometryMove(e)
+    :(beginMove(e),interaction?.kind==='move');
+  if(!ok||!interaction)return false;
+  maHoverMoveSession={
+    interaction,phase:'contact',pointerId:e.pointerId,startedAt:performance.now(),
+    seenHover:false,penX:e.clientX,penY:e.clientY,offsetX:0,offsetY:0
+  };
+  interaction.maHoverMove=true;
+  penActive=true;
+  mobileSelectTap=null;
+  maArmPencilObjectHold(e,mass,'hover');
+  maHoverMoveSetStatus('HOVER MOVE · LØFT PENCIL');
+  e.preventDefault();
+  return true;
+}
+function maHoverMovePenRelease(e){
+  if(e.pointerType!=='pen')return false;
+  maClearPencilObjectHold(e.pointerId);
+  if(maHoverMoveIgnoredPenRelease===e.pointerId){
+    maHoverMoveIgnoredPenRelease=null;
+    penActive=false;
+    e.preventDefault();
+    return true;
+  }
+  const st=maHoverMoveSession;
+  if(!st||st.phase!=='contact'||st.pointerId!==e.pointerId)return false;
+  st.phase='hover';
+  penActive=false;
+  try{renderer.domElement.releasePointerCapture?.(e.pointerId);}catch(_){ }
+  maHoverMoveSetStatus('HOVER MOVE · FINGERTAP = EXTRUDE');
+  e.preventDefault();
+  return true;
+}
+// A finger dragging SELECT during hover can drive the SAME transaction even
+// on Safari frames where the OS temporarily stops delivering pen hover moves.
+// Keep its screen offset when the finger lifts, so the next pen event does not
+// snap the model back to the unmodified hover position.
+function maHoverMoveApplyLastPosition(){
+  const st=maHoverMoveSession;
+  if(!st||st.phase!=='hover'||interaction!==st.interaction)return false;
+  const x=st.penX+st.offsetX,y=st.penY+st.offsetY;
+  if(!Number.isFinite(x+y))return false;
+  if(st.interaction.kind==='geometryMove')scheduleSelectedGeometryMove(x,y);
+  else if(st.interaction.kind==='move')scheduleMove(x,y);
+  maHoverMoveSetStatus(st.interaction.extrudeArmed
+    ?'HOVER EXTRUDE · FINGERTAP = MOVE'
+    :'HOVER MOVE · FINGERTAP = EXTRUDE',true);
+  return true;
+}
+function maHoverMovePointerMove(e){
+  const st=maHoverMoveSession;
+  if(!st||e.pointerType!=='pen')return false;
+  // Safari sometimes sends pointerrawupdate before a normal pointermove.
+  // Even those samples must cancel whole-object hold once Pencil drifts.
+  maTrackPencilObjectHold(e);
+  if(interaction!==st.interaction){maHoverMoveClear();return false;}
+  if(st.phase!=='hover'||(e.buttons!==0&&e.buttons!==undefined))return true;
+  if(!Number.isFinite(e.clientX)||!Number.isFinite(e.clientY))return true;
+  st.seenHover=true;
+  st.penX=e.clientX;st.penY=e.clientY;
+  maHoverMoveApplyLastPosition();
+  return true;
+}
+
+// WebKit can re-enter the Pencil hover stream with pointerover rather than an
+// immediate pointermove after a finger touches the dock. These are additional
+// position sources for the SAME session (not additional modelling gestures).
+for(const type of ['pointerover','pointerrawupdate']){
+  window.addEventListener(type,e=>{
+    if(e.pointerType==='pen'&&maHoverMoveSession?.phase==='hover')maHoverMovePointerMove(e);
+  },{capture:true,passive:true});
+}
+
 // v9.119 — Tap-to-Extrude during a selected FACE Move.
 // On touch devices, the second contact still taps empty workspace.
 // On desktop, right mouse DOWN while left-dragging does NOT send a second
@@ -15807,13 +16150,14 @@ window.addEventListener('mousedown',e=>{
 
 renderer.domElement.addEventListener('pointerdown',e=>{
   const st=interaction;
-  if(st?.kind!=='geometryMove')return;
-  if(![...st.parts.values()].some(rec=>!!rec.faceSweep))return;
+  if(!maCanToggleFaceMoveExtrusion(st)||maExtrudeTapCandidate)return;
+  // One active finger/pen (or the finger dragging SELECT in the dock) owns
+  // the Move. Another workspace finger toggles the mode with a short tap.
+  // It may land on the model itself; only distinguish a TAP from navigation.
+  // In particular, do not interpret the primary moving pointer as a tap.
   const secondContact=(e.pointerType==='touch'||e.pointerType==='pen')&&e.pointerId!==st.pointerId;
   if(!secondContact)return;
-  // Touch retains the original empty-workspace tap rule.
-  if(massFromHit(raycastMasses(e.clientX,e.clientY)))return;
-  maExtrudeTapCandidate={id:e.pointerId,x:e.clientX,y:e.clientY,time:performance.now(),moved:false,canArm:!st.extrudeArmed};
+  maExtrudeTapCandidate={id:e.pointerId,owner:st,x:e.clientX,y:e.clientY,time:performance.now(),moved:false};
   renderer.domElement.setPointerCapture?.(e.pointerId);
   e.preventDefault();e.stopImmediatePropagation();
 },{capture:true,passive:false});
@@ -15826,7 +16170,9 @@ function maFinishExtrudeTap(e,cancel=false){
   const t=maExtrudeTapCandidate;
   if(!t||t.id!==e.pointerId)return;
   maExtrudeTapCandidate=null;
-  if(!cancel&&t.canArm&&!t.moved&&performance.now()-t.time<650)maArmExtrudeDuringMove();
+  if(!cancel&&!t.moved&&performance.now()-t.time<650&&interaction===t.owner){
+    maToggleFaceMoveExtrusion();
+  }
   e.preventDefault();e.stopImmediatePropagation();
 }
 window.addEventListener('pointerup',e=>maFinishExtrudeTap(e,false),{capture:true,passive:false});
@@ -16047,6 +16393,7 @@ renderer.domElement.addEventListener('pointerdown',e=>{
 
     if(e.pointerType==='pen'){
       e.preventDefault();
+      if(maHoverMoveSession&&maHoverMovePenDown(e))return;
 
       if(selectHoldPointerCancelledForPen&&selectModeHeld){
         // Pencil inherits the SELECT hold if iPadOS cancelled the holding finger.
@@ -16103,6 +16450,10 @@ renderer.domElement.addEventListener('pointerdown',e=>{
       if(currentAppMode()==='select'){
         if(activeTool!=='select')setTool('select');
 
+        // Pencil-hover Move: one tap on an already selected component starts
+        // the gesture, hover updates it, and the next tap commits it.
+        if(maHoverMovePenDown(e))return;
+
         if(desktopWindowSelectArmed){
           desktopWindowSelectArmed=false;
           penActive=true;
@@ -16132,6 +16483,7 @@ renderer.domElement.addEventListener('pointerdown',e=>{
             pointerType:'pen'
           };
           penActive=true;
+          maArmPencilObjectHold(e,m,'select',mobileSelectTap.additive);
           renderer.domElement.setPointerCapture?.(e.pointerId);
           return;
         }
@@ -16366,6 +16718,9 @@ window.addEventListener('pointermove',e=>{
     }
 
     if(e.pointerType==='pen'){
+      if(maPencilObjectHoldConsumedPointerId===e.pointerId)return;
+      maTrackPencilObjectHold(e);
+      if(maHoverMovePointerMove(e))return;
       if(MA_IS_IPAD&&ipadInputModePreference==='finger')return;
       if(currentAppMode()==='select'&&transformHoldMode){
         // TransformControls owns this Pencil gesture.
@@ -16591,6 +16946,14 @@ window.addEventListener('pointerup',e=>{
     }
 
     if(e.pointerType==='pen'){
+      if(maPencilObjectHoldConsumedPointerId===e.pointerId){
+        maPencilObjectHoldConsumedPointerId=null;
+        penActive=false;
+        e.preventDefault();
+        return;
+      }
+      maClearPencilObjectHold(e.pointerId);
+      if(maHoverMovePenRelease(e))return;
       if(MA_IS_IPAD&&ipadInputModePreference==='finger'){penActive=false;return;}
       clearMobileStraightHold();
 
@@ -16819,6 +17182,15 @@ window.addEventListener('pointercancel',e=>{
     }
 
     if(e.pointerType==='pen'){
+      if(maPencilObjectHoldConsumedPointerId===e.pointerId){
+        maPencilObjectHoldConsumedPointerId=null;
+        penActive=false;
+        return;
+      }
+      maClearPencilObjectHold(e.pointerId);
+      // Safari may report ordinary Pencil lift as pointercancel.
+      if(maHoverMovePenRelease(e))return;
+      if(maHoverMoveSession?.phase==='hover')return;
       if(MA_IS_IPAD&&ipadInputModePreference==='finger'){penActive=false;return;}
       penActive=false;
 
