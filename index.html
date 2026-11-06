@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="ma-build" content="9.147">
+<meta name="ma-build" content="9.150">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -11,10 +11,10 @@
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <!-- MA 3D · object value mode -->
-<title>MA 3D · v9.147</title>
+<title>MA 3D · v9.150</title>
 <script>
 (() => {
-  const CURRENT_BUILD = '9.147';
+  const CURRENT_BUILD = '9.150';
   const CHECK_INTERVAL = 30000;
   let lastCheck = 0;
   let checking = false;
@@ -9315,7 +9315,11 @@ function eraseWithFillCutterWorld(cutterWorld,targetId=null){
 // v9.139 — Face SPLIT. Replace a single planar face by an exactly coplanar
 // surface partition. No overlapping polygon overlays, no added volume.
 // The old solid stays authoritative; the new boundary is an authored edge.
-function maSplitFaceBoundary(m,face){
+// v9.149 — A previously split planar face can have any number of inner
+// contours. Never mistake those real holes for an invalid/unsplittable face.
+// Read all boundary loops from the authoritative mesh, and keep the largest
+// planar loop first, followed by its interior loops.
+function maSplitFaceBoundaries(m,face){
   const topo=selectTopology(m);
   if(!topo||!face||!face.triangles?.length)return null;
   const incidence=new Map();
@@ -9329,10 +9333,7 @@ function maSplitFaceBoundary(m,face){
   const open=[...incidence.values()].filter(e=>e.n===1);
   if(open.length<3)return null;
   const following=new Map();
-  for(const e of open){
-    if(following.has(e.a))return null;
-    following.set(e.a,e.b);
-  }
+  for(const e of open){if(following.has(e.a))return null;following.set(e.a,e.b);}
   const loops=[],used=new Set();
   for(const e of open){
     if(used.has(e.a))continue;
@@ -9350,9 +9351,25 @@ function maSplitFaceBoundary(m,face){
     if(at!==start||loop.length<3)return null;
     loops.push(loop);
   }
-  // A face with holes, multiple islands or a nonmanifold boundary is not a
-  // safe editing target for this simple planar MVP.
-  return loops.length===1?loops[0]:null;
+  if(!loops.length)return null;
+  // Newell's vector gives projected area magnitude independent of the
+  // orientation of the face in world/object space, including rotated SHAPEs.
+  const area=loop=>{
+    const n=new THREE.Vector3();
+    for(let i=0;i<loop.length;i++){
+      const a=loop[i],b=loop[(i+1)%loop.length];
+      n.x+=(a.y-b.y)*(a.z+b.z);
+      n.y+=(a.z-b.z)*(a.x+b.x);
+      n.z+=(a.x-b.x)*(a.y+b.y);
+    }
+    return n.lengthSq();
+  };
+  loops.sort((a,b)=>area(b)-area(a));
+  return loops;
+}
+function maSplitFaceBoundary(m,face){
+  const loops=maSplitFaceBoundaries(m,face);
+  return loops?.length===1?loops[0]:null;
 }
 function maSplitPointInPolygon(p,poly){
   let inside=false;
@@ -9413,7 +9430,7 @@ function maSplitTriangleAtPoint(tri,p){
   }
   return null;
 }
-function maSplitBuildFace(m,face,plane,rings,boundaryInsertions=[],lineCut=false){
+function maSplitBuildFace(m,face,plane,rings,boundaryInsertions=[],lineCut=false,{outerHoles=null,innerHoles=null,leftHoles=null,rightHoles=null}={}){
   const geom=m.mesh.geometry,pos=geom.attributes.position,index=geom.index;
   if(!geom||!face||!rings?.length)return null;
   const faceSet=new Set(face.triangles);
@@ -9445,11 +9462,16 @@ function maSplitBuildFace(m,face,plane,rings,boundaryInsertions=[],lineCut=false
   for(const ring of rings){
     if(!ring.length)return null;
   }
-  if(rings.length===2&&!lineCut){
-    // A closed contour: surrounding planar region has a hole; the interior
-    // is a second planar patch. Their shared boundary is an authored edge.
-    if(!maSplitTriangulate(rings,plane,m,normal,out))return null;
-    if(!maSplitTriangulate([rings[1]],plane,m,normal,out))return null;
+  if(!lineCut&&rings.length>=2){
+    // Closed contour on a planar region, including one already punctured by
+    // earlier SPLITs. Preserve every old hole, rather than filling it again.
+    const inner=rings[rings.length-1];
+    const remaining=outerHoles||rings.slice(1,-1);
+    if(!maSplitTriangulate([rings[0],...remaining,inner],plane,m,normal,out))return null;
+    if(!maSplitTriangulate([inner,...(innerHoles||[])],plane,m,normal,out))return null;
+  }else if(lineCut&&rings.length===2){
+    if(!maSplitTriangulate([rings[0],...(leftHoles||[])],plane,m,normal,out))return null;
+    if(!maSplitTriangulate([rings[1],...(rightHoles||[])],plane,m,normal,out))return null;
   }else{
     for(const ring of rings){if(!maSplitTriangulate([ring],plane,m,normal,out))return null;}
   }
@@ -9481,11 +9503,14 @@ function maSplitBuildFace(m,face,plane,rings,boundaryInsertions=[],lineCut=false
     divisions.sort((x,y)=>x.t-y.t);
     for(let k=0;k<divisions.length-1;k++)addEdge(divisions[k].p,divisions[k+1].p);
   }
-  // The second ring is the new contour, or the shared cut from a LINE.
-  if(rings.length===2&&lineCut){
+  // The cut is authored topology, never just a visual line. The new
+  // contour is the LAST ring after a repeated SPLIT (the middle rings are
+  // older holes); v9.149 only registered new edges when rings.length===2,
+  // so a second SPLIT vanished from Select and from later Move operations.
+  if(lineCut&&rings.length===2){
     addEdge(rings[0][0].local,rings[0][rings[0].length-1].local);
-  }else if(rings.length===2){
-    const ring=rings[1];
+  }else if(!lineCut&&rings.length>=2){
+    const ring=rings[rings.length-1];
     for(let i=0;i<ring.length;i++)addEdge(ring[i].local,ring[(i+1)%ring.length].local);
   }
   next.userData.maStructuralEdges={count:npos.count,pairs:pairList};
@@ -9629,16 +9654,116 @@ function maSplitShapeFitInside(profile,outer,margin){
   if(low<.92)return null;
   return profile.map(p=>center.clone().addScaledVector(p.clone().sub(center),low*.999));
 }
+function maSplitPolygonIsConvex(poly){
+  if(!poly||poly.length<3)return false;
+  let sign=0;
+  for(let i=0;i<poly.length;i++){
+    const a=poly[i],b=poly[(i+1)%poly.length],c=poly[(i+2)%poly.length];
+    const cross=(b.x-a.x)*(c.y-b.y)-(b.y-a.y)*(c.x-b.x);
+    if(Math.abs(cross)<1e-10)continue;
+    const s=cross>0?1:-1;
+    if(!sign)sign=s;
+    else if(sign!==s)return false;
+  }
+  return !!sign;
+}
+function maSplitLineIntersection2D(a,b,c,d){
+  const r=b.clone().sub(a),s=d.clone().sub(c);
+  const den=r.x*s.y-r.y*s.x;
+  if(Math.abs(den)<1e-12)return b.clone();
+  const ac=c.clone().sub(a);
+  const t=(ac.x*s.y-ac.y*s.x)/den;
+  return a.clone().addScaledVector(r,t);
+}
+function maSplitClipPolygonConvex(subject,clipper){
+  let output=cleanProfile(subject,1e-7).map(p=>p.clone());
+  const clip=cleanProfile(clipper,1e-7).map(p=>p.clone());
+  if(output.length<3||clip.length<3)return [];
+  const inside=(p,a,b)=>((b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x))>=-1e-8;
+  for(let i=0;i<clip.length;i++){
+    const cp1=clip[i],cp2=clip[(i+1)%clip.length];
+    const input=output.slice();
+    output=[];
+    if(!input.length)break;
+    let s=input[input.length-1];
+    for(const e of input){
+      const Ein=inside(e,cp1,cp2),Sin=inside(s,cp1,cp2);
+      if(Ein){
+        if(!Sin)output.push(maSplitLineIntersection2D(s,e,cp1,cp2));
+        output.push(e.clone());
+      }else if(Sin){
+        output.push(maSplitLineIntersection2D(s,e,cp1,cp2));
+      }
+      s=e;
+    }
+  }
+  return cleanProfile(output,1e-7);
+}
+function maSplitInsetProfile(profile,outer,margin){
+  if(!profile||profile.length<3)return null;
+  const clip=cleanProfile(outer,1e-7);
+  const inside=p=>maSplitPointInPolygon(p,clip)&&
+    clip.every((q,i)=>pointSegmentDistance2D(p,q,clip[(i+1)%clip.length])>=margin);
+  if(profile.every(inside))return profile.map(p=>p.clone());
+  const center=profile.reduce((s,p)=>s.add(p),new THREE.Vector2()).multiplyScalar(1/profile.length);
+  if(!maSplitPointInPolygon(center,clip))return null;
+  let low=0,high=1;
+  for(let i=0;i<20;i++){
+    const mid=(low+high)*.5;
+    if(profile.every(p=>inside(center.clone().addScaledVector(p.clone().sub(center),mid))))low=mid;
+    else high=mid;
+  }
+  return low>1e-4?profile.map(p=>center.clone().addScaledVector(p.clone().sub(center),low*.999)):null;
+}
+function maSplitClipProfileToFace(profile,outer,margin){
+  const subject=cleanProfile(profile||[],Math.max(1e-8,margin*.25));
+  const clip=cleanProfile(outer||[],Math.max(1e-8,margin*.25));
+  if(subject.length<3||clip.length<3)return null;
+  // Closed-contour clipping is used to salvage overshooting RECT/CIRCLE/SHAPE
+  // outlines. Keep the result simple and strictly inside the face so the split
+  // still produces a valid inner patch rather than a boundary-touching seam.
+  if(!maSplitPolygonIsConvex(clip)){
+    const strict=subject.every(p=>maSplitPointInPolygon(p,clip)&&
+      clip.every((q,i)=>pointSegmentDistance2D(p,q,clip[(i+1)%clip.length])>=margin));
+    return strict?subject:null;
+  }
+  const clipped=maSplitClipPolygonConvex(subject,clip);
+  if(clipped.length<3||!validShapeProfile(clipped))return null;
+  return maSplitInsetProfile(clipped,clip,margin);
+}
+// Return the relationship of two closed contours without creating any
+// geometry. Overlapping boundaries require a true polygon-boolean and must
+// never be committed as crossing/copanar triangles.
+function maSplitRingRelationship(contour,hole,tolerance){
+  const cross=(a,b,c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+  const side=(a,b,p)=>cross(a,b,p);
+  const eps=Math.max(1e-9,tolerance*.1);
+  for(let i=0;i<contour.length;i++){
+    const a=contour[i],b=contour[(i+1)%contour.length];
+    for(let j=0;j<hole.length;j++){
+      const c=hole[j],d=hole[(j+1)%hole.length];
+      const o1=side(a,b,c),o2=side(a,b,d),o3=side(c,d,a),o4=side(c,d,b);
+      if(o1*o2< -eps*eps&&o3*o4< -eps*eps)return 'intersects';
+      // Also reject tangencies/overlaps: they lead to zero-area triangles.
+      if(pointSegmentDistance2D(a,c,d)<eps||pointSegmentDistance2D(b,c,d)<eps||
+         pointSegmentDistance2D(c,a,b)<eps||pointSegmentDistance2D(d,a,b)<eps)return 'intersects';
+    }
+  }
+  if(maSplitPointInPolygon(contour[0],hole))return 'within-hole';
+  if(maSplitPointInPolygon(hole[0],contour))return 'contains-hole';
+  return 'disjoint';
+}
 function maCommitSplitProfile(st,profile){
   const m=massById(st.splitTargetId);
   if(!m||st.splitFaceIndex==null){showToast('SPLIT · DRAW ON A FACE');return false;}
   const topo=selectTopology(m),fid=topo?.faceIds?.[st.splitFaceIndex];
   const face=topo?.faces?.[fid];
-  const boundary=maSplitFaceBoundary(m,face);
-  if(!boundary){showToast('SPLIT · NEEDS ONE PLANAR FACE');return false;}
+  const boundaries=maSplitFaceBoundaries(m,face);
+  if(!boundaries){showToast('SPLIT · NEEDS PLANAR FACE');return false;}
   const plane=st.plane||workplane;
   m.mesh.updateWorldMatrix(true,false);
-  const outer=boundary.map(local=>({local,uv:maSplitProject(local,plane,m)}));
+  const rings=boundaries.map(loop=>loop.map(local=>({local,uv:maSplitProject(local,plane,m)})));
+  const outer=rings[0],oldHoles=rings.slice(1);
   const outerUV=outer.map(q=>q.uv);
   const bb=new THREE.Box2().setFromPoints(outerUV);
   const size=bb.getSize(new THREE.Vector2()).length();
@@ -9648,20 +9773,34 @@ function maCommitSplitProfile(st,profile){
   let outside=false,invalid=false;
   for(const candidate of candidates){
     if(candidate.length<3||!validShapeProfile(candidate)){invalid=true;continue;}
-    const fitted=isFreeShape
+    let fitted=isFreeShape
       ?maSplitShapeFitInside(candidate,outerUV,margin)
-      :candidate;
+      :maSplitClipProfileToFace(candidate,outerUV,margin);
+    if(!fitted)fitted=maSplitClipProfileToFace(candidate,outerUV,margin);
     if(!fitted||fitted.some(p=>!maSplitPointInPolygon(p,outerUV)||
       outerUV.some((q,i)=>pointSegmentDistance2D(p,q,outerUV[(i+1)%outerUV.length])<margin))){
       outside=true;continue;
     }
     const inner=fitted.map(uv=>({uv:uv.clone(),local:maSplitWorldToLocal(uv,plane,m)}));
-    const newGeom=maSplitBuildFace(m,face,plane,[outer,inner]);
+    // Sort existing subdivisions by which side of the NEW contour they lie.
+    // A new contour wholly surrounding an older cut keeps that older face
+    // untouched as a hole of the newly created face. Partly crossing a cut
+    // is intentionally refused rather than overwriting real geometry.
+    const outsideHoles=[],insideHoles=[];
+    let crossed=false;
+    for(const hole of oldHoles){
+      const relation=maSplitRingRelationship(fitted,hole.map(q=>q.uv),margin);
+      if(relation==='intersects'||relation==='within-hole'){crossed=true;break;}
+      (relation==='contains-hole'?insideHoles:outsideHoles).push(hole);
+    }
+    if(crossed){outside=true;continue;}
+    const newGeom=maSplitBuildFace(m,face,plane,[outer,...oldHoles,inner],[],false,{
+      outerHoles:outsideHoles,innerHoles:insideHoles
+    });
     if(!newGeom){invalid=true;continue;}
-    // RECT/CIRCLE/POLY retain their previous path. For freehand SHAPE,
-    // check the closed mesh and retry simpler input if ear clipping
-    // eliminated mismatched collinear vertices on either side of the seam.
-    if(isFreeShape&&!maSplitGeometryIsClosed(newGeom)){
+    // The target face may already contain earlier cuts. Require a closed
+    // manifold BEFORE replacing its source geometry on every subsequent edit.
+    if(!maSplitGeometryIsClosed(newGeom)){
       newGeom.dispose();invalid=true;continue;
     }
     if(!setMassGeometry(m,newGeom,true,{smooth:false})){
@@ -9680,12 +9819,13 @@ function maCommitSplitProfile(st,profile){
 // two boundary intersections. POLY stays a point-by-point closed contour.
 function maCommitSplitLine(st,a,b){
   const m=massById(st.splitTargetId),topo=m&&selectTopology(m),face=topo?.faces?.[topo.faceIds?.[st.splitFaceIndex]];
-  const boundary=maSplitFaceBoundary(m,face),plane=st.plane||workplane;
+  const boundaries=maSplitFaceBoundaries(m,face),plane=st.plane||workplane;
   clearPreview();clearDrawEndpoint();clearDrawGuide();
   interaction=null;axisLock=null;
-  if(!boundary){showToast('SPLIT LINE · NEEDS PLANAR FACE');return false;}
+  if(!boundaries){showToast('SPLIT LINE · NEEDS PLANAR FACE');return false;}
   m.mesh.updateWorldMatrix(true,false);
-  const outer=boundary.map(local=>({local,uv:maSplitProject(local,plane,m)}));
+  const outer=boundaries[0].map(local=>({local,uv:maSplitProject(local,plane,m)}));
+  const oldHoles=boundaries.slice(1).map(loop=>loop.map(local=>({local,uv:maSplitProject(local,plane,m)})));
   const dir=b.clone().sub(a);
   if(dir.lengthSq()<1e-8)return false;
   const cross=(p,q)=>p.x*q.y-p.y*q.x;
@@ -9732,9 +9872,26 @@ function maCommitSplitLine(st,a,b){
   };
   const left=walk(first,second),right=walk(second,first);
   if(left.length<3||right.length<3){showToast('SPLIT LINE · TOO CLOSE TO EDGE');return false;}
+  const leftHoles=[],rightHoles=[];
+  const start=a,dirNormal=new THREE.Vector2(-dir.y,dir.x);
+  const signed=p=>p.clone().sub(start).dot(dirNormal);
+  const eps=Math.max(1e-7,outer.length*1e-7);
+  // For a previously split face, retain old inner contours on whichever
+  // side they lie. A cut that crosses one of them must be done in separate
+  // strokes; silently filling/removing that earlier region is not allowed.
+  for(const hole of oldHoles){
+    const vals=hole.map(q=>signed(q.uv));
+    if(Math.min(...vals)<-eps&&Math.max(...vals)>eps){showToast('SPLIT LINE · CROSSES EXISTING CUT');return false;}
+    const center=hole.reduce((sum,q)=>sum.add(q.uv),new THREE.Vector2()).multiplyScalar(1/hole.length);
+    const dest=maSplitPointInPolygon(center,left.map(q=>q.uv))?leftHoles:
+      maSplitPointInPolygon(center,right.map(q=>q.uv))?rightHoles:null;
+    if(!dest){showToast('SPLIT LINE · CROSSES EXISTING CUT');return false;}
+    dest.push(hole);
+  }
   const inserts=hits.filter(h=>h.ratio>1e-7&&h.ratio<1-1e-7).map(h=>h.local);
-  const next=maSplitBuildFace(m,face,plane,[left,right],inserts,true);
+  const next=maSplitBuildFace(m,face,plane,[left,right],inserts,true,{leftHoles,rightHoles});
   if(!next){showToast('SPLIT LINE · GEOMETRY FAILED');return false;}
+  if(!maSplitGeometryIsClosed(next)){next.dispose();showToast('SPLIT LINE · INVALID GEOMETRY');return false;}
   if(!setMassGeometry(m,next,true,{smooth:false})){next.dispose();return false;}
   selectedGeometryParts.clear();clearSelectGeometryHighlight();
   recordHistory();scheduleAutosave();showToast('SPLIT · LINE CREATED');
@@ -11124,6 +11281,7 @@ function rebaseActiveGeometryMoveAtCurrentPosition(){
       rec.startPositions=new Float32Array(pos.array);
       rec.faceSweep=maFaceSweepSource(rec.m,part);
       rec.faceDeformSupport=rec.faceSweep?maFaceMoveDeformationSupport(rec.m,rec.indices,rec.startPositions):null;
+      rec.preserveSplitTopology=!!rec.faceSweep&&maFaceMoveHasSplitSeam(rec.m,rec.faceSweep);
       rec.faceBoolean=false;rec.faceBooleanEmpty=false;rec.faceDeformed=false;
     }else{
       const pos=rec.m?.mesh?.geometry?.attributes?.position;
@@ -11336,6 +11494,7 @@ function maCreateSelectedGeometryMoveParts(){
       // faces can follow without folding. Keep a read-only record of those
       // neighboring surface patches for a fast, topology-preserving move.
       rec.faceDeformSupport=maFaceMoveDeformationSupport(m,rec.indices,rec.startPositions);
+      rec.preserveSplitTopology=maFaceMoveHasSplitSeam(m,rec.faceSweep);
     }
     parts.set(id,rec);
   }
@@ -11425,6 +11584,35 @@ function maFaceSweepSource(m,part){
 // vertices may receive a fractional movement. An affine field preserves each
 // planar patch as a plane for ANY delta; shared geometric vertices receive the
 // same weight across all triangle copies. No topology or edges are created.
+// v9.150 — A SPLIT contour is a real coplanar seam between two
+// individually selectable faces. Detect it from the CURRENT mesh topology.
+// Moving one of these faces must retain the neighbouring mesh and every
+// other authored seam; a Boolean remesh would erase those seams.
+function maFaceMoveHasSplitSeam(m,face){
+  if(!face?.edges?.length)return false;
+  const topo=selectTopology(m),g=m?.mesh?.geometry,p=g?.attributes?.position,idx=g?.index;
+  if(!topo?.edgeById?.size||!p)return false;
+  const own=new Set(face.triangleIds),tol=Math.max(1e-7,topo.tol);
+  const boundaries=new Set(face.edges.map(e=>{
+    const a=quantKey3(e.a,tol),b=quantKey3(e.b,tol);
+    return a<b?a+'|'+b:b+'|'+a;
+  }));
+  if(!boundaries.size)return false;
+  const normal=face.normal;
+  const count=Math.floor((idx?idx.count:p.count)/3);
+  for(let t=0;t<count;t++){
+    if(own.has(t))continue;
+    const v=[0,1,2].map(k=>new THREE.Vector3().fromBufferAttribute(p,idx?idx.getX(t*3+k):t*3+k));
+    const n=v[1].clone().sub(v[0]).cross(v[2].clone().sub(v[0]));
+    if(n.lengthSq()<1e-16||n.normalize().dot(normal)<.99999)continue;
+    if(v.some(q=>Math.abs(q.clone().sub(face.patches[0][0]).dot(normal))>tol*3))continue;
+    for(let k=0;k<3;k++){
+      const a=quantKey3(v[k],tol),b=quantKey3(v[(k+1)%3],tol),key=a<b?a+'|'+b:b+'|'+a;
+      if(boundaries.has(key))return true;
+    }
+  }
+  return false;
+}
 function maFaceMoveInteriorWeights(g,source,moved,affected,weldTol){
   const keyFor=i=>quantKey3(new THREE.Vector3(source[3*i],source[3*i+1],source[3*i+2]),weldTol);
   const indicesByKey=new Map();
@@ -11736,7 +11924,13 @@ function maFaceMoveCanDeform(rec,dl){
       // Do not invert a face or let part of a triangulated plane fold.
       if(n.dot(tri.normal)<1e-5)return false;
       if(!planeNormal){planeNormal=n;planePoint=a;}
-      if(n.dot(planeNormal)<.9999||[a,b,c].some(v=>Math.abs(v.clone().sub(planePoint).dot(planeNormal))>support.planarEps))return false;
+      // A face with an authored SPLIT seam is allowed to reshape its
+      // surrounding planar surface into triangles. The triangles themselves
+      // must remain valid and keep their winding; the original feature edges
+      // remain untouched. Requiring that entire surface to stay one plane
+      // forced a Boolean remesh and erased unrelated SPLIT contours.
+      if(!rec.preserveSplitTopology&&
+         (n.dot(planeNormal)<.9999||[a,b,c].some(v=>Math.abs(v.clone().sub(planePoint).dot(planeNormal))>support.planarEps)))return false;
     }
   }
   return true;
@@ -11920,6 +12114,14 @@ function applySelectedGeometryMove(st,worldDelta,{force=false,final=false}={}){
       // Keep existing planar regions planar and their original edge graph.
       // Only genuine topology-changing moves need a swept-solid Boolean.
       if(maApplyFaceDeformation(rec,dl,{allowPlanarInference:!axisLock&&!st.autoAxis}))continue;
+      if(rec.preserveSplitTopology){
+        // Never silently destroy a neighbour's authored SPLIT via Boolean
+        // when a particular drag is geometrically invalid. Hold the last
+        // safe geometry until the pointer returns to a valid position.
+        if(rec.lastFaceDelta&&maFaceMoveCanDeform(rec,rec.lastFaceDelta))
+          maApplyFaceDeformation(rec,rec.lastFaceDelta,{allowPlanarInference:false});
+        continue;
+      }
       if(maApplyFaceSolidMove(rec,dl,{final})){
         rec.faceDeformed=false;
         continue;
