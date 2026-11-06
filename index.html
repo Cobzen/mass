@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="ma-build" content="9.133">
+<meta name="ma-build" content="9.147">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -11,10 +11,10 @@
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <!-- MA 3D · object value mode -->
-<title>MA 3D · v9.133</title>
+<title>MA 3D · v9.147</title>
 <script>
 (() => {
-  const CURRENT_BUILD = '9.133';
+  const CURRENT_BUILD = '9.147';
   const CHECK_INTERVAL = 30000;
   let lastCheck = 0;
   let checking = false;
@@ -2209,16 +2209,17 @@ html.ma-ipad.ma-pencil-mode #selectHoldBtn.pencilMultiSelect.primaryChoice{
 }
 </style>
 
-/* v8.73 — iPhone SELECT shows its latched mode clearly:
-   inactive = neutral, Select active = grey, physical press/hold = dark. */
+/* v9.143 — SELECT is context, not a visually toggled mode.
+   Keep its circle neutral after selection; only an actual finger press/hold
+   may show a transient pressed state. */
 <style id="ma-v848-iphone-select-states">
 html.ma-iphone #selectHoldBtn.iphoneSelectSingle,
 html.ma-iphone #selectHoldBtn.iphoneSelectSingle.active,
 html.ma-iphone #selectHoldBtn.iphoneSelectSingle.primaryContextActive,
 html.ma-iphone #selectHoldBtn.iphoneSelectSingle.primaryChoice{
-  background:#d9d9d4 !important;
+  background:var(--control) !important;
   color:var(--ink) !important;
-  border-color:rgba(70,70,68,.34) !important;
+  border-color:var(--line) !important;
 }
 html.ma-iphone #selectHoldBtn.iphoneSelectPressPreview,
 html.ma-iphone #selectHoldBtn.iphoneSelectPressPreview.active,
@@ -2462,6 +2463,19 @@ html.ma-unified-ui #safeFramePanel.maSafeFrameDockPanel.ma-secondary-inline[data
 }
 #maHoverMoveStatus[data-live="yes"]{background:rgba(34,70,55,.9)}
 </style>
+<style id="ma-band-brush-style">
+/* Drawn with start/end screen positions like RECT, not a fixed cursor stamp. */
+#maBandCursor{
+  position:fixed;left:0;top:0;display:none;pointer-events:none;
+  box-sizing:border-box;transform:none;
+  z-index:80;border:2px solid rgba(32,170,107,.87);
+  background:rgba(55,203,140,.105);border-radius:1px;
+  box-shadow:0 0 0 1px rgba(255,255,255,.65);
+}
+#maBandCursor.erase{
+  border-color:rgba(191,75,66,.85);background:rgba(191,75,66,.105);
+}
+</style>
 </head>
 <body>
 <div id="app">
@@ -2532,6 +2546,7 @@ html.ma-unified-ui #safeFramePanel.maSafeFrameDockPanel.ma-secondary-inline[data
   </div>
   
   
+  <div id="maBandCursor" aria-hidden="true"></div>
   <div id="toast"></div><div id="inference"></div><div id="fovHud">FOV 50°</div><div id="mirrorHud">MIRROR ON</div><div id="planeBadge">WORKPLANE · GROUND</div><div id="marquee"></div><div id="brushSizer"></div>
   <div id="safeFrameOverlay"><div id="safeFrameFrame"><div id="safeFrameLabel">16:9</div></div></div>
   <div id="safeFramePanel" class="maSafeFrameDockPanel">
@@ -2548,7 +2563,7 @@ html.ma-unified-ui #safeFramePanel.maSafeFrameDockPanel.ma-secondary-inline[data
       <button type="button" class="brushPaletteChoice" data-brush-kind="boxbrush">SQUARE</button>
       <button type="button" class="brushPaletteChoice" data-brush-kind="roundbrush">ROUND</button>
       <button type="button" class="brushPaletteChoice" data-brush-kind="circle">CIRCLE</button>
-      <button type="button" class="brushPaletteChoice" data-brush-kind="polyline">POLY</button>
+      <button type="button" class="brushPaletteChoice" data-brush-kind="band">BAND</button>
     </div>
   </div>
   <div id="streamlinePanel" class="maSettingsValuePanel">
@@ -3118,6 +3133,7 @@ let iphoneSelectPressPreview=false; // v8.51 — dark whenever the iPhone SELECT
 const SELECT_BUTTON_HOLD_MS=280;
 const IPHONE_SELECT_HOLD_MS=160; // quicker temporary Multi Select on iPhone
 let drawHoldAction='add',selectHoldAction='select';
+let maSplitBrushKind='rect',maVolumeBrushKind='shape';
 let selectionTransformAxis='x';
 let moveArmed=false,transformHoldMode=null,transformHoldPointerId=null,transformHoldPointerType=null;
 let desktopTransformArmed=false,transformHoldReleasePending=false;
@@ -6842,9 +6858,14 @@ function reconcileMassSceneGraph(){
 function restoreState(s){
   restoring=true;
 
-  // Undo/Redo must restore geometry, not whatever temporary parent graph a
-  // gizmo happens to be using at this instant.
+  // Undo/Redo restores the authoritative mesh, not a previous selection
+  // overlay. Sub-face highlights are world-space preview geometries and must
+  // NEVER survive a history restore, even if their selection map was already
+  // emptied by a topology-changing Move/Extrude.
   cancelInteraction(false);
+  selectedGeometryParts.clear();
+  clearSelectGeometryHighlight();
+  selectElementMode='object';
   transformDragging=false;
   setSelectionGizmosEnabled(false);
   finalizeRotatePivot(false);
@@ -6975,7 +6996,14 @@ function setSelection(list=[]){
   updateAllMassVisuals();const sel=selectedMasses();
   if(sel.length===1)selected=sel[0];
   syncRotateGizmo();
-  if(!sel.length){setSelectionGizmosEnabled(false);if(selectedGeometryParts.size){selectedGeometryParts.clear();clearSelectGeometryHighlight();}}
+  if(!sel.length){
+    setSelectionGizmosEnabled(false);
+    // A face/edge edit may invalidate its selection components before this
+    // call, while leaving the world-space highlight mesh behind. Do not use
+    // selectedGeometryParts.size to decide whether cleanup is necessary.
+    selectedGeometryParts.clear();
+    clearSelectGeometryHighlight();
+  }
   updateUnifiedSelectionUI();
 }
 function selectMass(m){setSelection(m?[m]:[]);}
@@ -6996,10 +7024,13 @@ const selectFaceHighlightMaterial=new THREE.MeshBasicMaterial({color:accent,tran
 
 function selectElementModeLabel(mode=selectElementMode){return mode==='vertex'?'VERTEX':mode==='line'?'LINE':mode==='face'?'FACE':'OBJECT';}
 function clearSelectGeometryHighlight(){
+  // Always detach through Three.js' scene graph API. Directly popping
+  // children can leave related renderer/scene bookkeeping out of sync.
   while(selectGeometryHighlightGroup.children.length){
-    const o=selectGeometryHighlightGroup.children.pop();
-    o.parent=null;
+    const o=selectGeometryHighlightGroup.children[selectGeometryHighlightGroup.children.length-1];
+    selectGeometryHighlightGroup.remove(o);
     o.geometry?.dispose?.();
+    // Materials are shared by all highlights; keep them alive.
   }
 }
 function selectTopology(m){
@@ -7171,11 +7202,73 @@ function geometryComponentIsSelected(m,component){
   const part=selectedGeometryParts.get(m.id),set=part?.components?.[component.mode];
   return !!(set&&set.has(String(component.id)));
 }
+// v9.144 — Pick up the ALREADY SELECTED modelling element before trying to
+// classify a brand-new element. The normal tap picker deliberately favours
+// vertices > lines > faces. Reusing that ordering to START A DRAG made a
+// selected Shape top face impossible to move near its rim (the cursor picked
+// its unselected edge instead). Likewise a selected edge could not be dragged
+// near a corner because the corner won the fresh-pick test.
+// This resolver is only for resuming an existing selection; normal taps keep
+// the precise vertex/line/face picking order.
+function maSelectedGeometryPickup(m,x,y){
+  const part=m&&selectedGeometryParts.get(m.id);
+  if(!part?.components)return null;
+  const topo=selectTopology(m);
+  if(!topo)return null;
+  const c=part.components;
+  const screen=vec2(x,y);
+  const front=raycastMoveTarget(x,y);
+  const frontMass=massFromHit(front);
+  // Never grab the selection through an unrelated object in front of it.
+  if(frontMass&&frontMass.id!==m.id)return null;
+  m.group.updateMatrixWorld(true);
+  let bestVertex=null,bestVertexPx=Infinity;
+  for(const id of c.vertex||[]){
+    const rec=topo.repGroups.get(+id);
+    if(!rec)continue;
+    const point=m.group.localToWorld(rec.local.clone());
+    const d=worldToClient(point).distanceTo(screen);
+    if(d<=21&&d<bestVertexPx&&visibleOnMass(point,m)){
+      bestVertex={mode:'vertex',id:String(id),point};bestVertexPx=d;
+    }
+  }
+  if(bestVertex)return bestVertex;
+  let bestLine=null,bestLinePx=Infinity;
+  for(const id of c.line||[]){
+    const edge=topo.edgeById.get(String(id));
+    if(!edge)continue;
+    const a=m.group.localToWorld(edge.a.clone()),b=m.group.localToWorld(edge.b.clone());
+    const point=closestPointOnWorldEdgeFromCursor(x,y,a,b);
+    const d=worldToClient(point).distanceTo(screen);
+    if(d<=20&&d<bestLinePx&&visibleOnMass(point,m)){
+      bestLine={mode:'line',id:String(id),point};bestLinePx=d;
+    }
+  }
+  if(bestLine)return bestLine;
+  // Face selection is checked from the TRUE hit triangle, not by proximity to
+  // the nearest outline. The whole selected face is draggable, right to its rim.
+  if(frontMass?.id===m.id){
+    const fid=topo.faceIds?.[Math.max(0,front.faceIndex??0)];
+    if(fid!=null&&fid>=0&&c.face?.has(String(fid)))
+      return{mode:'face',id:String(fid),point:front.point.clone()};
+  }
+  return null;
+}
+function maSelectedGeometryMassNear(x,y){
+  // Projected end points of a visible outline may be just OUTSIDE the mesh's
+  // raycastable silhouette. Let an already-selected edge/corner remain a usable
+  // drag target there, without making any unselected mesh easier to pick.
+  for(const [id,part] of selectedGeometryParts){
+    if(!part?.components?.line?.size&&!part?.components?.vertex?.size)continue;
+    const m=massById(id);
+    if(m&&maSelectedGeometryPickup(m,x,y))return m;
+  }
+  return null;
+}
 function selectionTargetIsSelectedAt(m,x,y){
   if(!m)return false;
   if(!selectedGeometryParts.size&&isSelectedMass(m))return true;
-  const component=automaticSelectComponentAt(x,y,m);
-  return !!component&&geometryComponentIsSelected(m,component);
+  return !!maSelectedGeometryPickup(m,x,y);
 }
 function selectGeometryComponent(m,component,{additive=false}={}){
   if(!m||!component)return false;
@@ -7358,10 +7451,11 @@ function updateHoverPlane(x,y){
   hoverPlaneGrid.visible=false;
 }
 
+function maSplitActive(){return drawHoldAction==='split'&&(drawModeHeld||desktopShapeArmed);}
 function mobileDrawTool(){
   if(mobileDrawKind==='boxbrush')return 'boxbrush';
   if(mobileDrawKind==='circle')return 'circle';
-  if(mobileDrawKind==='polyline')return 'polyline';
+  if(mobileDrawKind==='polyline')return 'polyline'; // legacy project compatibility
   return 'draw';
 }
 function mobileDrawKindLabel(kind=mobileDrawKind){
@@ -7369,11 +7463,12 @@ function mobileDrawKindLabel(kind=mobileDrawKind){
     kind==='boxbrush'?'SQUARE BRUSH':
     kind==='roundbrush'?'ROUND BRUSH':
     kind==='circle'?'CIRCLE':
-    kind==='polyline'?'POLY':'SHAPE';
+    kind==='polyline'?(maSplitActive()?'LINE / POLY':'POLY'):kind==='band'?'BAND':'SHAPE';
 }
 function setMobileDrawKind(kind){
   if(!MA_UNIFIED_UI)return;
-  const next=['shape','rect','boxbrush','roundbrush','circle','polyline'].includes(kind)?kind:'shape';
+  const choices=maSplitActive()?['shape','rect','polyline','circle']:['shape','rect','boxbrush','roundbrush','circle','band'];
+  const next=choices.includes(kind)?kind:choices[0];
   if(next!==mobileDrawKind){
     if(interaction)cancelInteraction(true);
     const wasBrush=mobileDrawKind==='boxbrush'||mobileDrawKind==='roundbrush';
@@ -7388,12 +7483,15 @@ function setMobileDrawKind(kind){
     else if(!willBrush&&wasBrush)setBrushDepth(brushSize());
 
     mobileDrawKind=next;
+    if(maSplitActive())maSplitBrushKind=next;else maVolumeBrushKind=next;
   }
   setTool(mobileDrawTool());
   updateBrushSizeButton();
   syncValuePalette?.();
   updateMobileDrawUI();
-  showToast(mobileDrawKindLabel(next));
+  if(maSplitActive()&&next==='polyline')
+    showToast('LINE: DRAG · POLY: TAP POINTS, THEN TAP START');
+  else showToast(mobileDrawKindLabel(next));
 }
 
 const PRIMARY_DRAW_BUTTON_IDS=['drawAddHoldBtn','drawEraseHoldBtn','mobileSizeDrag','selectHoldBtn'];
@@ -7402,27 +7500,31 @@ const PRIMARY_DRAW_BUTTON_IDS=['drawAddHoldBtn','drawEraseHoldBtn','mobileSizeDr
 // aligned with the circles after the desktop order was unified with touch.
 const PRIMARY_MIDDLE_SLOT_IDS=['mobileSizeDrag','drawAddHoldBtn','drawEraseHoldBtn','selectHoldBtn'];
 const IPHONE_DRAW_DOCK_IDS=['viewJoystick',...PRIMARY_MIDDLE_SLOT_IDS,'lookJoystick'];
-const ALL_PRIMARY_DRAW_KINDS=['shape','rect','boxbrush','roundbrush','circle','polyline'];
+const ALL_PRIMARY_DRAW_KINDS=['shape','rect','boxbrush','roundbrush','circle','band'];
+const MA_SPLIT_DRAW_KINDS=['shape','polyline','rect','circle'];
+function maCurrentBrushKinds(){return maSplitActive()?MA_SPLIT_DRAW_KINDS:ALL_PRIMARY_DRAW_KINDS;}
 const BRUSH_PALETTE_BUTTONS=ALL_PRIMARY_DRAW_KINDS.map(kind=>({
   kind,
   el:()=>document.querySelector(`#brushPalettePanel [data-brush-kind="${kind}"]`)
 }));
 function primaryDrawKindText(kind){
+  if(!kind)return '';
   return kind==='rect'?'RECT':
     kind==='boxbrush'?'SQUARE':
     kind==='roundbrush'?'ROUND':
     kind==='circle'?'CIRCLE':
-    kind==='polyline'?'POLY':'SHAPE';
+    kind==='polyline'?(maSplitActive()?'LINE':'POLY'):kind==='band'?'BAND':'SHAPE';
 }
 function primaryBrushPickerUsesMainDock(){return !!MA_UNIFIED_UI;}
 function iphonePrimaryDrawPaletteMap(sourceId=drawPaletteSourceId||'drawAddHoldBtn'){
   const anchor=IPHONE_DRAW_DOCK_IDS.includes(sourceId)?sourceId:'drawAddHoldBtn';
   // On iPhone/iPad the held ADD/ERASE circle keeps the current brush under the finger.
   // The other five physical circles expose every remaining brush exactly once.
-  const orderedKinds=[mobileDrawKind,...ALL_PRIMARY_DRAW_KINDS.filter(k=>k!==mobileDrawKind)];
+  const kinds=maCurrentBrushKinds();
+  const orderedKinds=[mobileDrawKind,...kinds.filter(k=>k!==mobileDrawKind)];
   const orderedButtons=[anchor,...IPHONE_DRAW_DOCK_IDS.filter(id=>id!==anchor)];
   const map={};
-  orderedButtons.forEach((id,index)=>{map[id]=orderedKinds[index]||mobileDrawKind;});
+  orderedButtons.forEach((id,index)=>{map[id]=orderedKinds[index]||null;});
   return map;
 }
 function primaryDrawKindForButton(id,sourceId=drawPaletteSourceId){
@@ -7433,7 +7535,8 @@ function primaryDrawButtonAtPoint(x,y){
   if(primaryBrushPickerUsesMainDock()){
     const buttons=IPHONE_DRAW_DOCK_IDS.map(id=>document.getElementById(id)).filter(Boolean);
     if(!buttons.length)return null;
-    const candidates=buttons.map(btn=>{
+    const map=iphonePrimaryDrawPaletteMap(drawPaletteSourceId);
+    const candidates=buttons.filter(btn=>!!map[btn.id]).map(btn=>{
       const r=btn.getBoundingClientRect();
       const cx=(r.left+r.right)*.5,cy=(r.top+r.bottom)*.5;
       const radius=Math.max(r.width,r.height)*.5;
@@ -7562,6 +7665,34 @@ function currentAppMode(){
   if(drawModeHeld||desktopShapeArmed)return 'draw';
   if(selectModeActive||selectModeHeld||desktopSelectArmed||desktopWindowSelectArmed)return 'select';
   return 'navi';
+}
+// v9.137 — Direct Select is a TAP, not a pointerdown. A camera drag that
+// begins on a model must still orbit/pan. Keep the candidate separate from
+// the navigation pointers and only commit after an isolated, short, still tap.
+const MA_IMPLICIT_SELECT_TAP_MS=450;
+const MA_IMPLICIT_SELECT_TAP_PX=10;
+let maImplicitSelectCandidate=null;
+function maImplicitSelectOnGeometryTouch(e){
+  if(currentAppMode()!=='navi'||transformHoldMode||interaction||
+     !selectModeAvailable()||touchPointers.size!==0)return false;
+  const hit=raycastPencilSelectionTarget(e.clientX,e.clientY);
+  const m=massFromHit(hit);
+  if(!m)return false;
+  maImplicitSelectCandidate={pointerId:e.pointerId,massId:m.id,
+    x:e.clientX,y:e.clientY,time:performance.now(),moved:false};
+  // IMPORTANT: do not activate Select. Let the normal camera gesture begin.
+  return true;
+}
+function maResolveImplicitSelectTap(e,gesture){
+  const c=maImplicitSelectCandidate;
+  if(!c||c.pointerId!==e.pointerId)return null;
+  maImplicitSelectCandidate=null;
+  if(c.moved||currentAppMode()!=='navi'||interaction||!selectModeAvailable()||
+     !gesture||gesture.moved||gesture.maxCount!==1||touchPointers.size!==1||
+     performance.now()-c.time>=MA_IMPLICIT_SELECT_TAP_MS||
+     Math.hypot(e.clientX-c.x,e.clientY-c.y)>MA_IMPLICIT_SELECT_TAP_PX)return null;
+  const m=massById(c.massId);
+  return m&&!m._disposed?{m,x:c.x,y:c.y}:null;
 }
 function brushSizePreviewDiameter(v=(mobileDrawKind==='boxbrush'||mobileDrawKind==='roundbrush')?brushSize():brushDepth()){
   const lo=Math.log(.05),hi=Math.log(24);
@@ -7894,7 +8025,7 @@ function syncPrimaryDockUI(){
     setPrimaryDockButtonVisual(b1,'ADD',{active:drawHoldAction==='add'});
     setPrimaryDockButtonVisual(b2,'ERASE',{active:drawHoldAction==='erase'});
     setPrimaryDockButtonVisual(b3,'',{size:true});
-    setPrimaryDockButtonVisual(b4,'SELECT');
+    setPrimaryDockButtonVisual(b4,drawHoldAction==='split'?'SPLIT':'SELECT');
     syncIPhoneBrushChoiceVisuals();
     return;
   }
@@ -7903,16 +8034,16 @@ function syncPrimaryDockUI(){
     setPrimaryDockButtonVisual(b1,'SCALE',{active:transformHoldMode==='scale'});
     setPrimaryDockButtonVisual(b2,'ROTATE',{active:transformHoldMode==='rotate'});
     setPrimaryDockButtonVisual(b3,'DUP');
-    // In iPad Pencil mode SELECT is a Single/Multi mode toggle, not an active
-    // modelling tool. Multi is shown by the dedicated grey state below.
-    setPrimaryDockButtonVisual(b4,'SELECT',{active:!(MA_IS_IPHONE||(MA_IS_IPAD&&ipadPencilMode))});
+    // Select mode is implied by the geometry selection; the SELECT button
+    // remains visually neutral on all devices until the user actually holds it.
+    setPrimaryDockButtonVisual(b4,'SELECT');
     return;
   }
 
   setPrimaryDockButtonVisual(b1,'ADD',{active:currentAppMode()==='draw'&&drawHoldAction==='add'});
   setPrimaryDockButtonVisual(b2,'ERASE',{active:currentAppMode()==='draw'&&drawHoldAction==='erase'});
   setPrimaryDockButtonVisual(b3,'',{size:true});
-  setPrimaryDockButtonVisual(b4,'SELECT',{active:selectModeActive||selectModeHeld});
+  setPrimaryDockButtonVisual(b4,'SPLIT',{active:maSplitActive()});
   if(b4){b4.style.removeProperty('background');b4.style.removeProperty('color');}
   syncValuePalette?.();
 }
@@ -7960,7 +8091,7 @@ function updateMobileDrawUI(){
         dockMode==='select' ||
         (dockMode==='draw' && !primaryBrushPickerUsesMainDock())
       );
-    const disabled=physicalButtonIsSelect&&!canSelect;
+    const disabled=physicalButtonIsSelect&&dockMode!=='base'&&!canSelect;
     selectBtn.disabled=disabled;
     selectBtn.setAttribute('aria-disabled',String(disabled));
   }
@@ -7968,20 +8099,15 @@ function updateMobileDrawUI(){
   addBtn?.classList.toggle('active',dockMode==='base'&&viewMode!=='color'&&mode==='draw'&&drawHoldAction==='add');
   eraseBtn?.classList.toggle('active',dockMode==='base'&&viewMode!=='color'&&mode==='draw'&&drawHoldAction==='erase');
   eraseBtn?.classList.toggle('eraseActive',dockMode==='base'&&viewMode!=='color'&&mode==='draw'&&drawHoldAction==='erase');
-  selectBtn?.classList.toggle(
-    'active',
-    viewMode!=='color'&&
-    canSelect&&
-    dockMode==='base'&&
-    !MA_IS_IPHONE&&
-    !(MA_IS_IPAD&&ipadPencilMode)&&
-    (selectModeActive||selectModeHeld||desktopSelectArmed||desktopWindowSelectArmed)
-  );
+  // SELECT is never latched visually by selection state. A real physical
+  // press is still styled by iphoneSelectPressPreview/MultiHold below.
+  selectBtn?.classList.remove('active');
   selectBtn?.classList.remove('pencilMultiSelect');
   const iphoneSelectVisual=!!(MA_IS_IPHONE&&canSelect&&(dockMode==='base'||dockMode==='select'));
   selectBtn?.classList.toggle('iphoneSelectPressPreview',iphoneSelectVisual&&iphoneSelectPressPreview);
   selectBtn?.classList.toggle('iphoneSelectMultiHold',iphoneSelectVisual&&selectModeHeld&&!iphoneSelectPressPreview);
-  selectBtn?.classList.toggle('iphoneSelectSingle',iphoneSelectVisual&&selectModeActive&&!selectModeHeld&&!iphoneSelectPressPreview);
+  // Do not grey SELECT just because a face, edge, vertex or object is selected.
+  selectBtn?.classList.remove('iphoneSelectSingle');
   mobileSizeBtn?.classList.toggle('randomSizeMode',!!(randomBrushSizeMode&&dockMode==='base'));
   mobileSizeBtn?.setAttribute('aria-pressed',String(!!(randomBrushSizeMode&&dockMode==='base')));
 
@@ -8099,6 +8225,22 @@ function deferSelectHoldCancelForPen(){
   scheduleSelectHoldCancelAfterPencil(1400);
   return true;
 }
+function maSwitchDrawAction(action){
+  const wasSplit=drawHoldAction==='split';
+  const split=action==='split';
+  if(split&&!wasSplit){maVolumeBrushKind=mobileDrawKind;mobileDrawKind=maSplitBrushKind;}
+  if(!split&&wasSplit){maSplitBrushKind=mobileDrawKind;mobileDrawKind=maVolumeBrushKind;}
+  drawHoldAction=action;
+  mobileEraseHeld=action==='erase';
+  setTool(mobileDrawTool());
+  updateBrushSizeButton();
+  updateMobileDrawUI();
+}
+function maArmSplit(){
+  armDesktopDraw(false);
+  maSwitchDrawAction('split');
+  showToast('SPLIT · DRAW ON FACE');
+}
 function beginDrawModeHold(e,erase=false){
   if(!MA_UNIFIED_UI||drawModeHeld||selectModeHeld)return;
   e?.preventDefault?.();
@@ -8145,9 +8287,7 @@ function beginDrawModeHold(e,erase=false){
   orbiting=false;
   desktopOrbitPivot=null;
 
-  drawHoldAction=erase?'erase':'add';
-  mobileEraseHeld=!!erase;
-  setTool(mobileDrawTool());
+  maSwitchDrawAction(erase?'erase':'add');
   setSelectionGizmosEnabled(false);
   finalizeRotatePivot(false);
 
@@ -8335,6 +8475,15 @@ function endSelectModeHold(e=null){
 }
 function prepareMobileStrokePlane(x,y){
   if(!MA_UNIFIED_UI)return;
+  if(mobileDrawKind==='band'&&!maSplitActive())return; // Band uses full-object surface.
+  if(maSplitActive()){
+    // SPLIT always belongs to the touched face, even if the normal ADD
+    // drawing workplane is currently locked to the ground or the camera.
+    const hit=raycastMasses(x,y);
+    const facePlane=hit?workplaneFromHit(hit):null;
+    if(facePlane)setWorkplane(facePlane,false,'surface',false);
+    return;
+  }
   if(workplaneLocked){updateMobileDrawUI();return;}
 
   // A real face always wins, in Perspective AND Orthographic views.
@@ -8494,6 +8643,371 @@ function endSphereDraw(){
   const data={type:'sphere',profile:[],depth:brushSize(),bakedPositions:serializeGeometry(g),__runtimeCreate:true,position:d.center.toArray(),quaternion:q.toArray(),scale:[1,1,1]};g.dispose();const m=makeMass(data,false);if(m){selectMass(m);recordHistory();}
 }
 
+// MA 3D Band Brush kernel (pure data; coordinates in world space).
+// Builds the three regions of a closed surface against two infinite planes.
+// Only the middle region receives a normal offset. The exposed intersections
+// are sealed with shoulder quads; no screen-facing-only triangles are used.
+function maBandSurfaceTriangles(trianglePositions,axis,center,halfWidth,signedDepth){
+  if(!trianglePositions||trianglePositions.length<9||trianglePositions.length%9)return null;
+  const ax=[axis[0],axis[1],axis[2]],al=Math.hypot(...ax);
+  if(al<1e-9||halfWidth<=0||Math.abs(signedDepth)<1e-8)return null;
+  for(let i=0;i<3;i++)ax[i]/=al;
+  const centerDot=center[0]*ax[0]+center[1]*ax[1]+center[2]*ax[2];
+  const lo=centerDot-halfWidth,hi=centerDot+halfWidth;
+  let min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
+  for(let i=0;i<trianglePositions.length;i+=3){
+    for(let k=0;k<3;k++){
+      const v=trianglePositions[i+k];if(!Number.isFinite(v))return null;
+      min[k]=Math.min(min[k],v);max[k]=Math.max(max[k],v);
+    }
+  }
+  const dim=Math.max(max[0]-min[0],max[1]-min[1],max[2]-min[2]);
+  if(dim<1e-6)return null;
+  const tol=Math.max(1e-8,dim*8e-8);
+  const edgeTol=Math.max(tol*3,dim*3e-7);
+  const quant=(p,t)=>`${Math.round(p[0]/t)},${Math.round(p[1]/t)},${Math.round(p[2]/t)}`;
+  const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+  const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+  const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  const length=(a)=>Math.hypot(...a);
+  const triCount=trianglePositions.length/9;
+  const triVerts=new Array(triCount),vertexInfo=new Map();
+  for(let t=0;t<triCount;t++){
+    const p=[];
+    for(let i=0;i<3;i++)p.push([trianglePositions[t*9+i*3],trianglePositions[t*9+i*3+1],trianglePositions[t*9+i*3+2]]);
+    const normal=cross(sub(p[1],p[0]),sub(p[2],p[0]));
+    const nl=length(normal);
+    if(nl<=dim*dim*1e-14){triVerts[t]=null;continue;}
+    for(let k=0;k<3;k++)normal[k]/=nl;
+    triVerts[t]=p;
+    for(const v of p){
+      const key=quant(v,tol);let entry=vertexInfo.get(key);
+      if(!entry){entry={normals:[],offset:null};vertexInfo.set(key,entry);}
+      if(!entry.normals.some(n=>dot(n,normal)>.9999998))entry.normals.push(normal);
+    }
+  }
+  // v9.145: Offset ONLY across the band, never along its length axis.
+  // The previous unconstrained 3D normal-miter moved shoulder vertices along
+  // the axis on tapered SHAPEs. This made the top/bottom ring drift vertically
+  // around a single band (even with a perfectly rectangular screen outline).
+  // The true cut planes must stay fixed after adding/removing material.
+  const reference=Math.abs(ax[1])<.9?[0,1,0]:[1,0,0];
+  const sideU=cross(ax,reference),ulen=length(sideU);
+  for(let k=0;k<3;k++)sideU[k]/=ulen;
+  const sideV=cross(ax,sideU);
+  const solve=(normals)=>{
+    // Cross-sectional 2D miter: dot(offset, projected face normal) = depth.
+    // Axial faces (caps) cannot expand a circumferential band and are excluded.
+    let a=0,b=0,c=0,du=0,dv=0,used=0;
+    for(const n of normals){
+      const nu=dot(n,sideU),nv=dot(n,sideV);
+      if(nu*nu+nv*nv<1e-6)continue;
+      a+=nu*nu;b+=nu*nv;c+=nv*nv;
+      du+=nu*signedDepth;dv+=nv*signedDepth;used++;
+    }
+    if(!used)return [0,0,0];
+    const reg=1e-7*used;
+    a+=reg;c+=reg;
+    const det=a*c-b*b;
+    let u,v;
+    if(det>1e-18){u=(c*du-b*dv)/det;v=(a*dv-b*du)/det;}
+    else{const norm=Math.max(1e-12,a+c);u=du/norm;v=dv/norm;}
+    const d=Math.hypot(u,v),maxLen=Math.abs(signedDepth)*3.5;
+    if(!Number.isFinite(d))return [0,0,0];
+    if(d>maxLen){u*=maxLen/d;v*=maxLen/d;}
+    return [0,1,2].map(k=>u*sideU[k]+v*sideV[k]);
+  };
+  for(const item of vertexInfo.values())item.offset=solve(item.normals);
+  const projected=p=>dot(p,ax);
+  // A cut can land exactly on an existing modelling ring. On rotated meshes,
+  // Float32 projection noise previously put some of those vertices above
+  // the plane and some below, tearing the shoulder into incomplete strips.
+  // Canonicalise near-plane source vertices before clipping ANY triangle.
+  const planeTol=Math.max(1e-8,dim*1e-7);
+  const vertex=(p)=>{
+    const h=projected(p);
+    const cut=Math.abs(h-lo)<planeTol?lo:Math.abs(h-hi)<planeTol?hi:null;
+    const fixed=cut===null?p:[0,1,2].map(k=>p[k]+(cut-h)*ax[k]);
+    return{p:fixed,o:vertexInfo.get(quant(p,tol)).offset};
+  };
+  const interp=(a,b,t)=>({
+    p:[0,1,2].map(k=>a.p[k]+t*(b.p[k]-a.p[k])),
+    o:[0,1,2].map(k=>a.o[k]+t*(b.o[k]-a.o[k]))
+  });
+  const clip=(poly,cut,greater)=>{
+    if(poly.length<3)return [];
+    const result=[];
+    let prev=poly[poly.length-1],prevV=projected(prev.p)-cut,prevIn=greater?prevV>=-1e-10:prevV<=1e-10;
+    for(const cur of poly){
+      const curV=projected(cur.p)-cut,curIn=greater?curV>=-1e-10:curV<=1e-10;
+      if(curIn!==prevIn){const den=prevV-curV,t=Math.abs(den)<1e-15?.5:Math.max(0,Math.min(1,prevV/den));result.push(interp(prev,cur,t));}
+      if(curIn)result.push(cur);
+      prev=cur;prevV=curV;prevIn=curIn;
+    }
+    // Clip intersections on an existing ring can duplicate an on-plane
+    // vertex. Remove duplicate polygon vertices before triangulation.
+    const clean=[];
+    for(const item of result){
+      if(!clean.length||length(sub(clean[clean.length-1].p,item.p))>tol*.2)clean.push(item);
+    }
+    if(clean.length>1&&length(sub(clean[0].p,clean[clean.length-1].p))<=tol*.2)clean.pop();
+    return clean;
+  };
+  const output=[],boundary=new Map();
+  const displaced=(v,raised)=>raised?[v.p[0]+v.o[0],v.p[1]+v.o[1],v.p[2]+v.o[2]]:v.p;
+  const emit=(a,b,c)=>{
+    if(length(cross(sub(b,a),sub(c,a)))<=dim*dim*1e-13)return;
+    output.push(...a,...b,...c);
+  };
+  const fan=(poly,raised)=>{
+    for(let i=1;i+1<poly.length;i++)emit(displaced(poly[0],raised),displaced(poly[i],raised),displaced(poly[i+1],raised));
+  };
+  const boundarySegment=(a,b,which)=>{
+    if(length(sub(a.p,b.p))<tol*0.5)return;
+    const ka=quant(a.p,edgeTol),kb=quant(b.p,edgeTol),key=`${which}:${ka<kb?ka+'|'+kb:kb+'|'+ka}`;
+    let e=boundary.get(key);
+    if(!e){e={a,b,which,count:0};boundary.set(key,e);}
+    e.count++;
+  };
+  let middleTriangles=0,insideCount=0;
+  for(let t=0;t<triCount;t++){
+    const p=triVerts[t];if(!p)continue;
+    const triangle=p.map(vertex);
+    const below=clip(triangle,lo,false);
+    const above=clip(triangle,hi,true);
+    const middle=clip(clip(triangle,lo,true),hi,false);
+    if(below.length>=3)fan(below,false);
+    if(above.length>=3)fan(above,false);
+    if(middle.length>=3){
+      fan(middle,true);insideCount++;
+      for(let j=0;j<middle.length;j++){
+        const a=middle[j],b=middle[(j+1)%middle.length],ad=projected(a.p),bd=projected(b.p);
+        if(Math.abs(ad-lo)<edgeTol&&Math.abs(bd-lo)<edgeTol)boundarySegment(a,b,-1);
+        if(Math.abs(ad-hi)<edgeTol&&Math.abs(bd-hi)<edgeTol)boundarySegment(a,b,1);
+      }
+    }
+  }
+  if(!insideCount)return null;
+  const sgn=Math.sign(signedDepth);
+  let shoulderCount=0;
+  for(const e of boundary.values()){
+    // Two middle patches sharing the same old mesh edge are not a cut boundary.
+    if(e.count!==1)continue;
+    const a=e.a.p,b=e.b.p,c=displaced(e.b,true),d=displaced(e.a,true);
+    const normal=cross(sub(b,a),sub(d,a));
+    const outward=(e.which===-1?-sgn:sgn);
+    if(dot(normal,ax)*outward>=0){emit(a,b,c);emit(a,c,d);}else{emit(a,c,b);emit(a,d,c);}
+    shoulderCount++;
+  }
+  if(!output.length)return null;
+  // Snap shared triangle-soup vertices to one geometric grid before Float32
+  // storage. This is a WELD coordinate rule, not a rendered helper line; it
+  // prevents tiny interpolation differences from opening triangle seams.
+  const weldGrid=Math.max(1e-8,dim*5e-7);
+  for(let i=0;i<output.length;i++)output[i]=Math.round(output[i]/weldGrid)*weldGrid;
+  return{positions:new Float32Array(output),insideCount,shoulderCount,triangles:output.length/9};
+}
+
+
+// v9.136 — BAND BRUSH: draw a rectangular screen-space profile, just as RECT.
+// A wide rectangle draws a horizontal band (height is its width across the
+// slab); a tall rectangle draws a vertical band (width across the slab).
+// SIZE controls the normal offset depth independently of either dimension. The 360-degree surface
+// split/shoulder kernel remains authoritative for all visible and hidden faces.
+const maBandCursorEl=document.getElementById('maBandCursor');
+function maBandScreenUp(){
+  camera.updateMatrixWorld(true);
+  return new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,1).normalize();
+}
+function maBandScreenRight(){
+  camera.updateMatrixWorld(true);
+  return new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0).normalize();
+}
+function maBandEnabled(){
+  return MA_UNIFIED_UI&&mobileDrawKind==='band'&&currentAppMode()==='draw'&&
+    viewMode==='workspace'&&!projectLibraryVisible;
+}
+function maBandHideCursor(){
+  maBandCursorEl.style.display='none';
+}
+function maBandDrawRectangle(st){
+  if(!st||st.kind!=='bandStamp')return;
+  const x0=Math.min(st.startX,st.endX),y0=Math.min(st.startY,st.endY);
+  const width=Math.abs(st.endX-st.startX),height=Math.abs(st.endY-st.startY);
+  maBandCursorEl.style.left=Math.round(x0)+'px';
+  maBandCursorEl.style.top=Math.round(y0)+'px';
+  maBandCursorEl.style.width=Math.round(Math.max(2,width))+'px';
+  maBandCursorEl.style.height=Math.round(Math.max(2,height))+'px';
+  maBandCursorEl.classList.toggle('erase',st.erase);
+  maBandCursorEl.style.display='block';
+}
+// Find the first visible host intersecting the *drawn rectangle*, rather than
+// requiring the pointer to start on a face. This is what makes BAND feel like
+// RECT even when you begin in empty workspace. It still edits one host only.
+function maBandFindTarget(st){
+  if(st.hostId!=null&&st.point&&Number.isFinite(st.worldPerPixel)){
+    const m=massById(st.hostId);
+    if(m&&!m._disposed)return m;
+  }
+  const x0=Math.min(st.startX,st.endX),y0=Math.min(st.startY,st.endY);
+  const w=Math.abs(st.endX-st.startX),h=Math.abs(st.endY-st.startY);
+  // Centre first, followed by an evenly distributed sample grid. Raycasts
+  // happen only on release, never on each Pencil/finger move.
+  const samples=[[.5,.5]];
+  for(const fraction of [.25,.75,.0,1.0,.125,.375,.625,.875]){
+    samples.push([.5,fraction],[fraction,.5]);
+  }
+  for(const fy of [.125,.375,.625,.875])for(const fx of [.125,.375,.625,.875])samples.push([fx,fy]);
+  for(const [fx,fy] of samples){
+    const x=x0+w*fx,y=y0+h*fy;
+    const hit=raycastMasses(x,y),m=massFromHit(hit);
+    if(!hit||!m||m._disposed)continue;
+    const wpp=worldUnitsPerPixel(hit.point);
+    if(!Number.isFinite(wpp)||wpp<=0)continue;
+    st.hostId=m.id;st.point=hit.point.clone();st.hitScreenX=x;st.hitScreenY=y;
+    st.worldPerPixel=wpp;
+    return m;
+  }
+  return null;
+}
+// BAND is intentionally axis-aligned, not camera-tilted.
+// A wide RECT cuts across the host extrusion axis (horizontal ring).
+// A tall RECT cuts across ONE of its two perpendicular modelling axes
+// (vertical 360-degree band). Camera orientation only chooses which of those
+// discrete fixed axes is most nearly screen-horizontal; it never supplies a
+// free rotation of the cut planes. This also holds for an oblique camera view.
+function maBandAxisForMass(m,screenAxis,vertical=false){
+  const facing=screenAxis.clone().normalize();
+  const orient=(axis)=>axis.multiplyScalar(axis.dot(facing)<0?-1:1);
+  if(m?.group&&Array.isArray(m.profile)&&m.profile.length>=3){
+    m.group.updateWorldMatrix(true,false);
+    const world=m.group.matrixWorld;
+    if(!vertical){
+      // The host's original extrusion direction is the authoritative height.
+      return orient(new THREE.Vector3(0,0,1).transformDirection(world));
+    }
+    const x=new THREE.Vector3(1,0,0).transformDirection(world);
+    const y=new THREE.Vector3(0,1,0).transformDirection(world);
+    // Choose only X or Y in the object's cross-section, never a blend of
+    // them. Otherwise rotating the camera twists the supposedly vertical band.
+    return orient(Math.abs(x.dot(facing))>=Math.abs(y.dot(facing))?x:y);
+  }
+  // A mesh without an original extrusion profile (e.g. sphere): use the
+  // world's fixed up / horizontal axes rather than a camera-derived diagonal.
+  if(!vertical)return orient(new THREE.Vector3(0,1,0));
+  const x=new THREE.Vector3(1,0,0),z=new THREE.Vector3(0,0,1);
+  return orient(Math.abs(x.dot(facing))>=Math.abs(z.dot(facing))?x:z);
+}
+function maBandWorldPerScreenPixel(point,axis,fallback,vertical=false){
+  // The actual world-space slice direction, projected into the corresponding
+  // screen coordinate. This keeps band thickness stable in perspective.
+  const p0=worldToClient(point),step=Math.max(.02,fallback*32);
+  const p1=worldToClient(point.clone().addScaledVector(axis,step));
+  const pixels=vertical?p1.x-p0.x:p0.y-p1.y;
+  return Number.isFinite(pixels)&&pixels>1e-4?step/pixels:fallback;
+}
+function maBandRectIsVertical(st){
+  // A small diagonal wobble must not flip an otherwise horizontal band.
+  return Math.abs(st.endY-st.startY)>1.2*Math.abs(st.endX-st.startX);
+}
+function maBandDragSlab(st,m){
+  const widthPx=Math.abs(st.endX-st.startX),heightPx=Math.abs(st.endY-st.startY);
+  const vertical=maBandRectIsVertical(st);
+  const screenAxis=vertical?(st.right||maBandScreenRight()):st.axis;
+  const axis=maBandAxisForMass(m,screenAxis,vertical);
+  const worldPerPixel=maBandWorldPerScreenPixel(st.point,axis,st.worldPerPixel,vertical);
+  const middle=vertical?(st.startX+st.endX)*.5:(st.startY+st.endY)*.5;
+  const hitPixel=vertical?st.hitScreenX:st.hitScreenY;
+  const thickness=(vertical?widthPx:heightPx)*worldPerPixel;
+  const displacement=(vertical?middle-hitPixel:hitPixel-middle)*worldPerPixel;
+  const center=st.point.clone().addScaledVector(axis,displacement);
+  return{axis,center,height:thickness,vertical};
+}
+function maBandGeometryForMass(m,slab,relief){
+  m.mesh.updateWorldMatrix(true,false);
+  const g=m.mesh.geometry,src=g.attributes.position,idx=g.index;
+  const triangles=new Float32Array((idx?idx.count:src.count)*3);
+  const v=new THREE.Vector3(),world=m.mesh.matrixWorld;
+  for(let i=0,count=idx?idx.count:src.count;i<count;i++){
+    v.fromBufferAttribute(src,idx?idx.getX(i):i).applyMatrix4(world);
+    triangles[i*3]=v.x;triangles[i*3+1]=v.y;triangles[i*3+2]=v.z;
+  }
+  const cut=maBandSurfaceTriangles(
+    triangles,slab.axis.toArray(),slab.center.toArray(),slab.height*.5,relief
+  );
+  if(!cut||!cut.shoulderCount)return null;
+  const next=new THREE.BufferGeometry();
+  next.setAttribute('position',new THREE.BufferAttribute(cut.positions,3));
+  next.applyMatrix4(world.clone().invert());
+  next.computeVertexNormals();next.computeBoundingBox();next.computeBoundingSphere();
+  return next;
+}
+function maBandDepth(m,requested,erase){
+  const depth=Math.max(.005,Math.abs(requested));
+  if(!erase)return depth;
+  // Erase cannot invert/collapse a narrow solid. Clamp only the inward depth,
+  // against the actual object bounds; never derive depth from band height.
+  const box=new THREE.Box3().setFromObject(m.group),s=box.getSize(new THREE.Vector3());
+  const dim=Math.max(.001,Math.min(s.x||Infinity,s.y||Infinity,s.z||Infinity));
+  return Math.min(depth,Math.max(.005,dim*.35));
+}
+function maBeginBandStamp(e){
+  if(!maBandEnabled())return;
+  const hit=raycastMasses(e.clientX,e.clientY),m=massFromHit(hit);
+  const wpp=hit&&m?worldUnitsPerPixel(hit.point):null;
+  interaction={kind:'bandStamp',pointerId:e.pointerId,
+    hostId:m?.id??null,point:hit&&m?hit.point.clone():null,
+    hitScreenX:e.clientX,hitScreenY:e.clientY,
+    axis:maBandScreenUp(),right:maBandScreenRight(),
+    worldPerPixel:Number.isFinite(wpp)&&wpp>0?wpp:null,
+    startX:e.clientX,startY:e.clientY,endX:e.clientX,endY:e.clientY,
+    depth:Math.max(.05,brushDepth()),erase:!!mobileEraseHeld};
+  maBandDrawRectangle(interaction);
+  try{renderer.domElement.setPointerCapture?.(e.pointerId);}catch(_){}
+}
+function maMoveBandStamp(e){
+  const st=interaction;if(st?.kind!=='bandStamp'||e.pointerId!==st.pointerId)return;
+  st.endX=e.clientX;st.endY=e.clientY;
+  maBandDrawRectangle(st);
+}
+function maEndBandStamp(){
+  const st=interaction;if(st?.kind!=='bandStamp')return;
+  interaction=null;maBandHideCursor();
+  const widthPx=Math.abs(st.endX-st.startX),heightPx=Math.abs(st.endY-st.startY);
+  const vertical=maBandRectIsVertical(st);
+  if((vertical?widthPx:heightPx)<6){
+    showToast('BAND · DRAW A WIDER RECT');return;
+  }
+  const m=maBandFindTarget(st);
+  if(!m){showToast('BAND · RECT MUST CROSS AN OBJECT');return;}
+  const slab=maBandDragSlab(st,m);
+  if(!Number.isFinite(slab.height)||slab.height<.001){
+    showToast('BAND · DRAW A WIDER RECT');return;
+  }
+  const relief=maBandDepth(m,st.depth,st.erase)*(st.erase?-1:1);
+  let result=null,validated=null;
+  try{
+    result=maBandGeometryForMass(m,slab,relief);
+    if(!result){showToast('BAND · RECT OUTSIDE OBJECT');return;}
+    validated=geometryToManifold(result);
+    const status=validated.status();
+    if(status!=='NoError'||validated.isEmpty())throw new Error('Band solid: '+status);
+    const welded=manifoldToGeometry(validated);
+    result.dispose();result=null;
+    if(m.type==='curve'||m.type==='circle'||m.type==='sphere'){
+      restoreRoundBrushNormalsInPlace(welded,null,58);
+    }
+    setSelection([]);
+    if(!setMassGeometry(m,welded,true,{smooth:false})){
+      welded.dispose();return;
+    }
+    recordHistory();scheduleAutosave();
+    showToast(st.erase?'BAND ERASED · 360°':'BAND ADDED · 360°');
+  }catch(err){
+    console.warn('MA Band Brush geometry rejected',err);
+    showToast('BAND FAILED · GEOMETRY UNCHANGED');
+  }finally{validated?.delete();result?.dispose();}
+}
 // --- Draw tools ----------------------------------------------------------------
 let previewLine=null,previewFill=null,drawEndpointMarker=null,drawGuideLine=null,drawGuidePoint=null;
 const drawEndpointMat=new THREE.PointsMaterial({color:accent,size:13,sizeAttenuation:false,depthTest:false,depthWrite:false});
@@ -8798,6 +9312,446 @@ function eraseWithFillCutterWorld(cutterWorld,targetId=null){
   return changed;
 }
 
+// v9.139 — Face SPLIT. Replace a single planar face by an exactly coplanar
+// surface partition. No overlapping polygon overlays, no added volume.
+// The old solid stays authoritative; the new boundary is an authored edge.
+function maSplitFaceBoundary(m,face){
+  const topo=selectTopology(m);
+  if(!topo||!face||!face.triangles?.length)return null;
+  const incidence=new Map();
+  for(const t of face.triangles){
+    const r=topo.triReps[t];
+    for(let k=0;k<3;k++){
+      const a=r[k],b=r[(k+1)%3],id=a<b?a+'|'+b:b+'|'+a;
+      const info=incidence.get(id)||{n:0,a,b};info.n++;incidence.set(id,info);
+    }
+  }
+  const open=[...incidence.values()].filter(e=>e.n===1);
+  if(open.length<3)return null;
+  const following=new Map();
+  for(const e of open){
+    if(following.has(e.a))return null;
+    following.set(e.a,e.b);
+  }
+  const loops=[],used=new Set();
+  for(const e of open){
+    if(used.has(e.a))continue;
+    const loop=[],start=e.a;let at=start;
+    for(let i=0;i<=open.length;i++){
+      if(used.has(at))break;
+      used.add(at);
+      const p=topo.repGroups.get(at)?.local;
+      if(!p)return null;
+      loop.push(p.clone());
+      at=following.get(at);
+      if(at==null)return null;
+      if(at===start)break;
+    }
+    if(at!==start||loop.length<3)return null;
+    loops.push(loop);
+  }
+  // A face with holes, multiple islands or a nonmanifold boundary is not a
+  // safe editing target for this simple planar MVP.
+  return loops.length===1?loops[0]:null;
+}
+function maSplitPointInPolygon(p,poly){
+  let inside=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const a=poly[i],b=poly[j];
+    if(((a.y>p.y)!==(b.y>p.y)) &&
+       p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)inside=!inside;
+  }
+  return inside;
+}
+function maSplitProject(local,plane,m){
+  const p=local.clone().applyMatrix4(m.mesh.matrixWorld).sub(plane.origin);
+  return new THREE.Vector2(p.dot(plane.u),p.dot(plane.v));
+}
+function maSplitWorldToLocal(uv,plane,m){
+  const world=plane.origin.clone().addScaledVector(plane.u,uv.x).addScaledVector(plane.v,uv.y);
+  return world.applyMatrix4(m.mesh.matrixWorld.clone().invert());
+}
+function maSplitTriangulate(rings,plane,m,expectedNormal,output){
+  const contour=rings[0].map(q=>q.uv.clone());
+  const holes=rings.slice(1).map(r=>r.map(q=>q.uv.clone()));
+  // ShapeUtils may reverse contour/hole arrays. Attach local coordinates by
+  // their UV values, not by the original vertex order.
+  const source=rings.flat();
+  let triangles;
+  try{triangles=THREE.ShapeUtils.triangulateShape(contour,holes);}catch(_){return false;}
+  const all=[...contour,...holes.flat()];
+  if(!triangles?.length)return false;
+  const toLocal=p=>{
+    const existing=source.find(q=>q.uv.distanceToSquared(p)<1e-16);
+    return existing?.local||maSplitWorldToLocal(p,plane,m);
+  };
+  for(const ids of triangles){
+    const v=ids.map(i=>toLocal(all[i]));
+    if(v.some(q=>!q))return false;
+    const normal=v[1].clone().sub(v[0]).cross(v[2].clone().sub(v[0]));
+    if(normal.lengthSq()<1e-17)continue;
+    if(normal.dot(expectedNormal)<0)[v[1],v[2]]=[v[2],v[1]];
+    for(const q of v)output.push(q.x,q.y,q.z);
+  }
+  return true;
+}
+function maSplitSegmentParameter(a,b,p){
+  const d=b.clone().sub(a),den=d.lengthSq();if(den<1e-20)return null;
+  const t=p.clone().sub(a).dot(d)/den;
+  const projection=a.clone().addScaledVector(d,t);
+  return p.distanceToSquared(projection)<1e-10&&t>1e-6&&t<1-1e-6?t:null;
+}
+function maSplitTriangleAtPoint(tri,p){
+  const verts=[tri.slice(0,3),tri.slice(3,6),tri.slice(6,9)].map(a=>new THREE.Vector3(...a));
+  for(let i=0;i<3;i++){
+    const a=verts[i],b=verts[(i+1)%3],c=verts[(i+2)%3];
+    if(maSplitSegmentParameter(a,b,p)==null)continue;
+    return [
+      [a.x,a.y,a.z,p.x,p.y,p.z,c.x,c.y,c.z],
+      [p.x,p.y,p.z,b.x,b.y,b.z,c.x,c.y,c.z]
+    ];
+  }
+  return null;
+}
+function maSplitBuildFace(m,face,plane,rings,boundaryInsertions=[],lineCut=false){
+  const geom=m.mesh.geometry,pos=geom.attributes.position,index=geom.index;
+  if(!geom||!face||!rings?.length)return null;
+  const faceSet=new Set(face.triangles);
+  const first=face.triangles[0];
+  const triAt=t=>[0,1,2].map(k=>{
+    const vi=index?index.getX(t*3+k):t*3+k;
+    return new THREE.Vector3().fromBufferAttribute(pos,vi);
+  });
+  const v=triAt(first),normal=v[1].clone().sub(v[0]).cross(v[2].clone().sub(v[0])).normalize();
+  if(normal.lengthSq()<.99)return null;
+  let out=[];
+  // Retain every triangle outside the edited face, refining adjacent edges
+  // when LINE inserted a new point on that edge (no T-junction cracks).
+  const count=Math.floor((index?index.count:pos.count)/3);
+  for(let t=0;t<count;t++){
+    if(faceSet.has(t))continue;
+    const tri=triAt(t),flat=tri.flatMap(q=>[q.x,q.y,q.z]);
+    let pieces=[flat];
+    for(const ins of boundaryInsertions){
+      const refined=[];
+      for(const piece of pieces){
+        const split=maSplitTriangleAtPoint(piece,ins);
+        refined.push(...(split||[piece]));
+      }
+      pieces=refined;
+    }
+    for(const piece of pieces)out.push(...piece);
+  }
+  for(const ring of rings){
+    if(!ring.length)return null;
+  }
+  if(rings.length===2&&!lineCut){
+    // A closed contour: surrounding planar region has a hole; the interior
+    // is a second planar patch. Their shared boundary is an authored edge.
+    if(!maSplitTriangulate(rings,plane,m,normal,out))return null;
+    if(!maSplitTriangulate([rings[1]],plane,m,normal,out))return null;
+  }else{
+    for(const ring of rings){if(!maSplitTriangulate([ring],plane,m,normal,out))return null;}
+  }
+  if(out.length<9||out.length%9)return null;
+  const next=geometryFromPositions(out);
+  // Recreate actual authored outlines from the new mesh vertices. Vertex IDs
+  // are always for the NEW geometry, never copied from an obsolete buffer.
+  const tol=2e-5,lookup=new Map();
+  const npos=next.attributes.position;
+  for(let i=0;i<npos.count;i++){
+    const p=new THREE.Vector3().fromBufferAttribute(npos,i),k=quantKey3(p,tol);
+    if(!lookup.has(k))lookup.set(k,i);
+  }
+  const pairList=[],seen=new Set();
+  const addEdge=(a,b)=>{
+    const ka=quantKey3(a,tol),kb=quantKey3(b,tol);
+    const ia=lookup.get(ka),ib=lookup.get(kb);
+    if(ia==null||ib==null||ia===ib)return;
+    const id=ia<ib?ia+'|'+ib:ib+'|'+ia;
+    if(seen.has(id))return;
+    seen.add(id);pairList.push(ia,ib);
+  };
+  const existing=m.edges?.geometry?.attributes?.position;
+  if(existing)for(let j=0;j+1<existing.count;j+=2){
+    const a=new THREE.Vector3().fromBufferAttribute(existing,j);
+    const b=new THREE.Vector3().fromBufferAttribute(existing,j+1);
+    const divisions=[{t:0,p:a},{t:1,p:b}];
+    for(const p of boundaryInsertions){const t=maSplitSegmentParameter(a,b,p);if(t!=null)divisions.push({t,p});}
+    divisions.sort((x,y)=>x.t-y.t);
+    for(let k=0;k<divisions.length-1;k++)addEdge(divisions[k].p,divisions[k+1].p);
+  }
+  // The second ring is the new contour, or the shared cut from a LINE.
+  if(rings.length===2&&lineCut){
+    addEdge(rings[0][0].local,rings[0][rings[0].length-1].local);
+  }else if(rings.length===2){
+    const ring=rings[1];
+    for(let i=0;i<ring.length;i++)addEdge(ring[i].local,ring[(i+1)%ring.length].local);
+  }
+  next.userData.maStructuralEdges={count:npos.count,pairs:pairList};
+  return next;
+}
+// v9.141 — SHAPE is an open, sampled Pencil stroke; RECT/CIRCLE/POLY
+// provide closed contours with predictable vertices. Clean the *closure* of
+// the freehand stroke before asking the solid kernel to split a planar face.
+// Never use convex hulls: the user's concave outline must remain a real face.
+function maSplitShapeRemoveShortEdges(profile,tolerance){
+  const source=cleanProfile(profile||[],Math.max(1e-8,tolerance*.15));
+  if(source.length<3)return source;
+  let pts=source;
+  for(let pass=0;pass<2;pass++){
+    const kept=[];
+    for(let i=0;i<pts.length;i++){
+      const a=pts[(i+pts.length-1)%pts.length],b=pts[i],c=pts[(i+1)%pts.length];
+      const ab=b.clone().sub(a),bc=c.clone().sub(b),ac=c.clone().sub(a);
+      const len=Math.max(1e-10,ac.length());
+      const bend=Math.abs(ab.x*ac.y-ab.y*ac.x)/len;
+      // Drop nearly straight, tiny Pencil jitter points, not actual corners.
+      if(bend<tolerance&&ab.dot(bc)>=0)continue;
+      kept.push(b.clone());
+    }
+    if(kept.length<3||kept.length===pts.length)break;
+    pts=cleanProfile(kept,Math.max(1e-8,tolerance*.15));
+  }
+  return pts;
+}
+function maSplitShapeLargestLoop(profile){
+  let pts=cleanProfile(profile||[],1e-6);
+  // A Pencil trail that slightly overlaps itself near the starting point
+  // contains a valid enclosed region plus a short tail. Retain the larger
+  // simple loop, rather than rejecting the entire SHAPE operation.
+  for(let pass=0;pass<8&&pts.length>=4&&!simplePolygon(pts);pass++){
+    const candidates=[];
+    for(let i=0;i<pts.length;i++){
+      const a=pts[i],b=pts[(i+1)%pts.length],ab=b.clone().sub(a);
+      for(let j=i+2;j<pts.length;j++){
+        if(i===0&&j===pts.length-1)continue;
+        const c=pts[j],d=pts[(j+1)%pts.length],cd=d.clone().sub(c);
+        const den=ab.x*cd.y-ab.y*cd.x;
+        if(Math.abs(den)<1e-13)continue;
+        const ac=c.clone().sub(a);
+        const t=(ac.x*cd.y-ac.y*cd.x)/den;
+        const u=(ac.x*ab.y-ac.y*ab.x)/den;
+        if(t<=1e-7||t>=1-1e-7||u<=1e-7||u>=1-1e-7)continue;
+        const crossing=a.clone().addScaledVector(ab,t);
+        const first=[crossing.clone()];
+        for(let k=i+1;k<=j;k++)first.push(pts[k].clone());
+        const second=[crossing.clone()];
+        for(let k=j+1;k<i+pts.length;k++)second.push(pts[k%pts.length].clone());
+        for(const ring of [first,second]){
+          const clean=cleanProfile(ring,1e-6);
+          if(clean.length>=3&&Math.abs(signedArea(clean))>=.0005)
+            candidates.push(clean);
+        }
+      }
+    }
+    if(!candidates.length)break;
+    // Choose the region that preserves most of the user's drawn silhouette.
+    candidates.sort((a,b)=>Math.abs(signedArea(b))-Math.abs(signedArea(a)));
+    const largest=candidates.find(p=>simplePolygon(p));
+    pts=largest||candidates[0];
+  }
+  return pts;
+}
+function maSplitShapeCandidates(st,profile){
+  const plane=st.plane||workplane;
+  const px=Math.max(1e-6,shapeWorldUnitsPerPixel(plane.origin));
+  const bases=[profile,st.lastStableShapeProfile,st.rawPoints].filter(p=>p?.length>=3);
+  const options=[],seen=new Set();
+  const add=(p)=>{
+    let q=maSplitShapeLargestLoop(p);
+    if(q.length<3||!validShapeProfile(q))return;
+    const id=q.length+'|'+q.slice(0,3).map(v=>v.x.toFixed(5)+','+v.y.toFixed(5)).join('|');
+    if(seen.has(id))return;
+    seen.add(id);options.push(q);
+  };
+  for(const base of bases){
+    add(base);
+    for(const factor of [.35,.7,1.2,2.0,3.2]){
+      const tolerance=px*factor;
+      const cleaned=maSplitShapeRemoveShortEdges(base,tolerance);
+      add(cleaned);
+      if(cleaned.length>48||!validShapeProfile(cleaned))
+        add(rdp(cleaned,tolerance));
+    }
+  }
+  return options;
+}
+// Check the topology of the ACTUAL output geometry, not the drawn overlay.
+// Freehand contours can contain near-collinear sections where the two Earcut
+// triangulations omit different helper vertices; that creates T-junctions.
+// Refuse such a mesh and retry a simpler contour instead of committing damage.
+function maSplitGeometryIsClosed(geom){
+  const pos=geom?.attributes?.position,idx=geom?.index;
+  if(!pos||pos.count<12)return false;
+  geom.computeBoundingBox?.();
+  const extent=geom.boundingBox?.getSize(new THREE.Vector3()).length()||1;
+  const tolerance=Math.max(1e-7,extent*2e-7);
+  const edges=new Map();
+  const count=idx?idx.count:pos.count;
+  if(count%3)return false;
+  for(let i=0;i<count;i+=3){
+    const verts=[0,1,2].map(k=>{
+      const n=idx?idx.getX(i+k):i+k;
+      const x=pos.getX(n),y=pos.getY(n),z=pos.getZ(n);
+      if(!Number.isFinite(x+y+z))return null;
+      return {k:Math.round(x/tolerance)+','+Math.round(y/tolerance)+','+Math.round(z/tolerance),p:new THREE.Vector3(x,y,z)};
+    });
+    if(verts.some(v=>!v))return false;
+    const area=verts[1].p.clone().sub(verts[0].p).cross(verts[2].p.clone().sub(verts[0].p)).lengthSq();
+    if(area<1e-22)return false;
+    for(const [a,b] of [[0,1],[1,2],[2,0]]){
+      const ka=verts[a].k,kb=verts[b].k;
+      if(ka===kb)return false;
+      const key=ka<kb?ka+'|'+kb:kb+'|'+ka;
+      const n=(edges.get(key)||0)+1;
+      if(n>2)return false;
+      edges.set(key,n);
+    }
+  }
+  return [...edges.values()].every(n=>n===2);
+}
+function maSplitShapeFitInside(profile,outer,margin){
+  const inside=p=>maSplitPointInPolygon(p,outer)&&
+    outer.every((q,i)=>pointSegmentDistance2D(p,q,outer[(i+1)%outer.length])>=margin);
+  if(profile.every(inside))return profile;
+  // Accept minor overshoots at the edge (e.g. Pencil smoothing of a line
+  // drawn just inside a face). Do not shrink a contour that is substantially
+  // outside; that would silently change the artist's actual shape.
+  const center=profile.reduce((s,p)=>s.add(p),new THREE.Vector2()).multiplyScalar(1/profile.length);
+  if(!inside(center))return null;
+  let low=0,high=1;
+  for(let i=0;i<16;i++){
+    const mid=(low+high)*.5;
+    if(profile.every(p=>inside(center.clone().addScaledVector(p.clone().sub(center),mid))))low=mid;
+    else high=mid;
+  }
+  if(low<.92)return null;
+  return profile.map(p=>center.clone().addScaledVector(p.clone().sub(center),low*.999));
+}
+function maCommitSplitProfile(st,profile){
+  const m=massById(st.splitTargetId);
+  if(!m||st.splitFaceIndex==null){showToast('SPLIT · DRAW ON A FACE');return false;}
+  const topo=selectTopology(m),fid=topo?.faceIds?.[st.splitFaceIndex];
+  const face=topo?.faces?.[fid];
+  const boundary=maSplitFaceBoundary(m,face);
+  if(!boundary){showToast('SPLIT · NEEDS ONE PLANAR FACE');return false;}
+  const plane=st.plane||workplane;
+  m.mesh.updateWorldMatrix(true,false);
+  const outer=boundary.map(local=>({local,uv:maSplitProject(local,plane,m)}));
+  const outerUV=outer.map(q=>q.uv);
+  const bb=new THREE.Box2().setFromPoints(outerUV);
+  const size=bb.getSize(new THREE.Vector2()).length();
+  const margin=Math.max(1e-5,size*1e-5);
+  const isFreeShape=!!st.shapeFillMode&&!st.rectFillMode&&!st.circleProfileMode&&!st.polylineProfileMode;
+  const candidates=isFreeShape?maSplitShapeCandidates(st,profile):[profile];
+  let outside=false,invalid=false;
+  for(const candidate of candidates){
+    if(candidate.length<3||!validShapeProfile(candidate)){invalid=true;continue;}
+    const fitted=isFreeShape
+      ?maSplitShapeFitInside(candidate,outerUV,margin)
+      :candidate;
+    if(!fitted||fitted.some(p=>!maSplitPointInPolygon(p,outerUV)||
+      outerUV.some((q,i)=>pointSegmentDistance2D(p,q,outerUV[(i+1)%outerUV.length])<margin))){
+      outside=true;continue;
+    }
+    const inner=fitted.map(uv=>({uv:uv.clone(),local:maSplitWorldToLocal(uv,plane,m)}));
+    const newGeom=maSplitBuildFace(m,face,plane,[outer,inner]);
+    if(!newGeom){invalid=true;continue;}
+    // RECT/CIRCLE/POLY retain their previous path. For freehand SHAPE,
+    // check the closed mesh and retry simpler input if ear clipping
+    // eliminated mismatched collinear vertices on either side of the seam.
+    if(isFreeShape&&!maSplitGeometryIsClosed(newGeom)){
+      newGeom.dispose();invalid=true;continue;
+    }
+    if(!setMassGeometry(m,newGeom,true,{smooth:false})){
+      newGeom.dispose();invalid=true;continue;
+    }
+    selectedGeometryParts.clear();clearSelectGeometryHighlight();
+    recordHistory();scheduleAutosave();
+    showToast('SPLIT · FACE CREATED');
+    return true;
+  }
+  showToast(outside&&!invalid?'SPLIT · KEEP SHAPE INSIDE FACE':'SPLIT · SHAPE COULD NOT CLOSE');
+  return false;
+}
+
+// LINE is a drag across one planar face. It cuts the entire face between its
+// two boundary intersections. POLY stays a point-by-point closed contour.
+function maCommitSplitLine(st,a,b){
+  const m=massById(st.splitTargetId),topo=m&&selectTopology(m),face=topo?.faces?.[topo.faceIds?.[st.splitFaceIndex]];
+  const boundary=maSplitFaceBoundary(m,face),plane=st.plane||workplane;
+  clearPreview();clearDrawEndpoint();clearDrawGuide();
+  interaction=null;axisLock=null;
+  if(!boundary){showToast('SPLIT LINE · NEEDS PLANAR FACE');return false;}
+  m.mesh.updateWorldMatrix(true,false);
+  const outer=boundary.map(local=>({local,uv:maSplitProject(local,plane,m)}));
+  const dir=b.clone().sub(a);
+  if(dir.lengthSq()<1e-8)return false;
+  const cross=(p,q)=>p.x*q.y-p.y*q.x;
+  const hits=[];
+  // A short stroke *inside* a face defines a cutting direction. Extend that
+  // line to the two face boundaries; requiring the user to hit both outer
+  // edges made LINE appear broken on almost every ordinary stroke.
+  for(let i=0;i<outer.length;i++){
+    const c=outer[i].uv,d=outer[(i+1)%outer.length].uv.clone().sub(c);
+    const den=cross(dir,d);
+    if(Math.abs(den)<1e-10)continue;
+    const delta=c.clone().sub(a),u=cross(delta,dir)/den,t=cross(delta,d)/den;
+    if(u< -1e-7||u>1+1e-7)continue;
+    const clamped=clamp(u,0,1);
+    const uv=c.clone().addScaledVector(d,clamped);
+    if(hits.some(h=>h.uv.distanceToSquared(uv)<1e-12))continue;
+    const p=outer[i].local.clone().lerp(outer[(i+1)%outer.length].local,clamped);
+    hits.push({edge:i,ratio:clamped,t,uv,local:p});
+  }
+  // Reject tangent/degenerate strokes and concave faces with more than two
+  // intersections: we never commit overlapping or open geometry.
+  if(hits.length!==2){showToast('SPLIT LINE · USE ONE FACE');return false;}
+  const expanded=[];
+  for(let i=0;i<outer.length;i++){
+    expanded.push(outer[i]);
+    for(const h of hits){
+      if(h.edge!==i||h.ratio<=1e-7||h.ratio>=1-1e-7)continue;
+      expanded.push(h);
+    }
+  }
+  const hitNode=h=>{
+    if(h.ratio<=1e-7)return outer[h.edge];
+    if(h.ratio>=1-1e-7)return outer[(h.edge+1)%outer.length];
+    return h;
+  };
+  const first=expanded.indexOf(hitNode(hits[0])),second=expanded.indexOf(hitNode(hits[1]));
+  if(first<0||second<0||first===second){showToast('SPLIT LINE · ENDPOINT ERROR');return false;}
+  const walk=(i,j)=>{
+    const path=[expanded[i]];
+    for(let n=0;n<expanded.length&&i!==j;n++){
+      i=(i+1)%expanded.length;path.push(expanded[i]);
+    }
+    return path;
+  };
+  const left=walk(first,second),right=walk(second,first);
+  if(left.length<3||right.length<3){showToast('SPLIT LINE · TOO CLOSE TO EDGE');return false;}
+  const inserts=hits.filter(h=>h.ratio>1e-7&&h.ratio<1-1e-7).map(h=>h.local);
+  const next=maSplitBuildFace(m,face,plane,[left,right],inserts,true);
+  if(!next){showToast('SPLIT LINE · GEOMETRY FAILED');return false;}
+  if(!setMassGeometry(m,next,true,{smooth:false})){next.dispose();return false;}
+  selectedGeometryParts.clear();clearSelectGeometryHighlight();
+  recordHistory();scheduleAutosave();showToast('SPLIT · LINE CREATED');
+  return true;
+}
+function maMaybeFinishSplitLine(e){
+  const st=interaction;
+  if(!st||st.kind!=='polyline'||!st.splitMode||st.points.length!==1||
+     st.splitPointerId!==e.pointerId||!st.splitStartScreen)return false;
+  const dist=Math.hypot(e.clientX-st.splitStartScreen.x,e.clientY-st.splitStartScreen.y);
+  if(dist<12)return false;
+  const plane=st.plane||workplane,p=pointOnPlaneXY(e.clientX,e.clientY,plane);
+  if(!p)return false;
+  maCommitSplitLine(st,st.points[0],uvOnPlanePoint(p,plane));
+  return true;
+}
+
 function commitShapeFill(st,points){
   // SHAPE commits the same filtered silhouette that was last shown in preview.
   // Raw Pencil samples remain authoritative input, but release never re-runs a
@@ -8812,7 +9766,8 @@ function commitShapeFill(st,points){
   clearPreview();clearDrawEndpoint();clearDrawGuide();
   interaction=null;axisLock=null;clearActiveBrushContainer();
 
-  if(profile.length<3||Math.abs(signedArea(profile))<.0005||!simplePolygon(profile)){
+  if(profile.length<3||Math.abs(signedArea(profile))<.0005||
+     (!st.splitMode&&!simplePolygon(profile))){
     showToast('SHAPE TOO SMALL / CROSSED');
     return;
   }
@@ -8826,6 +9781,8 @@ function commitShapeFill(st,points){
     profile=smoothOpenShapeProfile(profile,1,.24);
     profile=cleanProfile(profile,.0015);
   }
+  if(st.splitMode){maCommitSplitProfile(st,profile);return;}
+
   if(profile.length<3||Math.abs(signedArea(profile))<.0005||!simplePolygon(profile)){
     showToast('SHAPE TOO SMALL / CROSSED');
     return;
@@ -8971,7 +9928,7 @@ function endpointSnapUV(uv,points,screenX,screenY,allowClose=true,plane=null){
   const cursor=vec2(screenX,screenY),start=points[0];
   const startWorld=plane?worldFromPlaneUV(start,plane):worldFromUV(start);
   const d=worldToClient(startWorld).distanceTo(cursor);
-  const threshold=14;
+  const threshold=maSplitActive()?20:14;
   if(d<=threshold)return{uv:start.clone(),snapped:true,label:'CLOSE',distance:d};
   return{uv:uv.clone(),snapped:false};
 }
@@ -9318,6 +10275,8 @@ function commitProfile(st,profile){
   }
 }
 function beginDraw(e){
+  if(maSplitActive()&&!raycastMasses(e.clientX,e.clientY)){showToast('SPLIT · START ON A FACE');return;}
+  if(MA_UNIFIED_UI&&mobileDrawKind==='band'){maBeginBandStamp(e);return;}
   const p=pointOnPlaneXY(e.clientX,e.clientY);if(!p)return;const uv=uvOnWorkplane(p);
   const plane=cloneWorkplane();
   const cameraForward=new THREE.Vector3();camera.getWorldDirection(cameraForward).normalize();
@@ -9330,6 +10289,7 @@ function beginDraw(e){
   const circleProfileMode=MA_UNIFIED_UI&&unifiedKind==='circle';
 
   const eraseMode=!!(MA_UNIFIED_UI&&mobileEraseHeld);
+  const splitHit=maSplitActive()?raycastMasses(e.clientX,e.clientY):null;
   let eraseTargetId=null;
   if(eraseMode){
     // prepareMobileStrokePlane() normally puts the hit object's id on the
@@ -9349,6 +10309,9 @@ function beginDraw(e){
     unifiedDrawKind:unifiedKind,
     eraseMode,
     eraseTargetId,
+    splitTargetId:maSplitActive()?massFromHit(splitHit)?.id:null,
+    splitFaceIndex:maSplitActive()?splitHit?.faceIndex:null,
+    splitMode:maSplitActive(),
     shapeFillMode,
     rectFillMode,
     brushStrokeMode,
@@ -9422,6 +10385,11 @@ function beginOrContinuePolyline(e){
       polylineProfileMode:mobileProfile,
       eraseMode:!!(mobileProfile&&mobileEraseHeld),
       eraseTargetId,
+      splitMode:maSplitActive(),
+      splitTargetId:maSplitActive()?massFromHit(raycastMasses(e.clientX,e.clientY))?.id:null,
+      splitFaceIndex:maSplitActive()?raycastMasses(e.clientX,e.clientY)?.faceIndex:null,
+      splitPointerId:maSplitActive()?e.pointerId:null,
+      splitStartScreen:maSplitActive()?{x:e.clientX,y:e.clientY}:null,
       pencilPolyline:pencilPointFlow,
       pencilPointerId:pencilPointFlow?e.pointerId:null,
       pencilGestureAddsPoint:false,
@@ -9526,6 +10494,7 @@ function updatePolylineHover(e){
   }
 }
 function finishPencilPolylineGesture(e){
+  if(maMaybeFinishSplitLine(e))return true;
   const st=interaction;
   if(!st||st.kind!=='polyline'||!st.polylineProfileMode||!st.pencilPolyline)return false;
   if(st.pencilPointerId!=null&&e?.pointerId!=null&&st.pencilPointerId!==e.pointerId)return false;
@@ -9767,6 +10736,7 @@ function clearMoveAxisDots(){
 }
 function showMoveAxisDots(st,delta=new THREE.Vector3()){
   clearMoveAxisDots();
+  return; // v9.136: inferred axes remain active, but helper dots are invisible.
   if(!st?.grab)return;
   const center=st.grab.clone().add(delta);
   const span=Math.max(.18,worldUnitsPerPixel(center)*54);
@@ -9788,6 +10758,7 @@ function showMoveAxisDots(st,delta=new THREE.Vector3()){
 function clearSnapVisual(){if(snapPointObj){scene.remove(snapPointObj);snapPointObj.geometry.dispose();snapPointObj=null;}if(snapLineObj){scene.remove(snapLineObj);snapLineObj.geometry.dispose();snapLineObj.material.dispose();snapLineObj=null;}showInference('');}
 function showSnapVisual(s){
   clearSnapVisual();
+  return; // v9.136: retain snapping, hide corner/edge pick overlays.
   if(!s)return;
 
   if(s.kind==='vertex'){
@@ -9975,6 +10946,10 @@ function nearestMoveSnapCached(x,y,cache){
 }
 function updateMoveSourceHover(x,y){if(activeTool!=='move'||interaction||transformDragging){if(!interaction)clearSnapVisual();return;}const hit=raycastMasses(x,y),m=massFromHit(hit);if(!m){clearSnapVisual();return;}const own=nearestOwnMoveSnap(x,y,m);if(own)showSnapVisual(own);else clearSnapVisual();}
 function updateSelectMoveHover(x,y){
+  // With snap guides hidden, selection hover would only rebuild EdgesGeometry
+  // every frame without affecting picking or the eventual Move snap result.
+  // Skip that costly mesh work; selection and Move still compute real snapping.
+  if(MA_UNIFIED_UI){clearSnapVisual();return;}
   if(activeTool!=='select'||interaction||transformDragging){if(!interaction)clearSnapVisual();return;}
   const hit=raycastMoveTarget(x,y),m=massFromHit(hit);
   if(!m){clearSnapVisual();return;}
@@ -10234,18 +11209,36 @@ function inferMoveAxis(st,x,y){
   st.autoAxis=null;
   return null;
 }
+// v9.143 — Show ONLY an active X/Y/Z axis guide while moving geometry.
+// Picking, snapping and the selection hover overlay remain unchanged/hidden.
+// Reuse the same 2-point line across Move frames to avoid allocations and lag.
 function showMoveAxisGuide(st,axis,delta){
-  clearSnapVisual();
-  showMoveAxisDots(st,delta);
-  const a=maWorldAxis(axis),end=st.grab.clone().add(delta);
-  const span=Math.max(2,worldUnitsPerPixel(st.grab)*700);
-  const p0=st.grab.clone().addScaledVector(a,-span),p1=st.grab.clone().addScaledVector(a,span);
-  const g=new THREE.BufferGeometry().setFromPoints([p0,p1]);
-  snapLineObj=new THREE.Line(g,new THREE.LineBasicMaterial({color:accent,transparent:true,opacity:.72,depthTest:false}));
-  snapLineObj.renderOrder=3000;scene.add(snapLineObj);
-  const pg=new THREE.BufferGeometry().setFromPoints([end]);
-  snapPointObj=new THREE.Points(pg,snapPointMat);snapPointObj.renderOrder=3001;scene.add(snapPointObj);
-  showInference(axis.toUpperCase()+' AXIS');
+  if(!st?.grab||!['x','y','z'].includes(axis)){
+    clearSnapVisual();
+    return;
+  }
+  const a=maWorldAxis(axis);
+  const length=finiteVec3(delta)?delta.length():0;
+  const span=Math.max(1.5,worldUnitsPerPixel(st.grab)*380,length+worldUnitsPerPixel(st.grab)*24);
+  const p0=st.grab.clone().addScaledVector(a,-span);
+  const p1=st.grab.clone().addScaledVector(a,span);
+  const color=axis==='x'?0xd9534f:axis==='y'?0x4caf50:0x4d7cff;
+  if(!snapLineObj?.userData?.maMoveAxisGuide){
+    clearSnapVisual();
+    const geometry=new THREE.BufferGeometry().setFromPoints([p0,p1]);
+    const material=new THREE.LineBasicMaterial({color,transparent:true,opacity:.78,depthTest:false,depthWrite:false});
+    snapLineObj=new THREE.Line(geometry,material);
+    snapLineObj.userData.maMoveAxisGuide=true;
+    snapLineObj.renderOrder=3000;
+    scene.add(snapLineObj);
+  }else{
+    const positions=snapLineObj.geometry.attributes.position;
+    positions.setXYZ(0,p0.x,p0.y,p0.z);
+    positions.setXYZ(1,p1.x,p1.y,p1.z);
+    positions.needsUpdate=true;
+    snapLineObj.geometry.computeBoundingSphere();
+    snapLineObj.material.color.setHex(color);
+  }
 }
 function updateMoveAt(x,y){
   const st=interaction;if(!st||st.kind!=='move')return;
@@ -10350,12 +11343,14 @@ function maCreateSelectedGeometryMoveParts(){
 }
 function beginSelectedGeometryMove(e){
   if(!selectedGeometryParts.size)return false;
-  const hit=raycastMasses(e.clientX,e.clientY),m=massFromHit(hit);if(!m)return false;
-  const component=automaticSelectComponentAt(e.clientX,e.clientY,m);
-  if(!component||!geometryComponentIsSelected(m,component))return false;
+  const hit=raycastMasses(e.clientX,e.clientY);
+  const m=massFromHit(hit)||maSelectedGeometryMassNear(e.clientX,e.clientY);
+  if(!m)return false;
+  const component=maSelectedGeometryPickup(m,e.clientX,e.clientY);
+  if(!component)return false;
   selectElementMode=component.mode;
   const viewNormal=new THREE.Vector3();camera.getWorldDirection(viewNormal);
-  const grab=component.point?.clone()||hit.point.clone();
+  const grab=component.point.clone();
   const movePlane=new THREE.Plane().setFromNormalAndCoplanarPoint(viewNormal,grab);
   setPointerXY(e.clientX,e.clientY);const startPlane=ray.ray.intersectPlane(movePlane,new THREE.Vector3())||grab.clone();
   const parts=maCreateSelectedGeometryMoveParts();if(!parts.size)return false;
@@ -10953,7 +11948,7 @@ function updateSelectedGeometryMoveAt(x,y){
   st.lastClient=vec2(x,y);
   const lock=axisLock;let delta;
   if(lock){st.autoAxis=null;delta=axisMoveDelta(st,x,y,lock);showMoveAxisGuide(st,lock,delta);}
-  else{const inferred=inferMoveAxis(st,x,y);if(inferred){delta=axisMoveDelta(st,x,y,inferred);showMoveAxisGuide(st,inferred,delta);}else{clearSnapVisual();setPointerXY(x,y);const p=ray.ray.intersectPlane(st.movePlane,new THREE.Vector3());if(!p)return;delta=p.sub(st.startPlane);showInference('FREE');}}
+  else{const inferred=inferMoveAxis(st,x,y);if(inferred){delta=axisMoveDelta(st,x,y,inferred);showMoveAxisGuide(st,inferred,delta);}else{clearSnapVisual();setPointerXY(x,y);const p=ray.ray.intersectPlane(st.movePlane,new THREE.Vector3());if(!p)return;delta=p.sub(st.startPlane);showInference('');}}
   applySelectedGeometryMove(st,delta);
 }
 function scheduleSelectedGeometryMove(x,y){pendingGeometryMove={x,y};if(rafGeometryMove)return;rafGeometryMove=requestAnimationFrame(()=>{rafGeometryMove=0;const p=pendingGeometryMove;pendingGeometryMove=null;if(p)updateSelectedGeometryMoveAt(p.x,p.y);});}
@@ -12040,7 +13035,7 @@ const shortcutActions=[
   {group:'Brush',id:'brushSquare',label:'Square',default:'KeyK',run:()=>shortcutChooseBrush('boxbrush')},
   {group:'Brush',id:'brushRound',label:'Round',default:'',run:()=>shortcutChooseBrush('roundbrush')},
   {group:'Brush',id:'brushCircle',label:'Circle',default:'KeyC',run:()=>shortcutChooseBrush('circle')},
-  {group:'Brush',id:'brushPoly',label:'Poly',default:'KeyL',run:()=>shortcutChooseBrush('polyline')},
+  {group:'Brush',id:'brushBand',label:'Band',default:'KeyL',run:()=>shortcutChooseBrush('band')},
   {group:'Brush',id:'brushSizeMode',label:'Brush Size drag',default:'KeyF',run:()=>beginBrushSizing()},
   {group:'Brush',id:'brushBigger',label:'Brush Size + · step',default:'BracketRight',run:()=>stepBrushSize(1)},
   {group:'Brush',id:'brushSmaller',label:'Brush Size − · step',default:'BracketLeft',run:()=>stepBrushSize(-1)},
@@ -12207,7 +13202,7 @@ loadShortcutBindings();
 function setTool(t){
   if(maHoverMoveSession)maHoverMoveCommit();
   const prevTool=activeTool;
-  cancelInteraction(false);clearSnapVisual();clearSpherePreview();
+  cancelInteraction(false);clearSnapVisual();clearSpherePreview();maBandHideCursor();
   if(prevTool!==t&&(prevTool==='draw'||prevTool==='boxbrush'||t==='draw'||t==='boxbrush'))clearActiveBrushContainer();
   activeTool=t;
   document.querySelectorAll('.tool[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===t));
@@ -12262,6 +13257,8 @@ function lockWorkplaneFromHover(){
 }
 
 function cancelInteraction(restore=false){
+  // An aborted BAND drag must not leave a screen-space rectangle behind.
+  maBandHideCursor();
   maHoverMoveClear();
   if(interaction?.kind==='geometryMove')for(const rec of interaction.parts.values())maReleaseFaceMoveResources(rec);
   if(restore&&interaction?.before)restoreState(interaction.before);interaction=null;pendingMove=null;pendingModify=null;pendingGeometryMove=null;if(rafMove){cancelAnimationFrame(rafMove);rafMove=0;}if(rafModify){cancelAnimationFrame(rafModify);rafModify=0;}if(rafGeometryMove){cancelAnimationFrame(rafGeometryMove);rafGeometryMove=0;}clearPreview();clearSnapVisual();clearMoveAxisDots();clearSpherePreview();hideMarquee();axisLock=null;mobileMovePointerId=null;mobileSelectTap=null;
@@ -14357,10 +15354,8 @@ function armDesktopDraw(erase=false){
   if(selectedMasses().length)setSelection([]);
 
   desktopSelectArmed=false;
-  drawHoldAction=erase?'erase':'add';
-  mobileEraseHeld=!!erase;
+  maSwitchDrawAction(erase?'erase':'add');
   mobileInputMode='draw';
-  setTool(mobileDrawTool());
   setSelectionGizmosEnabled(false);
   finalizeRotatePivot(false);
   updateMobileDrawUI();
@@ -14399,6 +15394,100 @@ function releasePrimaryTransform(kind,e,cancel=false){
   }
   return true;
 }
+// v9.140 — SPLIT uses the same press/hold/scrub brush picker as ADD and
+// ERASE, not a separate delayed tool menu. Quick taps still toggle SPLIT.
+// All six dock positions are populated by the existing brush-palette mapping.
+let maSplitButtonPress=null;
+function maSplitButtonShouldOwn(){
+  return viewMode==='workspace' && (primaryDockMode()==='base'||maSplitActive()) && !selectedMasses().length;
+}
+const maSplitButton=document.getElementById('selectHoldBtn');
+if(maSplitButton){
+  function maOpenSplitBrushHold(st){
+    if(maSplitButtonPress!==st||st.held)return;
+    if(interaction||marqueeState)cancelInteraction(true);
+    beginDrawModeHold(st.source,false);
+    maSwitchDrawAction('split');
+    st.held=drawModeHeld;
+    // Show the four SPLIT brushes in the very same dock overlay as ADD/ERASE.
+    if(st.held)updateMobileDrawUI();
+  }
+  maSplitButton.addEventListener('pointerdown',e=>{
+    // Desktop temporary brush picker owns its left-clicks; the SPLIT button
+    // must not swallow a brush choice just because it is also the source slot.
+    if(!MA_DRAW_MOBILE&&drawModeHeld&&e.pointerType==='mouse'&&e.button===0)return;
+    if(!maSplitButtonShouldOwn()||(e.pointerType==='mouse'&&e.button!==0&&e.button!==2))return;
+    e.preventDefault();e.stopImmediatePropagation();unifiedUIPointers.add(e.pointerId);
+    if(maSplitButtonPress)return;
+    const wasSplit=maSplitActive();
+    const st=maSplitButtonPress={id:e.pointerId,x:e.clientX,y:e.clientY,
+      time:performance.now(),moved:false,held:false,wasSplit,
+      rightClick:e.pointerType==='mouse'&&e.button===2,
+      source:syntheticHoldEvent(e),timer:null};
+    if(!wasSplit)maArmSplit();
+    if(e.pointerType==='mouse'){
+      // Desktop: right click is the same temporary brush picker as ADD/ERASE.
+      if(e.button===2)maOpenSplitBrushHold(st);
+    }else if(MA_IS_IPAD&&ipadPencilMode&&e.pointerType==='touch'){
+      // Match ADD/ERASE in iPad Pencil mode: tap toggles, hold opens picker.
+      st.timer=setTimeout(()=>maOpenSplitBrushHold(st),
+        wasSplit?PENCIL_DRAW_TOGGLE_HOLD_MS:PENCIL_DRAW_MENU_HOLD_MS);
+    }else if(e.pointerType==='touch'){
+      // Match iPhone/iPad finger mode: hold-and-scrub opens immediately.
+      maOpenSplitBrushHold(st);
+    }else{
+      st.timer=setTimeout(()=>maOpenSplitBrushHold(st),220);
+    }
+    try{maSplitButton.setPointerCapture(e.pointerId);}catch(_){}
+  },{capture:true,passive:false});
+  maSplitButton.addEventListener('pointermove',e=>{
+    const st=maSplitButtonPress;
+    if(!st||st.id!==e.pointerId)return;
+    e.preventDefault();e.stopImmediatePropagation();
+    if(Math.hypot(e.clientX-st.x,e.clientY-st.y)>12){
+      st.moved=true;
+      if(st.timer){clearTimeout(st.timer);st.timer=null;}
+      if(!st.held)maOpenSplitBrushHold(st);
+    }
+    if(st.held)updateDrawKindScrubSelectionFromPoint(e.clientX,e.clientY);
+  },{capture:true,passive:false});
+  const finish=(e,cancel=false)=>{
+    const st=maSplitButtonPress;
+    if(!st||st.id!==e.pointerId)return;
+    e.preventDefault();e.stopImmediatePropagation();
+    maSplitButtonPress=null;
+    if(st.timer)clearTimeout(st.timer);
+    try{maSplitButton.releasePointerCapture(e.pointerId);}catch(_){}
+    // Desktop right-click, like ADD/ERASE, leaves the picker visible until
+    // the user left-clicks one of the brush choices in the dock.
+    if(!MA_DRAW_MOBILE&&st.rightClick&&st.held&&!cancel)return;
+    if(st.held){
+      if(!cancel){updateDrawKindScrubSelectionFromPoint(e.clientX,e.clientY);commitDrawKindScrubSelection();}
+      if(drawModeHeld)endDrawModeHold(st.source);
+      // Match the existing ADD/ERASE contract on iPhone/iPad Finger mode:
+      // release the dock button -> stop drawing. Pencil mode stays latched;
+      // a quick tap there still toggles the active tool off.
+      if(e.pointerType==='touch'&&(!MA_IS_IPAD||!ipadPencilMode)){
+        clearLatchedDrawForFunctionSwitch();
+      }else if(st.wasSplit&&!st.moved&&performance.now()-st.time<270&&!cancel){
+        clearLatchedDrawForFunctionSwitch();
+      }else{
+        maArmSplit();
+      }
+    }else if(st.wasSplit&&!cancel){
+      clearLatchedDrawForFunctionSwitch();
+    }
+    updateMobileDrawUI();
+  };
+  maSplitButton.addEventListener('pointerup',e=>finish(e),{capture:true,passive:false});
+  maSplitButton.addEventListener('pointercancel',e=>finish(e,true),{capture:true,passive:false});
+  maSplitButton.addEventListener('click',e=>{
+    if(maSplitActive()||primaryDockMode()==='base'){
+      e.preventDefault();e.stopImmediatePropagation();
+    }
+  },{capture:true});
+}
+
 function setupDrawHoldButton(id,erase=false){
   const btn=document.getElementById(id);
   if(!btn)return;
@@ -14578,9 +15667,9 @@ function chooseDesktopBrushFromDock(id,e){
   if(!kind)return false;
   e.preventDefault();e.stopImmediatePropagation();
   unifiedUIPointers.add(e.pointerId);
-  const erase=drawHoldAction==='erase';
+  const action=drawHoldAction;
 
-  // Close only the temporary picker. The ADD/ERASE mode itself remains latched.
+  // Close only the temporary picker. The ADD/ERASE/SPLIT tool remains latched.
   drawModeHeld=false;
   drawModeHoldPointerId=null;
   drawModeHoldPointerType=null;
@@ -14588,7 +15677,8 @@ function chooseDesktopBrushFromDock(id,e){
   drawKindScrubTracking=false;
   drawKindScrubHoverButtonId=null;
   setMobileDrawKind(kind);
-  armDesktopDraw(erase);
+  if(action==='split')maArmSplit();
+  else armDesktopDraw(action==='erase');
   return true;
 }
 for(const id of IPHONE_DRAW_DOCK_IDS){
@@ -15482,6 +16572,9 @@ function updateModelPointer(e){
     camera.lookAt(cameraTarget);markSceneViewDirty();scheduleAutosave();lastX=e.clientX;lastY=e.clientY;return;
   }
   if(marqueeState){updateMarquee(e);return;}if(transformDragging)return;
+  if(interaction?.kind==='bandStamp'){
+    maMoveBandStamp(e);return;
+  }
   if(interaction?.kind==='draw'){
     updateDraw(e);
     if(MA_UNIFIED_UI&&!MA_DRAW_MOBILE&&(e.pointerType==='mouse'||e.pointerType==='pen'))armMobileStraightHold(e);
@@ -15490,10 +16583,14 @@ function updateModelPointer(e){
   updateHoverPlane(e.clientX,e.clientY);if(activeTool==='move')updateMoveSourceHover(e.clientX,e.clientY);else if(activeTool==='select')updateSelectMoveHover(e.clientX,e.clientY);else if(activeTool==='modify')updateModifyHover(e.clientX,e.clientY);else if(!interaction)clearSnapVisual();if(activeTool==='sphere')updateSpherePreview(e.clientX,e.clientY);else clearSpherePreview();lastX=e.clientX;lastY=e.clientY;
 }
 function endModelPointer(e){
+  if(maMaybeFinishSplitLine(e))return;
   const primaryButton=(e.pointerType==='pen'||e.pointerType==='touch')?0:e.button;
   if(primaryButton===1){orbiting=false;desktopOrbitPivot=null;desktopPanStartedAt=0;return;}
   if(primaryButton!==0)return;
   if(marqueeState){endMarquee(e);return;}
+  if(interaction?.kind==='bandStamp'){
+    maMoveBandStamp(e);maEndBandStamp();return;
+  }
   if(interaction?.kind==='draw'){
     // iPadOS does not guarantee a pointermove at the exact lift position.
     // Sample pointer-up once before commit so quick SHAPE strokes keep their
@@ -16024,7 +17121,7 @@ function maHoverMovePenDown(e){
   }
   if(!maHoverMoveEligible())return false;
   const hit=raycastPencilSelectionTarget(e.clientX,e.clientY);
-  const mass=massFromHit(hit);
+  const mass=massFromHit(hit)||maSelectedGeometryMassNear(e.clientX,e.clientY);
   if(!mass||!selectionTargetIsSelectedAt(mass,e.clientX,e.clientY))return false;
   const ok=selectedGeometryParts.size
     ?beginSelectedGeometryMove(e)
@@ -16240,6 +17337,8 @@ renderer.domElement.addEventListener('pointerdown',e=>{
     if(e.pointerType==='touch'){
       // Touch input belongs to the app; document-level scrolling is disabled.
       e.preventDefault();
+      if(maImplicitSelectCandidate&&maImplicitSelectCandidate.pointerId!==e.pointerId)
+        maImplicitSelectCandidate=null;
 
       if(beginMirrorTouchTracking(e)){
         renderer.domElement.setPointerCapture?.(e.pointerId);
@@ -16291,7 +17390,10 @@ renderer.domElement.addEventListener('pointerdown',e=>{
         }
       }
 
+      // In NAVI, start the camera gesture even when touching geometry.
+      // A still single-finger tap will be promoted to Select on pointerup.
       if(currentAppMode()==='navi'){
+        maImplicitSelectOnGeometryTouch(e);
         beginUnifiedTouchNavigation(e);
         return;
       }
@@ -16365,8 +17467,8 @@ renderer.domElement.addEventListener('pointerdown',e=>{
           return;
         }
 
-        const hit=moveArmed?raycastMoveTarget(e.clientX,e.clientY):raycastMasses(e.clientX,e.clientY);
-        const m=massFromHit(hit);
+        const hit=raycastPencilSelectionTarget(e.clientX,e.clientY);
+        const m=massFromHit(hit)||maSelectedGeometryMassNear(e.clientX,e.clientY);
 
         if(m){
           mobileSelectTap={
@@ -16469,7 +17571,7 @@ renderer.domElement.addEventListener('pointerdown',e=>{
         }
 
         const hit=raycastPencilSelectionTarget(e.clientX,e.clientY);
-        const m=massFromHit(hit);
+        const m=massFromHit(hit)||maSelectedGeometryMassNear(e.clientX,e.clientY);
         if(m){
           mobileSelectTap={
             pointerId:e.pointerId,
@@ -16559,7 +17661,7 @@ renderer.domElement.addEventListener('pointerdown',e=>{
         if(transformHoldMode)return;
 
         const hit=moveArmed?raycastMoveTarget(e.clientX,e.clientY):raycastMasses(e.clientX,e.clientY);
-        const m=massFromHit(hit);
+        const m=massFromHit(hit)||maSelectedGeometryMassNear(e.clientX,e.clientY);
         if(m){
           mobileSelectTap={
             pointerId:e.pointerId,
@@ -16703,6 +17805,10 @@ window.addEventListener('pointermove',e=>{
         if(!touchPointers.has(e.pointerId))return;
         e.preventDefault();
         const pt=touchPointers.get(e.pointerId);
+        if(maImplicitSelectCandidate?.pointerId===e.pointerId&&
+           Math.hypot(e.clientX-maImplicitSelectCandidate.x,
+                      e.clientY-maImplicitSelectCandidate.y)>MA_IMPLICIT_SELECT_TAP_PX)
+          maImplicitSelectCandidate.moved=true;
         const moved=Math.hypot(e.clientX-pt.startX,e.clientY-pt.startY)>12;
         pt.x=e.clientX;pt.y=e.clientY;pt.moved=pt.moved||moved;
         touchPointers.set(e.pointerId,pt);
@@ -16915,7 +18021,10 @@ window.addEventListener('pointerup',e=>{
           if(!touchPointers.size){
             const g=touchGesture,duration=g?performance.now()-g.startTime:Infinity;
             if(g&&!g.moved&&duration<600){
-              if(g.maxCount===2){undo();showToast('UNDO');}
+              // v9.138 — A short tap in empty workspace exits Select on
+              // iPhone as well as iPad. Do not treat camera drags as taps.
+              if(g.emptySelectBacktrack&&g.maxCount===1)performGlobalBacktrack();
+              else if(g.maxCount===2){undo();showToast('UNDO');}
               else if(g.maxCount===3&&!g.fovArmed){redo();showToast('REDO');}
             }
             touchGesture=null;touchNavState=null;touchOrbitPivot=null;touchPanScale=0;cancelTouchFovArm();
@@ -16930,6 +18039,9 @@ window.addEventListener('pointerup',e=>{
           touchGesture.lastX=e.clientX;touchGesture.lastY=e.clientY;
           if(Math.hypot(e.clientX-pt.startX,e.clientY-pt.startY)>12)touchGesture.moved=true;
         }
+        // Resolve before clearing navigation; commit only after all nav state
+        // is disposed, so Select never intercepts an orbit or pan gesture.
+        const implicitPick=maResolveImplicitSelectTap(e,touchGesture);
         touchPointers.delete(e.pointerId);
 
         if(!touchPointers.size){
@@ -16941,6 +18053,9 @@ window.addEventListener('pointerup',e=>{
           }
           touchGesture=null;touchNavState=null;touchOrbitPivot=null;touchPanScale=0;cancelTouchFovArm();
         }else resetTouchNav();
+        if(implicitPick&&activateSelectMode()!==false){
+          directSelectTap(implicitPick.m,implicitPick.x,implicitPick.y,{pointerType:'touch'});
+        }
         return;
       }
     }
@@ -17139,6 +18254,8 @@ window.addEventListener('pointerup',e=>{
 });
 window.addEventListener('pointercancel',e=>{
   if(MA_UNIFIED_UI){
+    if(e.pointerType==='touch'&&maImplicitSelectCandidate?.pointerId===e.pointerId)
+      maImplicitSelectCandidate=null;
     if(e.pointerType==='touch'&&endMirrorTouchTracking(e,true))return;
     if(unifiedUIPointers.has(e.pointerId))return;
     clearMobileStraightHold();
@@ -17182,6 +18299,13 @@ window.addEventListener('pointercancel',e=>{
     }
 
     if(e.pointerType==='pen'){
+      if(interaction?.kind==='bandStamp'&&interaction.pointerId===e.pointerId){
+        // WebKit may report an ordinary Pencil lift as pointercancel.
+        // A band is a single, deliberate contact: commit it exactly once.
+        penActive=false;
+        maEndBandStamp();
+        return;
+      }
       if(maPencilObjectHoldConsumedPointerId===e.pointerId){
         maPencilObjectHoldConsumedPointerId=null;
         penActive=false;
