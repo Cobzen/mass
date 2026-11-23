@@ -2879,7 +2879,14 @@ function lookJoystickSelectionMode(){if(maSafeFrameControlsOpen||viewMode==='sha
   syncLookJoystickUI();syncShadowIntensityUI();markSceneViewDirty();scheduleAutosave();
   showToast(`SHADOWS ${enabled?'ON':'OFF'}${viewMode==='thumbnail'?' · NEXT SNAPSHOT':''}`);
 }
-function moodJoystickTapCanToggleShadows(st){if(!st||st.selectionMode)return false;const dockMode=primaryDockMode();return dockMode==='base'||dockMode==='scenes';}function beginLookJoystick(e){e.preventDefault();e.stopPropagation();if(lookJoystickGesture)return;unifiedUIPointers.add(e.pointerId);lookJoystickGesture={pointerId:e.pointerId,startX:e.clientX,startY:e.clientY,dir:null,selectionMode:lookJoystickSelectionMode()};e.currentTarget?.setPointerCapture?.(e.pointerId);setJoystickKnob('look',null);}function updateLookJoystick(e){const st=lookJoystickGesture;if(!st||st.pointerId!==e.pointerId)return;e.preventDefault();e.stopPropagation();const dir=joyDirection(e.clientX-st.startX,e.clientY-st.startY);if(dir===st.dir)return;st.dir=dir;setJoystickKnob('look',dir);updateMobileDrawUI();}function endLookJoystick(e,cancel=false){const st=lookJoystickGesture;if(!st||st.pointerId!==e.pointerId)return;e.preventDefault();e.stopPropagation();const selectionAction=st.selectionMode?selectionActionForJoyDirection(st.dir):null;const mode=st.selectionMode?null:lookModeForJoyDirection(st.dir);lookJoystickGesture=null;setJoystickKnob('look',null);if(!cancel&&selectionAction){runSelectionJoystickAction(selectionAction);}else if(!cancel&&!st.dir&&moodJoystickTapCanToggleShadows(st)){toggleShadowsFromMoodJoystick();}else if(!cancel&&mode==='safeFrameDials'){maToggleSafeFrameDialMode();}else if(!cancel&&mode){const sameSettingsMood=(mode===viewMode&&mode==='depth');if(sameSettingsMood){lookSettingsPanelSuppressed=!lookSettingsPanelSuppressed;syncUnifiedLookSettings();showToast(`${mode==='shadow'?'APPEARANCE':'DEPTH'} CONTROLS ${lookSettingsPanelSuppressed?'OFF':'ON'}`);}else{applyViewMode(mode);syncUnifiedLookSettings();markSceneViewDirty();scheduleAutosave();showToast(mode==='line'?'ONLY LINE':mode==='notan'?'MASS':mode==='shadow'?'APPEARANCE':mode==='thumbnail'?'THUMBNAIL':'ONLY LINE');}}updateMobileDrawUI();}function setupJoystick(id,kind){const el=document.getElementById(id);if(!el)return;if(kind==='view'){el.addEventListener('pointerdown',beginViewJoystick,{passive:false});el.addEventListener('pointermove',updateViewJoystick,{passive:false});el.addEventListener('pointerup',e=>endViewJoystick(e,false),{passive:false});el.addEventListener('pointercancel',e=>endViewJoystick(e,true),{passive:false});}else{el.addEventListener('pointerdown',beginLookJoystick,{passive:false});el.addEventListener('pointermove',updateLookJoystick,{passive:false});el.addEventListener('pointerup',e=>endLookJoystick(e,false),{passive:false});el.addEventListener('pointercancel',e=>endLookJoystick(e,true),{passive:false});}}setupJoystick('viewJoystick','view');setupJoystick('lookJoystick','look');
+// The right joystick's CENTER is a shadow switch in every view mood, including
+// Appearance, Thumbnail and Safe Frame. Directional selection commands remain
+// untouched; only modal docks that explicitly repurpose the joystick are excluded.
+function moodJoystickTapCanToggleShadows(st){
+  if(!st)return false;
+  const dockMode=primaryDockMode();
+  return dockMode==='base'||dockMode==='scenes'||dockMode==='select'||dockMode==='appearance'||dockMode==='safeFrameDials';
+}function beginLookJoystick(e){e.preventDefault();e.stopPropagation();if(lookJoystickGesture)return;unifiedUIPointers.add(e.pointerId);lookJoystickGesture={pointerId:e.pointerId,startX:e.clientX,startY:e.clientY,dir:null,selectionMode:lookJoystickSelectionMode()};e.currentTarget?.setPointerCapture?.(e.pointerId);setJoystickKnob('look',null);}function updateLookJoystick(e){const st=lookJoystickGesture;if(!st||st.pointerId!==e.pointerId)return;e.preventDefault();e.stopPropagation();const dir=joyDirection(e.clientX-st.startX,e.clientY-st.startY);if(dir===st.dir)return;st.dir=dir;setJoystickKnob('look',dir);updateMobileDrawUI();}function endLookJoystick(e,cancel=false){const st=lookJoystickGesture;if(!st||st.pointerId!==e.pointerId)return;e.preventDefault();e.stopPropagation();const selectionAction=st.selectionMode?selectionActionForJoyDirection(st.dir):null;const mode=st.selectionMode?null:lookModeForJoyDirection(st.dir);lookJoystickGesture=null;setJoystickKnob('look',null);if(!cancel&&selectionAction){runSelectionJoystickAction(selectionAction);}else if(!cancel&&!st.dir&&moodJoystickTapCanToggleShadows(st)){toggleShadowsFromMoodJoystick();}else if(!cancel&&mode==='safeFrameDials'){maToggleSafeFrameDialMode();}else if(!cancel&&mode){const sameSettingsMood=(mode===viewMode&&mode==='depth');if(sameSettingsMood){lookSettingsPanelSuppressed=!lookSettingsPanelSuppressed;syncUnifiedLookSettings();showToast(`${mode==='shadow'?'APPEARANCE':'DEPTH'} CONTROLS ${lookSettingsPanelSuppressed?'OFF':'ON'}`);}else{applyViewMode(mode);syncUnifiedLookSettings();markSceneViewDirty();scheduleAutosave();showToast(mode==='line'?'ONLY LINE':mode==='notan'?'MASS':mode==='shadow'?'APPEARANCE':mode==='thumbnail'?'THUMBNAIL':'ONLY LINE');}}updateMobileDrawUI();}function setupJoystick(id,kind){const el=document.getElementById(id);if(!el)return;if(kind==='view'){el.addEventListener('pointerdown',beginViewJoystick,{passive:false});el.addEventListener('pointermove',updateViewJoystick,{passive:false});el.addEventListener('pointerup',e=>endViewJoystick(e,false),{passive:false});el.addEventListener('pointercancel',e=>endViewJoystick(e,true),{passive:false});}else{el.addEventListener('pointerdown',beginLookJoystick,{passive:false});el.addEventListener('pointermove',updateLookJoystick,{passive:false});el.addEventListener('pointerup',e=>endLookJoystick(e,false),{passive:false});el.addEventListener('pointercancel',e=>endLookJoystick(e,true),{passive:false});}}setupJoystick('viewJoystick','view');setupJoystick('lookJoystick','look');
 /* ===== APPEARANCE · five vertical drag controls, no secondary slider panels ===== */
 // Bind in the actual rendered dock order (Size is the first normal middle slot).
 
@@ -2896,7 +2903,7 @@ function maToggleSafeFrameDialMode(){
   if(viewMode==='thumbnail')applyViewMode('line');
   if(safeFrameDockOpen)openSafeFramePanel(false);
   maSafeFrameControlsOpen=true;
-  if(!safeFrameState.enabled){safeFrameState.enabled=true;updateSafeFrame();markSceneViewDirty();scheduleAutosave();}
+  // Entering Safe Frame controls never changes whether the frame is enabled.
   syncAppearanceDials();updateMobileDrawUI();
   showToast('SAFE FRAME');
 }
@@ -3518,12 +3525,40 @@ function maThumbnailFinishPicker(e,cancel=false){
 
 const maThumbnailClamp=(v,lo,hi)=>Math.min(hi,Math.max(lo,v));
 function maThumbnailSerialize(){return maThumbnailData.base?{...maThumbnailData,actions:maThumbnailData.actions.slice(0,maThumbnailActionIndex)}:null;}
+// Keep the paper entirely in the WORKSPACE rather than underneath the movable
+// tool dock. This works for bottom/top docks (portrait iPhone) and left/right
+// docks (iPad, desktop and landscape iPhone), including user-positioned docks.
+function maThumbnailAvailableRect(){
+  const viewport=container.getBoundingClientRect();
+  const w=Math.max(1,viewport.width),h=Math.max(1,viewport.height);
+  const margin=18,gap=16;
+  const space={left:margin,top:margin,right:w-margin,bottom:h-margin};
+  const dock=document.getElementById('maBottomDock');
+  if(dock){
+    const box=dock.getBoundingClientRect();
+    const side=dock.dataset.side||'bottom';
+    if(box.width>0&&box.height>0){
+      if(side==='left')space.left=Math.max(space.left,box.right-viewport.left+gap);
+      else if(side==='right')space.right=Math.min(space.right,box.left-viewport.left-gap);
+      else if(side==='top')space.top=Math.max(space.top,box.bottom-viewport.top+gap);
+      else if(side==='bottom')space.bottom=Math.min(space.bottom,box.top-viewport.top-gap);
+    }
+  }
+  // On narrow windows, leave a usable workspace even if the dock is oversized.
+  if(space.right-space.left<40){space.left=margin;space.right=w-margin;}
+  if(space.bottom-space.top<40){space.top=margin;space.bottom=h-margin;}
+  return space;
+}
+function maThumbnailFitScale(){
+  const space=maThumbnailAvailableRect();
+  return .96*Math.min((space.right-space.left)/Math.max(1,maThumbnailData.w),
+                       (space.bottom-space.top)/Math.max(1,maThumbnailData.h));
+}
 // The 2D paper has a single viewport transform shared by saved thumbnails.
 // Switching the saved image must not re-center or zoom the paper.
 function maThumbnailCapturePaperView(){
  if(!(maThumbnailScale>0&&maThumbnailData.w>0&&maThumbnailData.h>0))return null;
- const w=container.clientWidth||innerWidth,h=container.clientHeight||innerHeight;
- const fit=.96*Math.min(w/maThumbnailData.w,h/maThumbnailData.h);
+ const fit=maThumbnailFitScale();
  return {w:maThumbnailData.w,h:maThumbnailData.h,scale:maThumbnailScale,
    x:maThumbnailX,y:maThumbnailY,zoom:maThumbnailScale/Math.max(.000001,fit),
    centerX:maThumbnailX+maThumbnailData.w*maThumbnailScale*.5,
@@ -3537,8 +3572,7 @@ function maThumbnailRestorePaperView(view){
  }else{
    // For differently cropped/aspect-ratio snapshots, keep the current paper
    // centre at the same screen position and keep zoom relative to Fit.
-   const w=container.clientWidth||innerWidth,h=container.clientHeight||innerHeight;
-   const fit=.96*Math.min(w/maThumbnailData.w,h/maThumbnailData.h);
+   const fit=maThumbnailFitScale();
    maThumbnailScale=maThumbnailClamp(fit*view.zoom,.08,15);
    maThumbnailX=view.centerX-maThumbnailData.w*maThumbnailScale*.5;
    maThumbnailY=view.centerY-maThumbnailData.h*maThumbnailScale*.5;
@@ -3639,12 +3673,30 @@ function maThumbnailMarkDirty(){
 }
 function maThumbnailHideColorInput(){/* No full-screen color overlay to hide. */}
 function maThumbnailPositionColorInput(){/* Palette is anchored only when opened; no per-frame layout changes. */}
-function maThumbnailSyncMode(){const on=viewMode==='thumbnail';document.documentElement.classList.toggle('ma-thumbnail',on);updateSafeFrame();if(on){if(!maThumbnailData.base)maThumbnailTakeSnapshot();maThumbnailUpdateToolbar();maThumbnailResize();}else{maThumbnailCloseColorPalette();maThumbnailHideColorInput();maThumbnailPicker=null;maThumbnailButtonPress=null;maThumbnailHold=null;updateBrushSizeButton();maThumbnailSyncPickerVisuals();maThumbnailTouches.clear();maThumbnailTapGesture=null;maThumbnailPointer=null;maThumbnailPinch=null;maThumbnailDraft=null;maThumbnailEraseBaselineReady=false;maThumbnailEraseLastBounds=null;maThumbnailDraftCtx.clearRect(0,0,maThumbnailDraftLayer.width,maThumbnailDraftLayer.height);maThumbnailDraftDrawn=0;}maThumbnailPositionInkOverlays();renderSceneBar();syncLookJoystickUI?.();}
+let maThumbnailWasActive=false;
+function maThumbnailSyncMode(){const on=viewMode==='thumbnail';
+  const entering=on&&!maThumbnailWasActive;
+  maThumbnailWasActive=on;
+  document.documentElement.classList.toggle('ma-thumbnail',on);updateSafeFrame();
+  if(on){
+    if(!maThumbnailData.base)maThumbnailTakeSnapshot();
+    maThumbnailUpdateToolbar();maThumbnailResize();
+    // A previously loaded paper may still have an old zoom/pan. Fit whenever
+    // entering 2D, but NEVER when switching saved shots while already inside 2D.
+    if(entering&&maThumbnailImageReady)maThumbnailFit();
+  }else{maThumbnailCloseColorPalette();maThumbnailHideColorInput();maThumbnailPicker=null;maThumbnailButtonPress=null;maThumbnailHold=null;updateBrushSizeButton();maThumbnailSyncPickerVisuals();maThumbnailTouches.clear();maThumbnailTapGesture=null;maThumbnailPointer=null;maThumbnailPinch=null;maThumbnailDraft=null;maThumbnailEraseBaselineReady=false;maThumbnailEraseLastBounds=null;maThumbnailDraftCtx.clearRect(0,0,maThumbnailDraftLayer.width,maThumbnailDraftLayer.height);maThumbnailDraftDrawn=0;}maThumbnailPositionInkOverlays();renderSceneBar();syncLookJoystickUI?.();}
 
 
 /* ===== THUMBNAIL · viewport interaction ===== */
 function maThumbnailResize(){if(viewMode!=='thumbnail')return;const r=container.getBoundingClientRect();const dpr=Math.min(2,window.devicePixelRatio||1);const w=Math.max(1,Math.round(r.width*dpr)),h=Math.max(1,Math.round(r.height*dpr));if(maThumbnailPaper.width!==w||maThumbnailPaper.height!==h){const previousWidth=maThumbnailPaper.clientWidth||r.width,previousHeight=maThumbnailPaper.clientHeight||r.height;const centerX=(previousWidth*.5-maThumbnailX)/Math.max(.001,maThumbnailScale),centerY=(previousHeight*.5-maThumbnailY)/Math.max(.001,maThumbnailScale);maThumbnailPaper.width=w;maThumbnailPaper.height=h;maThumbnailPaper.style.width=r.width+'px';maThumbnailPaper.style.height=r.height+'px';maThumbnail2d.setTransform(dpr,0,0,dpr,0,0);if(maThumbnailImageReady){maThumbnailX=r.width*.5-centerX*maThumbnailScale;maThumbnailY=r.height*.5-centerY*maThumbnailScale;}}if(maThumbnailData.base&&maThumbnailScale<=0)maThumbnailFit();maThumbnailRender();}
-function maThumbnailFit(render=true){const w=container.clientWidth||innerWidth,h=container.clientHeight||innerHeight;if(!maThumbnailData.w||!maThumbnailData.h)return;maThumbnailScale=.96*Math.min(w/maThumbnailData.w,h/maThumbnailData.h);maThumbnailX=(w-maThumbnailData.w*maThumbnailScale)*.5;maThumbnailY=(h-maThumbnailData.h*maThumbnailScale)*.5;if(render)maThumbnailRender();}
+function maThumbnailFit(render=true){
+  if(!maThumbnailData.w||!maThumbnailData.h)return;
+  const space=maThumbnailAvailableRect();
+  maThumbnailScale=maThumbnailFitScale();
+  maThumbnailX=(space.left+space.right-maThumbnailData.w*maThumbnailScale)*.5;
+  maThumbnailY=(space.top+space.bottom-maThumbnailData.h*maThumbnailScale)*.5;
+  if(render)maThumbnailRender();
+}
 function maThumbnailToPaper(x,y){const r=maThumbnailPaper.getBoundingClientRect();return{x:(x-r.left-maThumbnailX)/maThumbnailScale,y:(y-r.top-maThumbnailY)/maThumbnailScale};}
 // Live Erase uses the visible ink canvas directly. The snapshot and camera never
 // need to be repainted for eraser movements. Shapes restore only their previous
