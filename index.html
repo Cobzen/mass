@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="ma-build" content="9.273">
+<meta name="ma-build" content="9.279">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -11,8 +11,8 @@
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-<title>MA 3D · v9.273</title>
-<script>(()=>{const CURRENT_BUILD='9.273';const CHECK_INTERVAL=30000;let lastCheck=0;let checking=false;const parts=v=>String(v||'').replace(/^v/i,'').split('.').map(n=>parseInt(n,10)||0);const isNewer=(remote,local)=>{const a=parts(remote),b=parts(local),len=Math.max(a.length,b.length);for(let i=0;i<len;i++){const av=a[i]||0,bv=b[i]||0;if(av!==bv)return av>bv;}return false;};async function checkForMAUpdate(force=false){if(location.protocol!=='http:'&&location.protocol!=='https:')return;const now=Date.now();if(!force&&now-lastCheck<CHECK_INTERVAL)return;if(checking)return;checking=true;lastCheck=now;try{const checkURL=new URL('index.html',location.href);checkURL.searchParams.set('__ma_check',String(now));const response=await fetch(checkURL.href,{cache:'no-store',headers:{'Cache-Control':'no-cache, no-store, must-revalidate','Pragma':'no-cache'}});if(!response.ok)return;const html=await response.text();const match=html.match(/<meta\s+name=["']ma-build["']\s+content=["']([^"']+)["']/i);const remoteBuild=match&&match[1];if(remoteBuild&&isNewer(remoteBuild,CURRENT_BUILD)){const reloadKey=`ma-update-${remoteBuild}`;if(sessionStorage.getItem(reloadKey)==='1')return;sessionStorage.setItem(reloadKey,'1');const freshURL=new URL('index.html',location.href);freshURL.searchParams.set('__ma_build',remoteBuild);freshURL.searchParams.set('__ma_fresh',String(Date.now()));location.replace(freshURL.href);}}catch(err){}finally{checking=false;}}window.__MA_BUILD__=CURRENT_BUILD;window.__checkForMAUpdate=checkForMAUpdate;checkForMAUpdate(true);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkForMAUpdate(true);});window.addEventListener('pageshow',()=>checkForMAUpdate(true));window.addEventListener('online',()=>checkForMAUpdate(true));})();</script>
+<title>MA 3D · v9.279</title>
+<script>(()=>{const CURRENT_BUILD='9.279';const CHECK_INTERVAL=30000;let lastCheck=0;let checking=false;const parts=v=>String(v||'').replace(/^v/i,'').split('.').map(n=>parseInt(n,10)||0);const isNewer=(remote,local)=>{const a=parts(remote),b=parts(local),len=Math.max(a.length,b.length);for(let i=0;i<len;i++){const av=a[i]||0,bv=b[i]||0;if(av!==bv)return av>bv;}return false;};async function checkForMAUpdate(force=false){if(location.protocol!=='http:'&&location.protocol!=='https:')return;const now=Date.now();if(!force&&now-lastCheck<CHECK_INTERVAL)return;if(checking)return;checking=true;lastCheck=now;try{const checkURL=new URL('index.html',location.href);checkURL.searchParams.set('__ma_check',String(now));const response=await fetch(checkURL.href,{cache:'no-store',headers:{'Cache-Control':'no-cache, no-store, must-revalidate','Pragma':'no-cache'}});if(!response.ok)return;const html=await response.text();const match=html.match(/<meta\s+name=["']ma-build["']\s+content=["']([^"']+)["']/i);const remoteBuild=match&&match[1];if(remoteBuild&&isNewer(remoteBuild,CURRENT_BUILD)){const reloadKey=`ma-update-${remoteBuild}`;if(sessionStorage.getItem(reloadKey)==='1')return;sessionStorage.setItem(reloadKey,'1');const freshURL=new URL('index.html',location.href);freshURL.searchParams.set('__ma_build',remoteBuild);freshURL.searchParams.set('__ma_fresh',String(Date.now()));location.replace(freshURL.href);}}catch(err){}finally{checking=false;}}window.__MA_BUILD__=CURRENT_BUILD;window.__checkForMAUpdate=checkForMAUpdate;checkForMAUpdate(true);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkForMAUpdate(true);});window.addEventListener('pageshow',()=>checkForMAUpdate(true));window.addEventListener('online',()=>checkForMAUpdate(true));})();</script>
 <style id="ma-app-styles">
 :root{--ma-selection-color:#65e5a8;--ma-selection-rgb:101,229,168;--bg:#fff;--dock:#fff;--control:#fff;--ink:#2d2d2b;--muted:#70706b;--line:rgba(70,70,68,.34);--ma-dock-h:50px;--ma-main-grid-w:253px;}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none;}html, body{margin:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none;overscroll-behavior-y:none;background:var(--bg);color:#111;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;touch-action:none;}button, input{font:inherit;}button{touch-action:none;}#app{position:fixed;inset:0;overflow:hidden;overscroll-behavior:none;background:#fff;}#viewport{position:absolute;left:0;right:0;top:0;bottom:calc(var(--ma-dock-h) + env(safe-area-inset-bottom));overflow:hidden;background:#fff;}canvas{display:block;width:100%;height:100%;outline:none;}#viewport, canvas{touch-action:none;-webkit-user-select:none;user-select:none;pointer-events:auto;}#viewWorkplanePanel, #safeFramePanel, #shortcutPanel, #planeBadge, #safeFrameOverlay{display:none;}#toast{position:fixed;left:50%;bottom:calc(var(--ma-dock-h) + env(safe-area-inset-bottom) + 10px);transform:translateX(-50%);z-index:120;pointer-events:none;opacity:0;padding:7px 10px;border-radius:9px;background:rgba(25,25,24,.88);color:#fff;font-size:9px;font-weight:700;letter-spacing:.07em;white-space:nowrap;transition:opacity .15s ease;}#inference{position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:119;pointer-events:none;color:#2d2d2b;font-size:9px;font-weight:700;letter-spacing:.06em;}#fovHud{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:160;display:none;pointer-events:none;padding:8px 12px;border-radius:999px;background:rgba(45,45,43,.86);color:#fff;font-size:12px;font-weight:650;letter-spacing:.04em;font-variant-numeric:tabular-nums;white-space:nowrap;}#mirrorHud{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:165;display:none;pointer-events:none;padding:9px 14px;border-radius:999px;background:rgba(45,45,43,.88);color:#fff;font-size:12px;font-weight:700;letter-spacing:.05em;white-space:nowrap;}#marquee{position:fixed;display:none;pointer-events:none;z-index:118;border:2px solid var(--ma-selection-color);background:rgba(var(--ma-selection-rgb),.16);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.72);}#brushSizer{position:fixed;display:none;pointer-events:none;z-index:117;}#maBottomDock{position:fixed;display:block;left:0;right:0;bottom:0;height:calc(var(--ma-dock-h) + env(safe-area-inset-bottom));z-index:80;border-top:1px solid rgba(70,70,68,.18);background:var(--dock);}#maModeBar{position:fixed;left:50%;bottom:max(-12px,calc(env(safe-area-inset-bottom) - 12px));transform:translateX(-50%);width:var(--ma-main-grid-w);z-index:86;display:grid;grid-template-columns:repeat(4,58px);gap:7px;justify-content:center;padding:0;overflow:visible;}#maModeBar .holdToolButton, #maModeBar .brushSizeButton{appearance:none;position:relative;display:flex;align-items:center;justify-content:center;width:58px;height:58px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--control);color:var(--ink);box-shadow:none;text-align:center;}#maModeBar .holdToolButton, #maModeBar .primaryLabel{font-size:9px;font-weight:400;letter-spacing:.045em;line-height:1;}#maModeBar .primaryDockButton{position:relative;}#maModeBar .primaryDockButton:disabled{opacity:.28;pointer-events:none;filter:saturate(.2);}#maModeBar .primaryLabel{display:block;width:100%;text-align:center;pointer-events:none;}#maModeBar .primaryContextActive, #maModeBar .primaryChoice, #maModeBar .holdToolButton.active{background:var(--ink);color:#fff;border-color:var(--ink);}#maModeBar .brushSizePreview{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}#brushSizeCircle{display:block;width:32px;height:32px;box-sizing:border-box;border:1.5px solid #2d2d2b;border-radius:50%;background:#2d2d2b;transform:scale(.5);transform-origin:50% 50%;will-change:transform;transition:none;}.maJoystick{position:fixed;display:block;bottom:max(-12px,calc(env(safe-area-inset-bottom) - 12px));width:58px;height:58px;z-index:88;border:1px solid var(--line);border-radius:50%;background:var(--control);box-shadow:none;touch-action:none;}#viewJoystick{left:max(14px,env(safe-area-inset-left));}#lookJoystick{right:max(14px,env(safe-area-inset-right));}.joyKnob{position:absolute;left:50%;top:50%;width:18px;height:18px;margin-left:-9px;margin-top:-9px;border:0;border-radius:50%;background:var(--ink);pointer-events:none;}.maJoystick.locking .joyKnob{background:#dfe9e3;}#viewJoystick.workplaneLocked{background:#e1e1dc;}#lookJoystick:not(.shadowsOff){background:#e1e1dc;}.joyLabel{position:absolute;z-index:2;color:var(--muted);font-size:8px;font-weight:400;letter-spacing:.04em;line-height:1;pointer-events:none;}.joyLabel.selected, .joyLabel.locked, .joyLabel.target{color:#1f1f1d;}.joyUp{left:50%;top:6px;transform:translateX(-50%);}.joyDown{left:50%;bottom:6px;transform:translateX(-50%);}.joyLeft{left:0;top:50%;transform:translateY(-50%);}.joyRight{right:0;top:50%;transform:translateY(-50%);}#viewWorkplanePanel, #safeFramePanel, #shortcutPanel{position:fixed;z-index:130;background:#171717f3;color:#ddd;border:1px solid #303030;border-radius:12px;padding:12px;}#safeFramePanel .head, #viewWorkplanePanel .head, #shortcutPanel .head{display:flex;align-items:center;justify-content:space-between;gap:8px;}.menuGrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}.menuWide{width:100%;}.menuSectionTitle{margin-top:7px;color:#777;font-size:8px;font-weight:800;letter-spacing:.12em;}#viewWorkplanePanel button, #safeFramePanel button, #shortcutPanel button{border:1px solid #333;border-radius:8px;background:#202020;color:#ddd;padding:8px 10px;}#sideMenuBuild{margin-top:auto;color:#666;font-size:8px;}#viewWorkplanePanel, #safeFramePanel{right:12px;top:12px;width:min(260px,calc(100vw - 24px));}#shortcutPanel{right:12px;top:12px;bottom:12px;width:min(430px,calc(100vw - 24px));overflow:auto;}#safeFrameOverlay{position:fixed;inset:0;pointer-events:none;z-index:75;}#safeFrameFrame{position:absolute;border:2px solid rgba(255,255,255,.96);box-shadow:0 0 0 200vmax rgba(140,140,140,.42);}#safeFrameLabel{position:absolute;left:0;top:-24px;padding:4px 8px;border-radius:8px;background:#151515dd;color:#eee;font-size:10px;}@media (max-width:430px){:root{--ma-dock-h:48px;--ma-main-grid-w:220px;}#maModeBar{grid-template-columns:repeat(4,52px);gap:4px;bottom:max(-14px,calc(env(safe-area-inset-bottom) - 14px));}#maModeBar .holdToolButton, #maModeBar .brushSizeButton{width:52px;height:52px;}#maModeBar .holdToolButton, #maModeBar .primaryLabel{font-size:8px;}.maJoystick{width:52px;height:52px;bottom:max(-14px,calc(env(safe-area-inset-bottom) - 14px));}#viewJoystick{left:max(10px,env(safe-area-inset-left));}#lookJoystick{right:max(10px,env(safe-area-inset-right));}.joyKnob{width:16px;height:16px;margin-left:-8px;margin-top:-8px;}.joyLabel{font-size:7px;}.joyLeft{left:-1px;}.joyRight{right:-1px;}}:root{--ma-control-size:58px;--ma-control-gap:7px;--ma-rail-w:70px;}#viewJoystick{left:calc(50% - (var(--ma-main-grid-w) / 2) - var(--ma-control-gap) - var(--ma-control-size));right:auto;}#lookJoystick{left:calc(50% + (var(--ma-main-grid-w) / 2) + var(--ma-control-gap));right:auto;}@media (orientation:landscape){html.ma-draw-mobile{--ma-dock-h:0px;}html.ma-draw-mobile #viewport{left:calc(var(--ma-rail-w) + env(safe-area-inset-left));right:0;top:0;bottom:0;}html.ma-draw-mobile #maBottomDock{left:0;right:auto;top:0;bottom:0;width:calc(var(--ma-rail-w) + env(safe-area-inset-left));height:100%;border-top:0;border-right:1px solid rgba(70,70,68,.18);}html.ma-draw-mobile #maModeBar{left:calc(env(safe-area-inset-left) + (var(--ma-rail-w) / 2));top:calc(
       50% -
@@ -250,44 +250,41 @@ html.ma-ipad:not(.ma-pencil-mode) #selectHoldBtn.pencilMultiSelect{background:#d
 
 /* MA 9.211 — 2D thumbnail lives above the frozen 3D viewport. */
 #maThumbnailPaper {position:absolute;inset:0;z-index:50;display:none;width:100%;height:100%;touch-action:none!important;user-select:none!important;cursor:crosshair;}
-/* Thumbnail reuses the standard bottom dock Size slot. Color is a separate swatch in the former Redo slot. */
-html.ma-thumbnail #selectHoldBtn.maThumbnailColorSlot::after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:19px;height:19px;border-radius:50%;box-shadow:0 0 0 1px rgba(25,25,25,.35),inset 0 0 0 1px rgba(255,255,255,.28);background:var(--ma-thumbnail-ink,#000000);pointer-events:none;}
-html.ma-thumbnail #selectHoldBtn.maThumbnailColorSlot .primaryLabel{display:none!important;}
-html.ma-thumbnail #maModeBar.brushChoiceDockMode #selectHoldBtn::after{display:none;}
-html.ma-thumbnail #maModeBar.brushChoiceDockMode #selectHoldBtn .primaryLabel{position:static;top:auto;}
-html.ma-thumbnail #viewJoystick.thumbnailStreamlineControl:not(.iphoneBrushChoiceMode) .joyKnob,html.ma-thumbnail #viewJoystick.thumbnailStreamlineControl:not(.iphoneBrushChoiceMode) .maShadowIntensityControls{display:none!important;}html.ma-thumbnail #viewJoystick.thumbnailStreamlineControl:not(.iphoneBrushChoiceMode)::after{content:attr(data-thumbnail-label);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4;border-radius:50%;color:var(--ink);font:500 7px/1 system-ui,-apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:.025em;white-space:nowrap;pointer-events:none;}html.ma-thumbnail #viewJoystick.thumbnailStreamlineControl:not(.iphoneBrushChoiceMode) .joyLabel{pointer-events:none;}
-
-/* Thumbnail COLOR keeps the existing swatch and grey button outline, without any progress ring. */
-html.ma-thumbnail #maBottomDock #selectHoldBtn.maThumbnailColorSlot::after{z-index:4}
-/* In the normal thumbnail dock COLOR shows the entire chosen colour.
-   Keep the original grey border on the button; no progress ring. */
-html.ma-thumbnail #maModeBar:not(.brushChoiceDockMode) #selectHoldBtn.maThumbnailColorSlot::after{
-  content:"COLOR";position:absolute;inset:1px;left:1px;top:1px;width:auto;height:auto;
-  transform:none;display:flex;align-items:center;justify-content:center;border-radius:50%;
-  border:0;box-shadow:none;background:var(--ma-thumbnail-ink,#000000);
-  color:var(--ma-thumbnail-color-ink,#ffffff);font:inherit;
-  font-size:inherit;font-weight:inherit;letter-spacing:inherit;line-height:1;
-  pointer-events:none;z-index:5;
+/* Restore six dock circles in Thumbnail: COLOR stays on the left; the former
+   right-hand COLOR slot is a visible, neutral placeholder with no action. */
+html.ma-unified-ui #maBottomDock #selectHoldBtn.maThumbnailIdleSlot,
+html.ma-unified-ui #maBottomDock #selectHoldBtn.maThumbnailIdleSlot:disabled{
+  display:flex!important;opacity:1!important;pointer-events:none!important;
+  background:var(--control,#fff)!important;color:var(--ink,#333)!important;
+  border-color:var(--line,rgba(70,70,68,.3))!important;
+  box-shadow:none!important;
 }
-/* Briefly blink the entire COLOR swatch after picking ink from the paper.
-   The grey button outline remains visible and the chosen colour is unchanged. */
+/* COLOR fills the former VALUE circle without a loading ring. The native grey
+   button outline stays visible and the text matches ADD / ERASE. */
+html.ma-thumbnail #viewJoystick.thumbnailColorControl:not(.iphoneBrushChoiceMode) .joyKnob,
+html.ma-thumbnail #viewJoystick.thumbnailColorControl:not(.iphoneBrushChoiceMode) .maShadowIntensityControls,
+html.ma-thumbnail #viewJoystick.thumbnailColorControl:not(.iphoneBrushChoiceMode) .joyLabel{display:none!important;}
+#maBottomDock #viewJoystick .maThumbnailColorPreview{
+  display:none;position:absolute;inset:1px;z-index:5;border-radius:50%;
+  align-items:center;justify-content:center;pointer-events:none;white-space:nowrap;
+  background:var(--ma-thumbnail-ink,#000000);color:var(--ma-thumbnail-color-ink,#ffffff);
+  font-size:var(--ma-dial-font-size,9px);font-weight:var(--ma-dial-font-weight,400);
+  font-family:var(--ma-dial-font-family,-apple-system,BlinkMacSystemFont,sans-serif);
+  letter-spacing:var(--ma-dial-letter-spacing,.045em);line-height:var(--ma-dial-line-height,1);
+}
+html.ma-thumbnail #maBottomDock #viewJoystick.thumbnailColorControl:not(.iphoneBrushChoiceMode) .maThumbnailColorPreview{display:flex!important;}
 @keyframes maThumbnailEyedropFlash{
   0%,38%,78%,100%{opacity:1;transform:scale(1)}
   18%,58%{opacity:.16;transform:scale(.94)}
 }
-html.ma-thumbnail #maModeBar:not(.brushChoiceDockMode) #selectHoldBtn.maThumbnailColorSlot.maThumbnailColorPicked::after{
+html.ma-thumbnail #maBottomDock #viewJoystick.maThumbnailColorPicked .maThumbnailColorPreview{
   animation:maThumbnailEyedropFlash 480ms ease-in-out both;
 }
-/* VALUE is a full greyscale brightness preview, not the colour hue or a loading meter. */
-#maBottomDock #viewJoystick .maThumbnailValuePreview{display:none;position:absolute;inset:1px;z-index:5;border-radius:50%;align-items:center;justify-content:center;pointer-events:none;white-space:nowrap;font-size:var(--ma-dial-font-size,9px);font-weight:var(--ma-dial-font-weight,400);font-family:var(--ma-dial-font-family,-apple-system,BlinkMacSystemFont,sans-serif);letter-spacing:var(--ma-dial-letter-spacing,.045em);line-height:var(--ma-dial-line-height,1);}
-html.ma-thumbnail #maBottomDock #viewJoystick.thumbnailStreamlineControl:not(.iphoneBrushChoiceMode) .maThumbnailValuePreview{display:flex!important;}
-html.ma-thumbnail #maBottomDock #viewJoystick.maMenuDockMode .maThumbnailValuePreview,
-html.ma-thumbnail #maBottomDock #viewJoystick.settingsDockMode .maThumbnailValuePreview,
-html.ma-thumbnail #maBottomDock #viewJoystick.exportDockMode .maThumbnailValuePreview,
-html.ma-thumbnail #maBottomDock #viewJoystick.sceneDockMode .maThumbnailValuePreview,
-html.ma-thumbnail #maBottomDock #viewJoystick.safeFrameRatioMode .maThumbnailValuePreview{display:none!important;}
-html.ma-thumbnail #viewJoystick.thumbnailStreamlineControl:not(.iphoneBrushChoiceMode)::after{display:none!important;}
-html.ma-thumbnail #viewJoystick.thumbnailStreamlineControl:not(.iphoneBrushChoiceMode) .joyLabel{display:none!important;}
+/* One discreet dot marks Color Variation ON; no loading/progress ring. */
+html.ma-thumbnail #maBottomDock #viewJoystick.thumbnailColorVariationOn .maThumbnailColorPreview::after{
+  content:'';position:absolute;right:13%;top:12%;width:8px;height:8px;
+  border-radius:50%;background:#fff;box-shadow:0 0 0 1.5px #282828;
+}
 
 #maThumbnailColorInput{position:fixed;left:0;top:0;width:1px;height:1px;z-index:160;display:none;box-sizing:border-box;border:0;padding:0;margin:0;border-radius:50%;opacity:.008;pointer-events:auto;cursor:pointer;touch-action:manipulation;-webkit-appearance:none;appearance:none;}
 html.ma-thumbnail #maThumbnailPaper{display:block}
@@ -301,10 +298,17 @@ html.ma-thumbnail #maUniformScaleHandle,html.ma-thumbnail #maBandCursor{display:
 
 /* Temporary hue/saturation wheel driven by the dock COLOR button; not part of the exported paper. */
 #maThumbnailColorWheel{position:fixed;display:none;left:50%;top:35%;transform:translate(-50%,-50%);width:min(68vw,280px);aspect-ratio:1;z-index:188;pointer-events:none;border-radius:50%;background:rgba(255,255,255,.96);border:3px solid rgba(255,255,255,.97);box-shadow:0 6px 28px rgba(0,0,0,.22);}
-#maThumbnailColorWheel.open{display:block;}#maThumbnailColorWheel.valuePreview .maWheelHint{display:none;}
+#maThumbnailColorWheel.open{display:block;}
 #maThumbnailColorWheelCanvas{display:block;width:100%;height:100%;border-radius:50%;pointer-events:none;}
 #maThumbnailColorWheelMarker{position:absolute;top:50%;left:50%;width:18px;height:18px;transform:translate(-50%,-50%);background:var(--ma-thumbnail-ink,#000);border:3px solid white;box-shadow:0 0 0 1px #222,0 2px 6px #0005;border-radius:50%;pointer-events:none;}
-#maThumbnailColorWheel .maWheelHint{position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%);padding:5px 9px;background:#fff;color:#2d2d2b;border:1px solid rgba(70,70,68,.28);border-radius:12px;font:500 9px -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:.05em;white-space:nowrap;}
+/* Large, true-colour swatch under the wheel, updated for both hue/sat and VALUE.
+   This overlay is never drawn to or exported with the Thumbnail paper. */
+#maThumbnailColorWheelSwatch{
+  position:absolute;top:calc(100% + 16px);left:50%;transform:translateX(-50%);
+  width:72px;height:72px;box-sizing:border-box;border-radius:50%;pointer-events:none;
+  background:var(--ma-thumbnail-ink,#000000);border:5px solid #fff;
+  box-shadow:0 0 0 1px rgba(25,25,25,.28),0 5px 16px rgba(0,0,0,.26);
+}
 #maThumbnailColorPalette{position:fixed;display:none;z-index:190;width:236px;box-sizing:border-box;padding:12px;border:1px solid #b5b5b1;border-radius:15px;background:#f6f6f3;box-shadow:0 8px 32px rgba(0,0,0,.22);touch-action:manipulation;}
 #maThumbnailColorPalette.open{display:block}
 #maThumbnailSwatches{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px}
@@ -413,9 +417,9 @@ html #viewJoystick.maJoystick .joyRight, html #lookJoystick.maJoystick .joyRight
 }
 
 
-/* MA 3D v9.252 — UI press and chosen states follow the live selection colour.
-   Keep neutral buttons white. In particular, ordinary Pencil SELECT is neutral
-   until actually pressed; real multi-select and Split still show a chosen state. */
+/* MA 3D v9.279 — Selected and pressed buttons show the chosen selection colour
+   ONLY on a narrow ring, never across the button face. Neutral controls stay
+   unchanged; Thumbnail COLOR retains its dedicated colour preview. */
 :root { --ma-selection-contrast:#202020; }
 
 /* Common dock buttons: pressing / held-active state. */
@@ -432,9 +436,9 @@ html.ma-thumbnail #maBottomDock #drawAddHoldBtn.maThumbActionActive,
 html.ma-thumbnail #maBottomDock #drawEraseHoldBtn.maThumbActionActive,
 html.ma-unified-ui #maBottomDock #mobileSizeDrag.randomSizeMode,
 html.ma-unified-ui #maBottomDock.maRatioPickerMode .maRatioPickerSelected {
-  background:var(--ma-selection-color)!important;
-  border-color:var(--line)!important;
-  color:var(--ma-selection-contrast)!important;
+  background:var(--control)!important;
+  border:2px solid var(--ma-selection-color)!important;
+  color:var(--ink)!important;
 }
 html.ma-unified-ui #maBottomDock #maModeBar .primaryDockButton:active .primaryLabel,
 html.ma-unified-ui #maBottomDock #maModeBar .primaryDockButton.primaryChoice:not(#selectHoldBtn) .primaryLabel,
@@ -458,9 +462,9 @@ html.ma-unified-ui #maBottomDock #lookJoystick.safeFrameRatioSelected,
 html.ma-unified-ui #maBottomDock #viewJoystick.brushChoiceActive,
 html.ma-unified-ui #maBottomDock #lookJoystick.brushChoiceActive,
 html.ma-unified-ui #maBottomDock .sceneSlotActive {
-  background:var(--ma-selection-color)!important;
-  border-color:var(--line)!important;
-  color:var(--ma-selection-contrast)!important;
+  background:var(--control)!important;
+  border:2px solid var(--ma-selection-color)!important;
+  color:var(--ink)!important;
 }
 html.ma-unified-ui #maBottomDock .sceneSlotActive .primaryLabel,
 html.ma-unified-ui #maBottomDock #viewJoystick.sceneSlotActive::after,
@@ -484,9 +488,9 @@ html.ma-unified-ui #maBottomDock.maAppearanceMode #lookJoystick:not(:active) {
 }
 html.ma-unified-ui #maBottomDock.maAppearanceMode #viewJoystick:active,
 html.ma-unified-ui #maBottomDock.maAppearanceMode #maModeBar .primaryDockButton:active {
-  background:var(--ma-selection-color)!important;
-  border-color:var(--line)!important;
-  color:var(--ma-selection-contrast)!important;
+  background:var(--control)!important;
+  border:2px solid var(--ma-selection-color)!important;
+  color:var(--ink)!important;
 }
 html.ma-unified-ui #maBottomDock.maAppearanceMode #maModeBar .primaryDockButton:active .maAppearanceDialWord,
 html.ma-unified-ui #maBottomDock.maAppearanceMode #viewJoystick:active .maAppearanceDialWord {
@@ -506,14 +510,29 @@ html.ma-unified-ui #viewWorkplanePanel button:active,
 html.ma-unified-ui #safeFramePanel button:active,
 html.ma-unified-ui #shortcutPanel button:active,
 html.ma-unified-ui #shortcutPanel button.listening {
-  background:var(--ma-selection-color)!important;
-  border-color:var(--line)!important;
-  color:var(--ma-selection-contrast)!important;
+  background:var(--control)!important;
+  border:2px solid var(--ma-selection-color)!important;
+  color:var(--ink)!important;
 }
 html.ma-iphone #mainMenuButton:active::before,
 html.ma-iphone #mainMenuButton.maMenuOpen::before {
   background:var(--ma-selection-contrast)!important;
   box-shadow:0 -4px 0 var(--ma-selection-contrast),0 4px 0 var(--ma-selection-contrast)!important;
+}
+
+
+/* MA 3D v9.279 — The SELECT physical slot doubles as the last shape-picker
+   choice (e.g. ROUND). It must get the same selected ring as the other three
+   choices, but remain a neutral SELECT button in the ordinary dock. */
+html.ma-unified-ui #maBottomDock #maModeBar.brushChoiceDockMode #selectHoldBtn.primaryContextActive,
+html.ma-unified-ui #maBottomDock #maModeBar.brushChoiceDockMode #selectHoldBtn.primaryChoice,
+html.ma-unified-ui #maBottomDock #maModeBar.brushChoiceDockMode #selectHoldBtn.active {
+  background:var(--control)!important;
+  border:2px solid var(--ma-selection-color)!important;
+  color:var(--ink)!important;
+}
+html.ma-unified-ui #maBottomDock #maModeBar.brushChoiceDockMode #selectHoldBtn .primaryLabel {
+  color:var(--ink)!important;
 }
 
 </style>
@@ -524,7 +543,7 @@ html.ma-iphone #mainMenuButton.maMenuOpen::before {
   <div id="maThumbnailColorWheel" aria-hidden="true">
     <canvas id="maThumbnailColorWheelCanvas" width="256" height="256"></canvas>
     <span id="maThumbnailColorWheelMarker"></span>
-    <span class="maWheelHint">HUE · SAT</span>
+    <span id="maThumbnailColorWheelSwatch" aria-hidden="true"></span>
   </div>
   <div id="maThumbnailColorPalette" role="group" aria-label="Thumbnail drawing colors">
     <div id="maThumbnailSwatches" role="group" aria-label="Quick colors"></div>
@@ -1641,7 +1660,7 @@ function maEndDrawGeometryTap(e,cancelled=false){
 const MA_IMPLICIT_SELECT_TAP_MS=450;const MA_IMPLICIT_SELECT_TAP_PX=10;let maImplicitSelectCandidate=null;function maImplicitSelectOnGeometryTouch(e){if(currentAppMode()!=='navi'||transformHoldMode||interaction||!selectModeAvailable()||touchPointers.size!==0)return false;const hit=raycastPencilSelectionTarget(e.clientX,e.clientY);const m=massFromHit(hit);if(!m)return false;maImplicitSelectCandidate={pointerId:e.pointerId,massId:m.id,x:e.clientX,y:e.clientY,time:performance.now(),moved:false};return true;}function maResolveImplicitSelectTap(e,gesture){const c=maImplicitSelectCandidate;if(!c||c.pointerId!==e.pointerId)return null;maImplicitSelectCandidate=null;if(c.moved||currentAppMode()!=='navi'||interaction||!selectModeAvailable()||!gesture||gesture.moved||gesture.maxCount!==1||touchPointers.size!==1||performance.now()-c.time>=MA_IMPLICIT_SELECT_TAP_MS||Math.hypot(e.clientX-c.x,e.clientY-c.y)>MA_IMPLICIT_SELECT_TAP_PX)return null;const m=massById(c.massId);return m&&!m._disposed?{m,x:c.x,y:c.y}:null;}function brushSizePreviewDiameter(v=(mobileDrawKind==='boxbrush'||mobileDrawKind==='roundbrush')?brushSize():brushDepth()){const lo=Math.log(.05),hi=Math.log(24);const t=clamp((Math.log(Math.max(.05,v))-lo)/(hi-lo),0,1);return 7+t*25;}function updateBrushSizeButton(){const circle=document.getElementById('brushSizeCircle');if(!circle)return;const d=brushSizePreviewDiameter();circle.style.transform=`scale(${(d/32).toFixed(4)})`;}function primaryDockMode(){if(maMenuDockOpen)return'maMenu';if(settingsDockOpen)return'settings';if(ui?.streamlinePanel?.style?.display==='block')return'streamline';if(ui?.workspaceBgPanel?.style?.display==='block')return'background';if(exportDockOpen)return'export';if(sceneDockOpen)return'scenes';if(safeFrameDockOpen)return'safeFrame';if(maSafeFrameControlsOpen)return'safeFrameDials';if(viewMode==='shadow')return'appearance';if((viewMode==='thumbnail'&&maThumbnailPicker)||drawModeHeld||(!primaryBrushPickerUsesMainDock()&&desktopShapeArmed))return'draw';if(selectModeActive&&(selectedMasses().length>0||(MA_IS_IPAD&&maIPadSelectDockWhenEmpty)))return'select';return'base';}function setPrimaryDockButtonVisual(btn,label,{size=false,active=false}={}){if(!btn)return;const lab=btn.querySelector('.primaryLabel');const preview=btn.querySelector('.brushSizePreview');if(lab){lab.textContent=label||'';lab.style.display=size?'none':'block';}if(preview)preview.style.display=size?'flex':'none';btn.classList.toggle('primaryContextActive',!!active);}function syncSafeFrameDockVisuals(){const view=document.getElementById('viewJoystick');const look=document.getElementById('lookJoystick');if(view){view.classList.toggle('safeFrameRatioMode',!!safeFrameDockOpen);const viewChoice=safeFrameRatioPickerActive?'1:1':null;view.classList.toggle('safeFrameRatioSelected',!!(safeFrameDockOpen&&safeFrameRatioPickerActive&&safeFrameRatioPickerChoice===viewChoice));if(safeFrameDockOpen)view.dataset.safeRatio=safeFrameRatioPickerActive?safeFrameDockLabel('1:1'):'RATIO';else delete view.dataset.safeRatio;}if(look){look.classList.toggle('safeFrameRatioMode',!!safeFrameDockOpen);look.classList.toggle('safeFrameRatioSelected',!!safeFrameDockOpen&&!safeFrameRatioPickerActive&&!!safeFrameState.enabled);if(safeFrameDockOpen)look.dataset.safeRatio=safeFrameState.enabled?'ON':'OFF';else delete look.dataset.safeRatio;}}const EXPORT_DOCK_ACTIONS=[['viewJoystick','viewPng'],[PRIMARY_MIDDLE_SLOT_IDS[0],'viewPsd'],[PRIMARY_MIDDLE_SLOT_IDS[1],'scenesPng'],[PRIMARY_MIDDLE_SLOT_IDS[2],'scenesPsd'],[PRIMARY_MIDDLE_SLOT_IDS[3],'obj']];function syncExportDockVisuals(){const view=document.getElementById('viewJoystick');const look=document.getElementById('lookJoystick');const modeBar=document.getElementById('maModeBar');view?.classList.toggle('exportDockMode',!!exportDockOpen);look?.classList.toggle('exportDockMode',!!exportDockOpen);modeBar?.classList.toggle('exportDockMode',!!exportDockOpen);if(view){if(exportDockOpen)view.dataset.exportLabel='VIEW PNG';else delete view.dataset.exportLabel;}if(look){delete look.dataset.exportLabel;}}function setExportDockOpen(open){exportDockOpen=!!open;if(exportDockOpen){clearLatchedDrawForFunctionSwitch?.();if(settingsDockOpen){settingsDockOpen=false;syncSettingsDockVisuals();closeSettingsValuePanels();}maMenuDockOpen=false;if(sceneDockOpen)sceneDockOpen=false;if(safeFrameDockOpen)openSafeFramePanel(false);const light=document.getElementById('sunDirPanel');const depth=document.getElementById('depthRangePanel');const line=null;if(light)light.style.display='none';if(depth)depth.style.display='none';if(line)line.style.display='none';}else{clearPendingPsdExports();syncUnifiedLookSettings?.();}syncExportDockVisuals();syncSceneDockVisuals?.();syncMAMenuDockVisuals?.();updateMobileDrawUI?.();}const SCENE_DOCK_SLOTS=[['viewJoystick',1],[PRIMARY_MIDDLE_SLOT_IDS[0],2],[PRIMARY_MIDDLE_SLOT_IDS[1],3],[PRIMARY_MIDDLE_SLOT_IDS[2],4],[PRIMARY_MIDDLE_SLOT_IDS[3],5]];const SCENE_LOOK_JOYSTICK_ID='lookJoystick';function flashSceneSlot(slot){const pair=SCENE_DOCK_SLOTS.find(([,n])=>+n===+slot);const el=pair?document.getElementById(pair[0]):null;if(!el||!sceneDockOpen)return;el.classList.remove('sceneSlotFlash');void el.offsetWidth;el.classList.add('sceneSlotFlash');clearTimeout(el._maSceneFlashTimer);el._maSceneFlashTimer=setTimeout(()=>el.classList.remove('sceneSlotFlash'),280);}function syncSceneDockVisuals(){for(const[id,slot]of SCENE_DOCK_SLOTS){const el=document.getElementById(id);if(!el)continue;const filled=!!sceneAtSlot(slot);const active=filled&&+activeSceneId===slot;el.classList.toggle('sceneDockMode',!!sceneDockOpen);el.classList.toggle('sceneSlotFilled',!!sceneDockOpen&&filled);el.classList.toggle('sceneSlotActive',!!sceneDockOpen&&active);el.classList.toggle('sceneSlotDirty',!!sceneDockOpen&&active&&sceneViewDirty);if(sceneDockOpen)el.dataset.sceneLabel=`S${slot}`;else delete el.dataset.sceneLabel;}const look=document.getElementById(SCENE_LOOK_JOYSTICK_ID);if(look){look.classList.remove('sceneDockMode','sceneMoodSlot','sceneSlotFilled','sceneSlotActive','sceneSlotDirty');delete look.dataset.sceneLabel;look.setAttribute('aria-label','Look joystick. Tap toggles shadows. Left Only Line, up Light, right Depth Fog, down Workspace.');}}function setSceneDockOpen(open){sceneDockOpen=!!open;if(sceneDockOpen){clearLatchedDrawForFunctionSwitch?.();if(settingsDockOpen){settingsDockOpen=false;syncSettingsDockVisuals();closeSettingsValuePanels();}maMenuDockOpen=false;if(exportDockOpen){exportDockOpen=false;clearPendingPsdExports();}if(safeFrameDockOpen)openSafeFramePanel(false);}syncSceneDockVisuals();syncExportDockVisuals();syncMAMenuDockVisuals();updateMobileDrawUI?.();syncUnifiedLookSettings?.();}function maMenuContextActive(){const shortcutsOpen=ui?.shortcutPanel?.style?.display==='flex';return!!(maMenuDockOpen||settingsDockOpen||exportDockOpen||sceneDockOpen||safeFrameDockOpen||shortcutsOpen||ui?.streamlinePanel?.style?.display==='block'||ui?.workspaceBgPanel?.style?.display==='block'||ui?.fovSettingsPanel?.style?.display==='block');}function syncMAMenuDockVisuals(){const view=document.getElementById('viewJoystick');const look=document.getElementById('lookJoystick');const modeBar=document.getElementById('maModeBar');view?.classList.toggle('maMenuDockMode',!!maMenuDockOpen);look?.classList.toggle('maMenuDockMode',!!maMenuDockOpen);modeBar?.classList.toggle('maMenuDockMode',!!maMenuDockOpen);if(view){if(maMenuDockOpen)view.dataset.maMenuLabel='LIBRARY';else delete view.dataset.maMenuLabel;}if(look){if(maMenuDockOpen)look.dataset.maMenuLabel='BG';else delete look.dataset.maMenuLabel;look.classList.remove('maMenuSafeFrameOn');}document.getElementById('mainMenuButton')?.classList.toggle('maMenuOpen',maMenuContextActive());}function syncSettingsDockVisuals(){const view=document.getElementById('viewJoystick');const look=document.getElementById('lookJoystick');const modeBar=document.getElementById('maModeBar');view?.classList.toggle('settingsDockMode',!!settingsDockOpen);look?.classList.toggle('settingsDockMode',!!settingsDockOpen);modeBar?.classList.toggle('settingsDockMode',!!settingsDockOpen);if(view){if(settingsDockOpen)view.dataset.settingsLabel='SHORT';else delete view.dataset.settingsLabel;}if(look){if(settingsDockOpen)look.dataset.settingsLabel='';else delete look.dataset.settingsLabel;}}function setSettingsDockOpen(open){if(open&&viewMode==='thumbnail')maThumbnailCloseTransientControls();settingsDockOpen=!!open;closeSettingsValuePanels();if(settingsDockOpen){clearLatchedDrawForFunctionSwitch?.();maMenuDockOpen=false;if(sceneDockOpen)sceneDockOpen=false;if(exportDockOpen){exportDockOpen=false;clearPendingPsdExports();}if(safeFrameDockOpen)openSafeFramePanel(false);const light=document.getElementById('sunDirPanel');const depth=document.getElementById('depthRangePanel');const line=null;if(light)light.style.display='none';if(depth)depth.style.display='none';if(line)line.style.display='none';}else{syncUnifiedLookSettings?.();}syncSettingsDockVisuals();syncMAMenuDockVisuals();syncSceneDockVisuals();syncExportDockVisuals();updateMobileDrawUI?.();}function clearMoodDockPresentationForMenu(){const dock=document.getElementById('maBottomDock');dock?.classList.remove('secondaryDockMode','valueMode','streamlineDockMode');for(const panel of[document.getElementById('sunDirPanel'),document.getElementById('depthRangePanel'),document.getElementById('streamlinePanel')]){if(!panel)continue;panel.classList.remove('ma-secondary-inline');panel.style.display='none';}}function setMAMenuDockOpen(open){if(open&&viewMode==='thumbnail')maThumbnailCloseTransientControls();maMenuDockOpen=!!open;if(maMenuDockOpen){clearLatchedDrawForFunctionSwitch?.();if(settingsDockOpen)settingsDockOpen=false;closeSettingsValuePanels();syncSettingsDockVisuals();if(sceneDockOpen)sceneDockOpen=false;if(exportDockOpen){exportDockOpen=false;clearPendingPsdExports();}if(safeFrameDockOpen)openSafeFramePanel(false);clearMoodDockPresentationForMenu();positionSecondaryViewPanels?.();}else{syncUnifiedLookSettings?.();}syncSceneDockVisuals();syncExportDockVisuals();syncMAMenuDockVisuals();updateMobileDrawUI?.();}function toggleDockInputMode(){if(!MA_IS_IPAD){showToast('INPUT · AUTO');return;}if(ipadPencilMode){ipadInputModePreference='finger';enterIPadFingerMode({announce:true});}else{ipadInputModePreference='pencil';enterIPadPencilMode({announce:true});}updateMobileDrawUI?.();}
 
 /* ===== UI · shared desktop/iPad/iPhone dock ===== */
-function syncPrimaryDockUI(){maThumbnailHideColorInput();document.getElementById('selectHoldBtn')?.classList.remove('maThumbnailColorSlot');const b1=document.getElementById('drawAddHoldBtn');const b2=document.getElementById('drawEraseHoldBtn');const b3=document.getElementById('mobileSizeDrag');const b4=document.getElementById('selectHoldBtn');const[slot2,slot3,slot4,slot5]=PRIMARY_MIDDLE_SLOT_IDS.map(id=>document.getElementById(id));const mode=primaryDockMode();document.getElementById('maModeBar')?.classList.toggle('selectToolOrder',mode==='select');document.getElementById('maBottomDock')?.classList.toggle('maAppearanceMode',mode==='appearance'||mode==='safeFrameDials');[b1,b2,b3,b4].forEach(b=>{b?.classList.remove('primaryChoice','primaryContextActive');});if(mode==='base'&&viewMode==='thumbnail'){setPrimaryDockButtonVisual(b1,'ADD',{active:maThumbnailAction==='add'});setPrimaryDockButtonVisual(b2,'ERASE',{active:maThumbnailAction==='erase'});setPrimaryDockButtonVisual(b3,'',{size:true});maThumbnailUpdateSizeVisual();setPrimaryDockButtonVisual(b4,'');b4.classList.add('maThumbnailColorSlot');maThumbnailSyncColorDial();maThumbnailPositionColorInput();return;}if(viewMode!=='thumbnail')b4?.setAttribute('aria-label','Select / Split');if(mode==='appearance'||mode==='safeFrameDials'){for(const b of [b1,b2,b3,b4]){setPrimaryDockButtonVisual(b,'');b.disabled=false;b.style.removeProperty('background');b.style.removeProperty('color');}syncAppearanceDials();return;}if(mode==='maMenu'){setPrimaryDockButtonVisual(slot2,'EXPORT');setPrimaryDockButtonVisual(slot3,'SETTINGS');setPrimaryDockButtonVisual(slot4,'FRAME');setPrimaryDockButtonVisual(slot5,'SAFE',{active:!!safeFrameDockOpen});syncMAMenuDockVisuals();return;}if(mode==='settings'){setPrimaryDockButtonVisual(slot2,'STREAM');setPrimaryDockButtonVisual(slot3,'INPUT',{active:!!(MA_IS_IPAD&&ipadPencilMode)});setPrimaryDockButtonVisual(slot4,'SELECTION',{active:document.getElementById('maSelectionColorPanel')?.style.display==='block'});setPrimaryDockButtonVisual(slot5,'STABLE');syncSettingsDockVisuals();return;}if(mode==='background'){[b1,b2,b3,b4].forEach(b=>setPrimaryDockButtonVisual(b,''));document.getElementById('maBottomDock')?.classList.add('backgroundDockMode');requestAnimationFrame(()=>positionSecondaryViewPanels?.());return;}if(mode==='streamline'){[b1,b2,b3,b4].forEach(b=>setPrimaryDockButtonVisual(b,''));document.getElementById('maBottomDock')?.classList.add('streamlineDockMode');requestAnimationFrame(()=>positionSecondaryViewPanels?.());return;}if(slot5){slot5.style.removeProperty('background');slot5.style.removeProperty('color');}if(mode==='export'){const viewPsdLabel=viewPsdBuildInProgress?'BUILDING':'VIEW PSD';const scenePsdLabel=scenePsdBuildInProgress?'BUILDING':'SCN PSD';setPrimaryDockButtonVisual(slot2,viewPsdLabel,{active:!!pendingViewPsdFile});setPrimaryDockButtonVisual(slot3,'SCN PNG');setPrimaryDockButtonVisual(slot4,scenePsdLabel,{active:!!pendingScenePsdFiles.length});setPrimaryDockButtonVisual(slot5,'OBJ');syncExportDockVisuals();return;}if(mode==='safeFrame'){if(safeFrameRatioPickerActive){const choices=['4:3','3:2','16:9','21:9'];[slot2,slot3,slot4,slot5].forEach((slot,i)=>{const base=choices[i];setPrimaryDockButtonVisual(slot,safeFrameDockLabel(base),{active:safeFrameRatioPickerChoice===base});});}else{[slot2,slot3,slot4,slot5].forEach(slot=>setPrimaryDockButtonVisual(slot,''));}syncSafeFrameDockVisuals();return;}if(mode==='scenes'){setPrimaryDockButtonVisual(slot2,'S2',{active:+activeSceneId===2});setPrimaryDockButtonVisual(slot3,'S3',{active:+activeSceneId===3});setPrimaryDockButtonVisual(slot4,'S4',{active:+activeSceneId===4});setPrimaryDockButtonVisual(slot5,'S5',{active:+activeSceneId===5});syncSceneDockVisuals();return;}if(mode==='draw'&&viewMode==='thumbnail'&&maThumbnailPicker){const choices=maThumbnailPickerMap();const selected=maThumbnailPicker.hover||maThumbnailData.tool;for(const btn of[b1,b2,b3,b4]){const tool=choices[btn.id];setPrimaryDockButtonVisual(btn,maThumbnailPickerText(tool),{active:tool===selected});}maThumbnailSyncPickerVisuals();return;}if(mode==='draw'){if(primaryBrushPickerUsesMainDock()){const palette=iphonePrimaryDrawPaletteMap(drawPaletteSourceId);const shown=drawKindScrubTracking&&drawKindScrubChoice?drawKindScrubChoice:mobileDrawKind;setPrimaryDockButtonVisual(b1,primaryDrawKindText(palette.drawAddHoldBtn),{active:shown===palette.drawAddHoldBtn});setPrimaryDockButtonVisual(b2,primaryDrawKindText(palette.drawEraseHoldBtn),{active:shown===palette.drawEraseHoldBtn});setPrimaryDockButtonVisual(b3,primaryDrawKindText(palette.mobileSizeDrag),{active:shown===palette.mobileSizeDrag});setPrimaryDockButtonVisual(b4,primaryDrawKindText(palette.selectHoldBtn),{active:shown===palette.selectHoldBtn});[b1,b2,b3,b4].forEach(b=>b?.classList.toggle('primaryChoice',!!b?.classList.contains('primaryContextActive')));syncIPhoneBrushChoiceVisuals();return;}setPrimaryDockButtonVisual(b1,'ADD',{active:drawHoldAction==='add'});setPrimaryDockButtonVisual(b2,'ERASE',{active:drawHoldAction==='erase'});setPrimaryDockButtonVisual(b3,'',{size:true});setPrimaryDockButtonVisual(b4,drawHoldAction==='split'?'SPLIT':'SELECT');syncIPhoneBrushChoiceVisuals();return;}if(mode==='select'){setPrimaryDockButtonVisual(b1,'SCALE',{active:transformHoldMode==='scale'});setPrimaryDockButtonVisual(b2,'ROTATE',{active:transformHoldMode==='rotate'});setPrimaryDockButtonVisual(b3,'DUP');setPrimaryDockButtonVisual(b4,'SELECT');return;}setPrimaryDockButtonVisual(b1,'ADD',{active:currentAppMode()==='draw'&&drawHoldAction==='add'});setPrimaryDockButtonVisual(b2,'ERASE',{active:currentAppMode()==='draw'&&drawHoldAction==='erase'});setPrimaryDockButtonVisual(b3,'',{size:true});setPrimaryDockButtonVisual(b4,'SPLIT',{active:maSplitActive()});if(b4){b4.style.removeProperty('background');b4.style.removeProperty('color');}}function updateMobileDrawUI(){if(!MA_UNIFIED_UI)return;const canSelect=selectModeAvailable();if(!canSelect&&!drawModeHeld&&!desktopShapeArmed){selectModeActive=false;selectModeHeld=false;desktopSelectArmed=false;desktopWindowSelectArmed=false;moveArmed=false;transformHoldMode=null;desktopTransformArmed=false;transformHoldReleasePending=false;desktopAxisMoveArmed=null;mobileSelectTap=null;mobileMovePointerId=null;setSelectionGizmosEnabled(false);finalizeRotatePivot(false);if(selectedMasses().length)setSelection([]);}const mode=currentAppMode();const hasSelection=selectedMasses().length>0;const addBtn=document.getElementById('drawAddHoldBtn');const eraseBtn=document.getElementById('drawEraseHoldBtn');const selectBtn=document.getElementById('selectHoldBtn');const dockMode=primaryDockMode();if(selectBtn){const physicalButtonIsSelect=(dockMode==='base'||dockMode==='select'||(dockMode==='draw'&&!primaryBrushPickerUsesMainDock()));const disabled=physicalButtonIsSelect&&dockMode!=='base'&&!canSelect;selectBtn.disabled=disabled;selectBtn.setAttribute('aria-disabled',String(disabled));}addBtn?.classList.toggle('active',dockMode==='base'&&mode==='draw'&&drawHoldAction==='add');eraseBtn?.classList.toggle('active',dockMode==='base'&&mode==='draw'&&drawHoldAction==='erase');eraseBtn?.classList.toggle('eraseActive',dockMode==='base'&&mode==='draw'&&drawHoldAction==='erase');selectBtn?.classList.remove('active');selectBtn?.classList.toggle('pencilMultiSelect',MA_IS_IPAD&&ipadPencilMultiSelect&&dockMode==='select');selectBtn?.classList.toggle('maSplitSelected',dockMode==='base'&&maSplitActive());selectBtn?.setAttribute('aria-pressed',String((dockMode==='base'&&maSplitActive())||(dockMode==='select'&&MA_IS_IPAD&&ipadPencilMultiSelect)));const iphoneSelectVisual=!!(MA_IS_IPHONE&&canSelect&&(dockMode==='base'||dockMode==='select'));selectBtn?.classList.toggle('iphoneSelectPressPreview',iphoneSelectVisual&&iphoneSelectPressPreview);selectBtn?.classList.toggle('iphoneSelectMultiHold',iphoneSelectVisual&&selectModeHeld&&!iphoneSelectPressPreview);selectBtn?.classList.remove('iphoneSelectSingle');mobileSizeBtn?.classList.toggle('randomSizeMode',!!(randomBrushSizeMode&&dockMode==='base'));mobileSizeBtn?.setAttribute('aria-pressed',String(!!(randomBrushSizeMode&&dockMode==='base')));syncPrimaryDockUI();syncIPhoneBrushChoiceVisuals();syncSafeFrameDockVisuals();syncSceneDockVisuals();syncExportDockVisuals();syncMAMenuDockVisuals();syncSettingsDockVisuals();syncThumbnailViewControl();syncBrushPalettePanel();syncLookJoystickUI();syncShadowIntensityUI();syncIPadInputModeUI();document.querySelectorAll('#viewJoystick [data-joy-view]').forEach(label=>{const v=label.dataset.joyView;label.classList.toggle('selected',v===projectionMode);label.classList.toggle('locked',(viewAxisHold?.axis===v&&viewAxisHold?.usedAsLock)||desktopAxisMoveArmed===v||(interaction?.axisHoldMove&&interaction.axisHoldAxis===v)||(maHoverMoveSession?.phase==='hover'&&interaction===maHoverMoveSession.interaction&&interaction?.midMoveAxisLock===v&&axisLock===v));});document.querySelectorAll('#lookJoystick [data-joy-mode]').forEach(label=>{label.classList.toggle('selected',!lookJoystickSelectionMode()&&label.dataset.joyMode===viewMode);});document.getElementById('viewJoystick')?.classList.toggle('locking',!!viewAxisHold?.usedAsLock||!!desktopAxisMoveArmed||!!interaction?.axisHoldMove||(maHoverMoveSession?.phase==='hover'&&interaction===maHoverMoveSession.interaction&&!!interaction?.midMoveAxisLock&&!!axisLock));syncWorkplaneLockUI();updateBrushSizeButton();}function updateUnifiedSelectionUI(){if(!MA_UNIFIED_UI)return;if(ipadPencilMode&&maEditableViewMode()&&sceneHasSelectableGeometry()&&!pencilSelectManuallyOff&&selectedMasses().length===0&&!desktopShapeArmed&&!drawModeHeld&&!transformHoldMode){selectModeActive=true;moveArmed=false;selectTransformMode='select';if(activeTool!=='select')setTool('select');}updateMobileDrawUI();}function clearDrawHoldCancelTimer(){if(drawHoldCancelTimer){clearTimeout(drawHoldCancelTimer);drawHoldCancelTimer=null;}}function deferDrawHoldCancelForPen(e){if(!MA_UNIFIED_UI||!drawModeHeld)return false;drawHoldPointerCancelledForPen=true;clearDrawHoldCancelTimer();drawHoldCancelTimer=setTimeout(()=>{drawHoldCancelTimer=null;if(drawHoldPointerCancelledForPen&&!penActive){drawHoldPointerCancelledForPen=false;endDrawModeHold();}},350);return true;}function clearSelectHoldCancelTimer(){if(selectHoldCancelTimer){clearTimeout(selectHoldCancelTimer);selectHoldCancelTimer=null;}}function scheduleSelectHoldCancelAfterPencil(delay=1400){if(!selectHoldPointerCancelledForPen||!selectModeHeld)return;clearSelectHoldCancelTimer();selectHoldCancelTimer=setTimeout(()=>{selectHoldCancelTimer=null;if(!selectHoldPointerCancelledForPen||!selectModeHeld)return;if(penActive){scheduleSelectHoldCancelAfterPencil(500);return;}selectHoldPointerCancelledForPen=false;endSelectModeHold();},delay);}function deferSelectHoldCancelForPen(){if(!MA_IS_IPAD||!ipadPencilMode||!selectModeHeld)return false;selectHoldPointerCancelledForPen=true;clearSelectHoldCancelTimer();scheduleSelectHoldCancelAfterPencil(1400);return true;}function maSwitchDrawAction(action){if(action!=='split')maResetOffset();const wasSplit=drawHoldAction==='split';const split=action==='split';if(split&&!wasSplit){maVolumeBrushKind=mobileDrawKind;mobileDrawKind=maSplitBrushKind;}if(!split&&wasSplit){maSplitBrushKind=mobileDrawKind;mobileDrawKind=maVolumeBrushKind;}drawHoldAction=action;mobileEraseHeld=action==='erase';setTool(mobileDrawTool());updateBrushSizeButton();updateMobileDrawUI();}function maArmSplit(){armDesktopDraw(false);maSwitchDrawAction('split');showToast('SPLIT · DRAW ON FACE');}function beginDrawModeHold(e,erase=false){if(!MA_UNIFIED_UI||drawModeHeld||selectModeHeld)return;maSelectCancelBaseline=null;if(MA_IS_IPAD){ipadPencilMultiSelect=false;maIPadSelectDockWhenEmpty=false;}e?.preventDefault?.();e?.stopPropagation?.();if(interaction||marqueeState)cancelInteraction(true);clearMobileStraightHold();selectModeActive=false;selectModeHeld=false;desktopWindowSelectArmed=false;moveArmed=false;transformHoldMode=null;desktopTransformArmed=false;transformHoldReleasePending=false;desktopAxisMoveArmed=null;viewAxisHold=null;viewJoystickGesture=null;setJoystickKnob('view',null);viewAxisHold=null;axisLock=null;setSelectionGizmosEnabled(false);finalizeRotatePivot(false);if(selectedMasses().length)setSelection([]);clearDrawHoldCancelTimer();drawHoldPointerCancelledForPen=false;drawModeHeld=true;drawKindScrubChoice=null;drawKindScrubTracking=false;drawKindScrubHoverButtonId=null;const holdSourceId=e?.currentTarget?.id;if(PRIMARY_DRAW_BUTTON_IDS.includes(holdSourceId))drawPaletteSourceId=holdSourceId;drawModeHoldPointerId=e?.pointerId??null;drawModeHoldPointerType=e?.pointerType??null;mobileInputMode='draw';mobileDrawPointerId=null;mobileMovePointerId=null;mobileSelectTap=null;unifiedNaviPointerId=null;penActive=false;orbiting=false;desktopOrbitPivot=null;maSwitchDrawAction(erase?'erase':'add');setSelectionGizmosEnabled(false);finalizeRotatePivot(false);touchPointers.clear();touchGesture=null;touchNavState=null;touchOrbitPivot=null;touchPanScale=0;cancelTouchFovArm();updateMobileDrawUI();syncBrushPalettePanel();}function endDrawModeHold(e=null){if(!MA_UNIFIED_UI||!drawModeHeld)return;maResetOffset();clearDrawHoldCancelTimer();drawHoldPointerCancelledForPen=false;if(e&&drawModeHoldPointerId!=null&&e.pointerId!==drawModeHoldPointerId)return;clearMobileStraightHold();const holdPointerId=drawModeHoldPointerId;if(interaction?.kind==='draw'){if(interaction.pointerId===holdPointerId)cancelInteraction(true);else{try{endDraw();}catch(_){cancelInteraction(true);}}}mobileDrawPointerId=null;penActive=false;drawModeHeld=false;drawKindScrubChoice=null;drawKindScrubTracking=false;drawKindScrubHoverButtonId=null;drawModeHoldPointerId=null;drawModeHoldPointerType=null;mobileInputMode='navi';touchPointers.clear();touchGesture=null;touchNavState=null;touchOrbitPivot=null;touchPanScale=0;cancelTouchFovArm();setTool('select');setSelectionGizmosEnabled(false);finalizeRotatePivot(false);updateMobileDrawUI();}// v9.167 — A tap on SELECT cancels the current Select edit and restores its starting point.
+function syncPrimaryDockUI(){maThumbnailHideColorInput();document.getElementById('selectHoldBtn')?.classList.remove('maThumbnailColorSlot');const b1=document.getElementById('drawAddHoldBtn');const b2=document.getElementById('drawEraseHoldBtn');const b3=document.getElementById('mobileSizeDrag');const b4=document.getElementById('selectHoldBtn');const[slot2,slot3,slot4,slot5]=PRIMARY_MIDDLE_SLOT_IDS.map(id=>document.getElementById(id));const mode=primaryDockMode();b4?.classList.toggle('maThumbnailIdleSlot',mode==='base'&&viewMode==='thumbnail');if(b4?.classList.contains('maThumbnailIdleSlot')){b4.disabled=true;b4.setAttribute('aria-label','Reserved Thumbnail button');b4.setAttribute('aria-disabled','true');}else if(b4?.disabled&&viewMode==='thumbnail'){b4.disabled=false;b4.setAttribute('aria-disabled','false');}document.getElementById('maModeBar')?.classList.toggle('selectToolOrder',mode==='select');document.getElementById('maBottomDock')?.classList.toggle('maAppearanceMode',mode==='appearance'||mode==='safeFrameDials');[b1,b2,b3,b4].forEach(b=>{b?.classList.remove('primaryChoice','primaryContextActive');});if(mode==='base'&&viewMode==='thumbnail'){setPrimaryDockButtonVisual(b1,'ADD',{active:maThumbnailAction==='add'});setPrimaryDockButtonVisual(b2,'ERASE',{active:maThumbnailAction==='erase'});setPrimaryDockButtonVisual(b3,'',{size:true});maThumbnailUpdateSizeVisual();setPrimaryDockButtonVisual(b4,'');maThumbnailSyncColorDial();maThumbnailPositionColorInput();syncThumbnailViewControl();return;}if(viewMode!=='thumbnail')b4?.setAttribute('aria-label','Select / Split');if(mode==='appearance'||mode==='safeFrameDials'){for(const b of [b1,b2,b3,b4]){setPrimaryDockButtonVisual(b,'');b.disabled=false;b.style.removeProperty('background');b.style.removeProperty('color');}syncAppearanceDials();return;}if(mode==='maMenu'){setPrimaryDockButtonVisual(slot2,'EXPORT');setPrimaryDockButtonVisual(slot3,'SETTINGS');setPrimaryDockButtonVisual(slot4,'FRAME');setPrimaryDockButtonVisual(slot5,'SAFE',{active:!!safeFrameDockOpen});syncMAMenuDockVisuals();return;}if(mode==='settings'){setPrimaryDockButtonVisual(slot2,'STREAM');setPrimaryDockButtonVisual(slot3,'INPUT',{active:!!(MA_IS_IPAD&&ipadPencilMode)});setPrimaryDockButtonVisual(slot4,'SELECTION',{active:document.getElementById('maSelectionColorPanel')?.style.display==='block'});setPrimaryDockButtonVisual(slot5,'STABLE');syncSettingsDockVisuals();return;}if(mode==='background'){[b1,b2,b3,b4].forEach(b=>setPrimaryDockButtonVisual(b,''));document.getElementById('maBottomDock')?.classList.add('backgroundDockMode');requestAnimationFrame(()=>positionSecondaryViewPanels?.());return;}if(mode==='streamline'){[b1,b2,b3,b4].forEach(b=>setPrimaryDockButtonVisual(b,''));document.getElementById('maBottomDock')?.classList.add('streamlineDockMode');requestAnimationFrame(()=>positionSecondaryViewPanels?.());return;}if(slot5){slot5.style.removeProperty('background');slot5.style.removeProperty('color');}if(mode==='export'){const viewPsdLabel=viewPsdBuildInProgress?'BUILDING':'VIEW PSD';const scenePsdLabel=scenePsdBuildInProgress?'BUILDING':'SCN PSD';setPrimaryDockButtonVisual(slot2,viewPsdLabel,{active:!!pendingViewPsdFile});setPrimaryDockButtonVisual(slot3,'SCN PNG');setPrimaryDockButtonVisual(slot4,scenePsdLabel,{active:!!pendingScenePsdFiles.length});setPrimaryDockButtonVisual(slot5,'OBJ');syncExportDockVisuals();return;}if(mode==='safeFrame'){if(safeFrameRatioPickerActive){const choices=['4:3','3:2','16:9','21:9'];[slot2,slot3,slot4,slot5].forEach((slot,i)=>{const base=choices[i];setPrimaryDockButtonVisual(slot,safeFrameDockLabel(base),{active:safeFrameRatioPickerChoice===base});});}else{[slot2,slot3,slot4,slot5].forEach(slot=>setPrimaryDockButtonVisual(slot,''));}syncSafeFrameDockVisuals();return;}if(mode==='scenes'){setPrimaryDockButtonVisual(slot2,'S2',{active:+activeSceneId===2});setPrimaryDockButtonVisual(slot3,'S3',{active:+activeSceneId===3});setPrimaryDockButtonVisual(slot4,'S4',{active:+activeSceneId===4});setPrimaryDockButtonVisual(slot5,'S5',{active:+activeSceneId===5});syncSceneDockVisuals();return;}if(mode==='draw'&&viewMode==='thumbnail'&&maThumbnailPicker){const choices=maThumbnailPickerMap();const selected=maThumbnailPicker.hover||maThumbnailData.tool;for(const btn of[b1,b2,b3,b4]){const tool=choices[btn.id];setPrimaryDockButtonVisual(btn,maThumbnailPickerText(tool),{active:tool===selected});}maThumbnailSyncPickerVisuals();return;}if(mode==='draw'){if(primaryBrushPickerUsesMainDock()){const palette=iphonePrimaryDrawPaletteMap(drawPaletteSourceId);const shown=drawKindScrubTracking&&drawKindScrubChoice?drawKindScrubChoice:mobileDrawKind;setPrimaryDockButtonVisual(b1,primaryDrawKindText(palette.drawAddHoldBtn),{active:shown===palette.drawAddHoldBtn});setPrimaryDockButtonVisual(b2,primaryDrawKindText(palette.drawEraseHoldBtn),{active:shown===palette.drawEraseHoldBtn});setPrimaryDockButtonVisual(b3,primaryDrawKindText(palette.mobileSizeDrag),{active:shown===palette.mobileSizeDrag});setPrimaryDockButtonVisual(b4,primaryDrawKindText(palette.selectHoldBtn),{active:shown===palette.selectHoldBtn});[b1,b2,b3,b4].forEach(b=>b?.classList.toggle('primaryChoice',!!b?.classList.contains('primaryContextActive')));syncIPhoneBrushChoiceVisuals();return;}setPrimaryDockButtonVisual(b1,'ADD',{active:drawHoldAction==='add'});setPrimaryDockButtonVisual(b2,'ERASE',{active:drawHoldAction==='erase'});setPrimaryDockButtonVisual(b3,'',{size:true});setPrimaryDockButtonVisual(b4,drawHoldAction==='split'?'SPLIT':'SELECT');syncIPhoneBrushChoiceVisuals();return;}if(mode==='select'){setPrimaryDockButtonVisual(b1,'SCALE',{active:transformHoldMode==='scale'});setPrimaryDockButtonVisual(b2,'ROTATE',{active:transformHoldMode==='rotate'});setPrimaryDockButtonVisual(b3,'DUP');setPrimaryDockButtonVisual(b4,'SELECT');return;}setPrimaryDockButtonVisual(b1,'ADD',{active:currentAppMode()==='draw'&&drawHoldAction==='add'});setPrimaryDockButtonVisual(b2,'ERASE',{active:currentAppMode()==='draw'&&drawHoldAction==='erase'});setPrimaryDockButtonVisual(b3,'',{size:true});setPrimaryDockButtonVisual(b4,'SPLIT',{active:maSplitActive()});if(b4){b4.style.removeProperty('background');b4.style.removeProperty('color');}}function updateMobileDrawUI(){if(!MA_UNIFIED_UI)return;const canSelect=selectModeAvailable();if(!canSelect&&!drawModeHeld&&!desktopShapeArmed){selectModeActive=false;selectModeHeld=false;desktopSelectArmed=false;desktopWindowSelectArmed=false;moveArmed=false;transformHoldMode=null;desktopTransformArmed=false;transformHoldReleasePending=false;desktopAxisMoveArmed=null;mobileSelectTap=null;mobileMovePointerId=null;setSelectionGizmosEnabled(false);finalizeRotatePivot(false);if(selectedMasses().length)setSelection([]);}const mode=currentAppMode();const hasSelection=selectedMasses().length>0;const addBtn=document.getElementById('drawAddHoldBtn');const eraseBtn=document.getElementById('drawEraseHoldBtn');const selectBtn=document.getElementById('selectHoldBtn');const dockMode=primaryDockMode();if(selectBtn){const physicalButtonIsSelect=(dockMode==='base'||dockMode==='select'||(dockMode==='draw'&&!primaryBrushPickerUsesMainDock()));const disabled=physicalButtonIsSelect&&dockMode!=='base'&&!canSelect;selectBtn.disabled=disabled;selectBtn.setAttribute('aria-disabled',String(disabled));}addBtn?.classList.toggle('active',dockMode==='base'&&mode==='draw'&&drawHoldAction==='add');eraseBtn?.classList.toggle('active',dockMode==='base'&&mode==='draw'&&drawHoldAction==='erase');eraseBtn?.classList.toggle('eraseActive',dockMode==='base'&&mode==='draw'&&drawHoldAction==='erase');selectBtn?.classList.remove('active');selectBtn?.classList.toggle('pencilMultiSelect',MA_IS_IPAD&&ipadPencilMultiSelect&&dockMode==='select');selectBtn?.classList.toggle('maSplitSelected',dockMode==='base'&&maSplitActive());selectBtn?.setAttribute('aria-pressed',String((dockMode==='base'&&maSplitActive())||(dockMode==='select'&&MA_IS_IPAD&&ipadPencilMultiSelect)));const iphoneSelectVisual=!!(MA_IS_IPHONE&&canSelect&&(dockMode==='base'||dockMode==='select'));selectBtn?.classList.toggle('iphoneSelectPressPreview',iphoneSelectVisual&&iphoneSelectPressPreview);selectBtn?.classList.toggle('iphoneSelectMultiHold',iphoneSelectVisual&&selectModeHeld&&!iphoneSelectPressPreview);selectBtn?.classList.remove('iphoneSelectSingle');mobileSizeBtn?.classList.toggle('randomSizeMode',!!(randomBrushSizeMode&&dockMode==='base'));mobileSizeBtn?.setAttribute('aria-pressed',String(!!(randomBrushSizeMode&&dockMode==='base')));syncPrimaryDockUI();syncIPhoneBrushChoiceVisuals();syncSafeFrameDockVisuals();syncSceneDockVisuals();syncExportDockVisuals();syncMAMenuDockVisuals();syncSettingsDockVisuals();syncThumbnailViewControl();syncBrushPalettePanel();syncLookJoystickUI();syncShadowIntensityUI();syncIPadInputModeUI();document.querySelectorAll('#viewJoystick [data-joy-view]').forEach(label=>{const v=label.dataset.joyView;label.classList.toggle('selected',v===projectionMode);label.classList.toggle('locked',(viewAxisHold?.axis===v&&viewAxisHold?.usedAsLock)||desktopAxisMoveArmed===v||(interaction?.axisHoldMove&&interaction.axisHoldAxis===v)||(maHoverMoveSession?.phase==='hover'&&interaction===maHoverMoveSession.interaction&&interaction?.midMoveAxisLock===v&&axisLock===v));});document.querySelectorAll('#lookJoystick [data-joy-mode]').forEach(label=>{label.classList.toggle('selected',!lookJoystickSelectionMode()&&label.dataset.joyMode===viewMode);});document.getElementById('viewJoystick')?.classList.toggle('locking',!!viewAxisHold?.usedAsLock||!!desktopAxisMoveArmed||!!interaction?.axisHoldMove||(maHoverMoveSession?.phase==='hover'&&interaction===maHoverMoveSession.interaction&&!!interaction?.midMoveAxisLock&&!!axisLock));syncWorkplaneLockUI();updateBrushSizeButton();}function updateUnifiedSelectionUI(){if(!MA_UNIFIED_UI)return;if(ipadPencilMode&&maEditableViewMode()&&sceneHasSelectableGeometry()&&!pencilSelectManuallyOff&&selectedMasses().length===0&&!desktopShapeArmed&&!drawModeHeld&&!transformHoldMode){selectModeActive=true;moveArmed=false;selectTransformMode='select';if(activeTool!=='select')setTool('select');}updateMobileDrawUI();}function clearDrawHoldCancelTimer(){if(drawHoldCancelTimer){clearTimeout(drawHoldCancelTimer);drawHoldCancelTimer=null;}}function deferDrawHoldCancelForPen(e){if(!MA_UNIFIED_UI||!drawModeHeld)return false;drawHoldPointerCancelledForPen=true;clearDrawHoldCancelTimer();drawHoldCancelTimer=setTimeout(()=>{drawHoldCancelTimer=null;if(drawHoldPointerCancelledForPen&&!penActive){drawHoldPointerCancelledForPen=false;endDrawModeHold();}},350);return true;}function clearSelectHoldCancelTimer(){if(selectHoldCancelTimer){clearTimeout(selectHoldCancelTimer);selectHoldCancelTimer=null;}}function scheduleSelectHoldCancelAfterPencil(delay=1400){if(!selectHoldPointerCancelledForPen||!selectModeHeld)return;clearSelectHoldCancelTimer();selectHoldCancelTimer=setTimeout(()=>{selectHoldCancelTimer=null;if(!selectHoldPointerCancelledForPen||!selectModeHeld)return;if(penActive){scheduleSelectHoldCancelAfterPencil(500);return;}selectHoldPointerCancelledForPen=false;endSelectModeHold();},delay);}function deferSelectHoldCancelForPen(){if(!MA_IS_IPAD||!ipadPencilMode||!selectModeHeld)return false;selectHoldPointerCancelledForPen=true;clearSelectHoldCancelTimer();scheduleSelectHoldCancelAfterPencil(1400);return true;}function maSwitchDrawAction(action){if(action!=='split')maResetOffset();const wasSplit=drawHoldAction==='split';const split=action==='split';if(split&&!wasSplit){maVolumeBrushKind=mobileDrawKind;mobileDrawKind=maSplitBrushKind;}if(!split&&wasSplit){maSplitBrushKind=mobileDrawKind;mobileDrawKind=maVolumeBrushKind;}drawHoldAction=action;mobileEraseHeld=action==='erase';setTool(mobileDrawTool());updateBrushSizeButton();updateMobileDrawUI();}function maArmSplit(){armDesktopDraw(false);maSwitchDrawAction('split');showToast('SPLIT · DRAW ON FACE');}function beginDrawModeHold(e,erase=false){if(!MA_UNIFIED_UI||drawModeHeld||selectModeHeld)return;maSelectCancelBaseline=null;if(MA_IS_IPAD){ipadPencilMultiSelect=false;maIPadSelectDockWhenEmpty=false;}e?.preventDefault?.();e?.stopPropagation?.();if(interaction||marqueeState)cancelInteraction(true);clearMobileStraightHold();selectModeActive=false;selectModeHeld=false;desktopWindowSelectArmed=false;moveArmed=false;transformHoldMode=null;desktopTransformArmed=false;transformHoldReleasePending=false;desktopAxisMoveArmed=null;viewAxisHold=null;viewJoystickGesture=null;setJoystickKnob('view',null);viewAxisHold=null;axisLock=null;setSelectionGizmosEnabled(false);finalizeRotatePivot(false);if(selectedMasses().length)setSelection([]);clearDrawHoldCancelTimer();drawHoldPointerCancelledForPen=false;drawModeHeld=true;drawKindScrubChoice=null;drawKindScrubTracking=false;drawKindScrubHoverButtonId=null;const holdSourceId=e?.currentTarget?.id;if(PRIMARY_DRAW_BUTTON_IDS.includes(holdSourceId))drawPaletteSourceId=holdSourceId;drawModeHoldPointerId=e?.pointerId??null;drawModeHoldPointerType=e?.pointerType??null;mobileInputMode='draw';mobileDrawPointerId=null;mobileMovePointerId=null;mobileSelectTap=null;unifiedNaviPointerId=null;penActive=false;orbiting=false;desktopOrbitPivot=null;maSwitchDrawAction(erase?'erase':'add');setSelectionGizmosEnabled(false);finalizeRotatePivot(false);touchPointers.clear();touchGesture=null;touchNavState=null;touchOrbitPivot=null;touchPanScale=0;cancelTouchFovArm();updateMobileDrawUI();syncBrushPalettePanel();}function endDrawModeHold(e=null){if(!MA_UNIFIED_UI||!drawModeHeld)return;maResetOffset();clearDrawHoldCancelTimer();drawHoldPointerCancelledForPen=false;if(e&&drawModeHoldPointerId!=null&&e.pointerId!==drawModeHoldPointerId)return;clearMobileStraightHold();const holdPointerId=drawModeHoldPointerId;if(interaction?.kind==='draw'){if(interaction.pointerId===holdPointerId)cancelInteraction(true);else{try{endDraw();}catch(_){cancelInteraction(true);}}}mobileDrawPointerId=null;penActive=false;drawModeHeld=false;drawKindScrubChoice=null;drawKindScrubTracking=false;drawKindScrubHoverButtonId=null;drawModeHoldPointerId=null;drawModeHoldPointerType=null;mobileInputMode='navi';touchPointers.clear();touchGesture=null;touchNavState=null;touchOrbitPivot=null;touchPanScale=0;cancelTouchFovArm();setTool('select');setSelectionGizmosEnabled(false);finalizeRotatePivot(false);updateMobileDrawUI();}// v9.167 — A tap on SELECT cancels the current Select edit and restores its starting point.
 // The baseline belongs to one Move gesture or one latched Scale/Rotate tool.
 let maSelectCancelBaseline=null;
 function maCaptureSelectCancelBaseline(kind,{reuse=false}={}){
@@ -3036,7 +3055,7 @@ function syncShadowIntensityUI(){
   root.style.removeProperty('--ma-shadow-dot-size');
   syncAppearanceDials();
 }
-function lookJoystickSelectionMode(){if(maSafeFrameControlsOpen||viewMode==='shadow'&&primaryDockMode()==='appearance')return false;return!!(selectModeActive||selectModeHeld||desktopSelectArmed||desktopWindowSelectArmed);}function syncLookJoystickUI(){const root=document.getElementById('lookJoystick');if(!root)return;const selectionMode=lookJoystickSelectionMode();const dockMode=primaryDockMode();root.classList.toggle('shadowsOff',!(maIsLineRendering()?maLineShadowsActive():maViewShadowsEnabled));if(safeFrameDockOpen){syncSafeFrameDockVisuals();return;}const up=root.querySelector('.joyUp');const left=root.querySelector('.joyLeft');const right=root.querySelector('.joyRight');const down=root.querySelector('.joyDown');if(selectionMode){if(up)up.textContent='○';if(down)down.textContent='×';if(left)left.textContent='−';if(right)right.textContent='+';root.setAttribute('aria-label','Selection joystick. Up select all, down delete, left ungroup, right group.');}else{if(up)up.textContent='O';if(left)left.textContent='S';if(right)right.textContent='A';if(down)down.textContent='T';root.setAttribute('aria-label','View joystick. Up Only Line, right Appearance, down Thumbnail, left Safe Frame. Center toggles shadows.');}}function selectionActionForJoyDirection(dir){return dir==='up'?'all':dir==='down'?'delete':dir==='left'?'ungroup':dir==='right'?'group':null;}function runSelectionJoystickAction(action){if(!action)return false;if(action==='group'){if(selectedMasses().length<2){showToast('SELECT 2+ TO GROUP');return true;}groupSelected();showToast('GROUPED');return true;}if(action==='ungroup'){const sel=selectedMasses();if(!sel.length||!sel.some(m=>m.groupId!=null)){showToast('NO GROUP SELECTED');return true;}ungroupSelected();showToast('UNGROUPED');return true;}if(action==='delete'){if(!selectedMasses().length){showToast('NOTHING SELECTED');return true;}deleteSelected();return true;}if(action==='all'){const all=masses.filter(m=>m&&!m._disposed);if(!all.length)return true;setSelection(all);selectModeActive=true;moveArmed=true;selectTransformMode='move';updateMobileDrawUI();showToast('SELECT ALL');return true;}return false;}function setJoystickKnob(kind,dir){const root=document.getElementById(kind==='view'?'viewJoystick':'lookJoystick');const knob=document.getElementById(kind==='view'?'viewJoystickKnob':'lookJoystickKnob');if(!root||!knob)return;const v=joyVector(dir);knob.style.transform=`translate(${v.x}px,${v.y}px)`;root.classList.toggle('dragging',!!dir);root.querySelectorAll('.joyLabel').forEach(l=>l.classList.remove('target'));if(dir){if(kind==='look'&&lookJoystickSelectionMode()){const cls=dir==='left'?'.joyLeft':dir==='right'?'.joyRight':dir==='up'?'.joyUp':dir==='down'?'.joyDown':null;if(cls)root.querySelector(cls)?.classList.add('target');}else{const map=kind==='view'?{left:'x',right:'y',up:'z',down:'perspective'}:{left:'safeFrameDials',right:'shadow',up:'line',down:'thumbnail'};const attr=kind==='view'?'data-joy-view':'data-joy-mode';root.querySelector(`[${attr}="${map[dir]}"]`)?.classList.add('target');}}}function viewModeForJoyDirection(dir){return dir==='left'?'x':dir==='right'?'y':dir==='up'?'z':dir==='down'?'perspective':null;}function lookModeForJoyDirection(dir){return dir==='up'?'line':dir==='right'?'shadow':dir==='down'?'thumbnail':dir==='left'?'safeFrameDials':null;}function beginViewJoystick(e){e.preventDefault();e.stopPropagation();if(viewJoystickGesture||maThumbnailPicker)return;unifiedUIPointers.add(e.pointerId);if(viewMode==='thumbnail'&&primaryDockMode()==='base'){if(maThumbnailActiveWheel?.released){if(maThumbnailActiveWheel.changed)scheduleAutosave();maThumbnailCloseColorWheel();}viewJoystickGesture={pointerId:e.pointerId,pointerType:e.pointerType,startX:e.clientX,startY:e.clientY,dir:null,thumbnailValue:true,startHSV:maThumbnailWheelHSV(),startColor:maThumbnailData.color,changed:false,previewWheel:false};e.currentTarget?.setPointerCapture?.(e.pointerId);setJoystickKnob('view',null);return;}viewJoystickGesture={pointerId:e.pointerId,pointerType:e.pointerType,startX:e.clientX,startY:e.clientY,dir:null,axis:null,directionSince:performance.now(),usedAsLock:false,intensityMode:maShadowIntensityControlEnabled()?'shadow':maGeometryToneControlEnabled()?'tone':null,startIntensity:maGeometryToneControlEnabled()?maGeometryTone:maLineShadowIntensity,intensityDragged:false};e.currentTarget?.setPointerCapture?.(e.pointerId);setJoystickKnob('view',null);}function updateViewJoystick(e){const st=viewJoystickGesture;if(!st||st.pointerId!==e.pointerId)return;e.preventDefault();e.stopPropagation();if(st.thumbnailValue){const dx=e.clientX-st.startX;if(Math.abs(dx)>3&&!st.previewWheel){st.previewWheel=true;maThumbnailShowValueWheel();}const next=clamp(st.startHSV.v+dx/160,0,1);if(Math.abs(next-maThumbnailRGBtoHSV(maThumbnailData.color).v)>.004){maThumbnailSetColor(maThumbnailHSVtoHex(maThumbnailWheelHSV().h,maThumbnailWheelHSV().s,next),{autosave:false,preserveWheelSelection:true});st.changed=true;}setJoystickKnob('view',Math.abs(dx)>10?(dx>0?'right':'left'):null);return;}if(st.intensityMode){const dx=e.clientX-st.startX;if(Math.abs(dx)>2){st.intensityDragged=true;if(st.intensityMode==='tone')maSetGeometryTone(st.startIntensity+dx/160);else maSetLineShadowIntensity(st.startIntensity+dx/160);}return;}if(st.usedAsLock&&interaction?.axisHoldMove)return;const dir=joyDirection(e.clientX-st.startX,e.clientY-st.startY);if(dir!==st.dir){st.dir=dir;st.directionSince=performance.now();st.axis=null;const mode=viewModeForJoyDirection(dir);if(mode==='x'||mode==='y'||mode==='z'){st.axis=mode;viewAxisHold=st;if(interaction?.kind==='move'&&!interaction.axisHoldMove){lockActiveMoveToAxis(mode,st);}else if(interaction?.kind==='geometryMove'&&!interaction.axisHoldMove){lockActiveGeometryMoveToAxis(mode,st);}}else{viewAxisHold=null;if(interaction?.kind==='move'&&interaction.midMoveAxisLock){unlockActiveMoveAxis();st.usedAsLock=true;}else if(interaction?.kind==='geometryMove'&&interaction.midMoveAxisLock){unlockActiveGeometryMoveAxis();st.usedAsLock=true;}}setJoystickKnob('view',dir);updateMobileDrawUI();}}function endViewJoystick(e,cancel=false){const st=viewJoystickGesture;if(!st||st.pointerId!==e.pointerId)return;e.preventDefault();e.stopPropagation();if(st.thumbnailValue){viewJoystickGesture=null;setJoystickKnob('view',null);if(cancel)maThumbnailSetColor(st.startColor,{autosave:false,preserveWheelSelection:true});else if(st.changed)scheduleAutosave();if(st.previewWheel&&!maThumbnailActiveWheel)maThumbnailCloseColorWheel();if(!cancel)showToast(`VALUE ${Math.round(maThumbnailRGBtoHSV(maThumbnailData.color).v*100)}%`);return;}if(st.intensityMode){viewJoystickGesture=null;setJoystickKnob('view',null);if(cancel){if(st.intensityMode==='tone')maSetGeometryTone(st.startIntensity);else maSetLineShadowIntensity(st.startIntensity);}else if(st.intensityDragged){markSceneViewDirty();scheduleAutosave();}updateMobileDrawUI();return;}const hover=maHoverMoveSession?.phase==='hover'&&interaction===maHoverMoveSession.interaction;const hoveringMove=hover&&(interaction?.kind==='move'||interaction?.kind==='geometryMove');const isAxis=st.axis==='x'||st.axis==='y'||st.axis==='z';const keepHoverAxis=hoveringMove&&isAxis&&st.usedAsLock&&interaction.midMoveAxisLock===st.axis&&axisLock===st.axis;const clearHoverAxis=hoveringMove&&!st.dir&&!!interaction.midMoveAxisLock;if(interaction?.kind==='move'&&interaction.axisHoldMove){try{endMove();}catch(_){cancelInteraction(true);}mobileMovePointerId=null;penActive=false;st.usedAsLock=true;}else if(clearHoverAxis){if(interaction.kind==='move')unlockActiveMoveAxis();else unlockActiveGeometryMoveAxis();st.usedAsLock=true;}else if(interaction?.kind==='move'&&interaction.midMoveAxisLock){if(!keepHoverAxis)unlockActiveMoveAxis();st.usedAsLock=true;}else if(interaction?.kind==='geometryMove'&&interaction.midMoveAxisLock){if(!keepHoverAxis)unlockActiveGeometryMoveAxis();st.usedAsLock=true;}const mode=viewModeForJoyDirection(st.dir);const heldFor=performance.now()-st.directionSince;viewAxisHold=null;viewJoystickGesture=null;if(!keepHoverAxis)axisLock=null;setJoystickKnob('view',null);if(!cancel&&!st.dir&&primaryDockMode()==='base'&&!hoveringMove){toggleWorkplaneLock();}else if(!cancel&&mode){if((st.pointerType==='mouse'||st.pointerType==='pen')&&(mode==='x'||mode==='y'||mode==='z')&&heldFor>=VIEW_AXIS_TAP_MS&&canAxisLockSelectedMove()){desktopAxisMoveArmed=mode;showToast(`${mode.toUpperCase()} MOVE · NEXT DRAG`);}else if(!st.usedAsLock){desktopAxisMoveArmed=null;setProjectionMode(mode,true,null,true);}}if(hoveringMove&&maHoverMoveSession?.phase==='hover')maHoverMoveApplyLastPosition();updateMobileDrawUI();}function toggleShadowsFromMoodJoystick(){
+function lookJoystickSelectionMode(){if(maSafeFrameControlsOpen||viewMode==='shadow'&&primaryDockMode()==='appearance')return false;return!!(selectModeActive||selectModeHeld||desktopSelectArmed||desktopWindowSelectArmed);}function syncLookJoystickUI(){const root=document.getElementById('lookJoystick');if(!root)return;const selectionMode=lookJoystickSelectionMode();const dockMode=primaryDockMode();root.classList.toggle('shadowsOff',!(maIsLineRendering()?maLineShadowsActive():maViewShadowsEnabled));if(safeFrameDockOpen){syncSafeFrameDockVisuals();return;}const up=root.querySelector('.joyUp');const left=root.querySelector('.joyLeft');const right=root.querySelector('.joyRight');const down=root.querySelector('.joyDown');if(selectionMode){if(up)up.textContent='○';if(down)down.textContent='×';if(left)left.textContent='−';if(right)right.textContent='+';root.setAttribute('aria-label','Selection joystick. Up select all, down delete, left ungroup, right group.');}else{if(up)up.textContent='O';if(left)left.textContent='S';if(right)right.textContent='A';if(down)down.textContent='T';root.setAttribute('aria-label','View joystick. Up Only Line, right Appearance, down Thumbnail, left Safe Frame. Center toggles shadows.');}}function selectionActionForJoyDirection(dir){return dir==='up'?'all':dir==='down'?'delete':dir==='left'?'ungroup':dir==='right'?'group':null;}function runSelectionJoystickAction(action){if(!action)return false;if(action==='group'){if(selectedMasses().length<2){showToast('SELECT 2+ TO GROUP');return true;}groupSelected();showToast('GROUPED');return true;}if(action==='ungroup'){const sel=selectedMasses();if(!sel.length||!sel.some(m=>m.groupId!=null)){showToast('NO GROUP SELECTED');return true;}ungroupSelected();showToast('UNGROUPED');return true;}if(action==='delete'){if(!selectedMasses().length){showToast('NOTHING SELECTED');return true;}deleteSelected();return true;}if(action==='all'){const all=masses.filter(m=>m&&!m._disposed);if(!all.length)return true;setSelection(all);selectModeActive=true;moveArmed=true;selectTransformMode='move';updateMobileDrawUI();showToast('SELECT ALL');return true;}return false;}function setJoystickKnob(kind,dir){const root=document.getElementById(kind==='view'?'viewJoystick':'lookJoystick');const knob=document.getElementById(kind==='view'?'viewJoystickKnob':'lookJoystickKnob');if(!root||!knob)return;const v=joyVector(dir);knob.style.transform=`translate(${v.x}px,${v.y}px)`;root.classList.toggle('dragging',!!dir);root.querySelectorAll('.joyLabel').forEach(l=>l.classList.remove('target'));if(dir){if(kind==='look'&&lookJoystickSelectionMode()){const cls=dir==='left'?'.joyLeft':dir==='right'?'.joyRight':dir==='up'?'.joyUp':dir==='down'?'.joyDown':null;if(cls)root.querySelector(cls)?.classList.add('target');}else{const map=kind==='view'?{left:'x',right:'y',up:'z',down:'perspective'}:{left:'safeFrameDials',right:'shadow',up:'line',down:'thumbnail'};const attr=kind==='view'?'data-joy-view':'data-joy-mode';root.querySelector(`[${attr}="${map[dir]}"]`)?.classList.add('target');}}}function viewModeForJoyDirection(dir){return dir==='left'?'x':dir==='right'?'y':dir==='up'?'z':dir==='down'?'perspective':null;}function lookModeForJoyDirection(dir){return dir==='up'?'line':dir==='right'?'shadow':dir==='down'?'thumbnail':dir==='left'?'safeFrameDials':null;}function beginViewJoystick(e){e.preventDefault();e.stopPropagation();if(viewJoystickGesture||maThumbnailPicker)return;unifiedUIPointers.add(e.pointerId);if(viewMode==='thumbnail'&&primaryDockMode()==='base')return;viewJoystickGesture={pointerId:e.pointerId,pointerType:e.pointerType,startX:e.clientX,startY:e.clientY,dir:null,axis:null,directionSince:performance.now(),usedAsLock:false,intensityMode:maShadowIntensityControlEnabled()?'shadow':maGeometryToneControlEnabled()?'tone':null,startIntensity:maGeometryToneControlEnabled()?maGeometryTone:maLineShadowIntensity,intensityDragged:false};e.currentTarget?.setPointerCapture?.(e.pointerId);setJoystickKnob('view',null);}function updateViewJoystick(e){const st=viewJoystickGesture;if(!st||st.pointerId!==e.pointerId)return;e.preventDefault();e.stopPropagation();if(st.intensityMode){const dx=e.clientX-st.startX;if(Math.abs(dx)>2){st.intensityDragged=true;if(st.intensityMode==='tone')maSetGeometryTone(st.startIntensity+dx/160);else maSetLineShadowIntensity(st.startIntensity+dx/160);}return;}if(st.usedAsLock&&interaction?.axisHoldMove)return;const dir=joyDirection(e.clientX-st.startX,e.clientY-st.startY);if(dir!==st.dir){st.dir=dir;st.directionSince=performance.now();st.axis=null;const mode=viewModeForJoyDirection(dir);if(mode==='x'||mode==='y'||mode==='z'){st.axis=mode;viewAxisHold=st;if(interaction?.kind==='move'&&!interaction.axisHoldMove){lockActiveMoveToAxis(mode,st);}else if(interaction?.kind==='geometryMove'&&!interaction.axisHoldMove){lockActiveGeometryMoveToAxis(mode,st);}}else{viewAxisHold=null;if(interaction?.kind==='move'&&interaction.midMoveAxisLock){unlockActiveMoveAxis();st.usedAsLock=true;}else if(interaction?.kind==='geometryMove'&&interaction.midMoveAxisLock){unlockActiveGeometryMoveAxis();st.usedAsLock=true;}}setJoystickKnob('view',dir);updateMobileDrawUI();}}function endViewJoystick(e,cancel=false){const st=viewJoystickGesture;if(!st||st.pointerId!==e.pointerId)return;e.preventDefault();e.stopPropagation();if(st.intensityMode){viewJoystickGesture=null;setJoystickKnob('view',null);if(cancel){if(st.intensityMode==='tone')maSetGeometryTone(st.startIntensity);else maSetLineShadowIntensity(st.startIntensity);}else if(st.intensityDragged){markSceneViewDirty();scheduleAutosave();}updateMobileDrawUI();return;}const hover=maHoverMoveSession?.phase==='hover'&&interaction===maHoverMoveSession.interaction;const hoveringMove=hover&&(interaction?.kind==='move'||interaction?.kind==='geometryMove');const isAxis=st.axis==='x'||st.axis==='y'||st.axis==='z';const keepHoverAxis=hoveringMove&&isAxis&&st.usedAsLock&&interaction.midMoveAxisLock===st.axis&&axisLock===st.axis;const clearHoverAxis=hoveringMove&&!st.dir&&!!interaction.midMoveAxisLock;if(interaction?.kind==='move'&&interaction.axisHoldMove){try{endMove();}catch(_){cancelInteraction(true);}mobileMovePointerId=null;penActive=false;st.usedAsLock=true;}else if(clearHoverAxis){if(interaction.kind==='move')unlockActiveMoveAxis();else unlockActiveGeometryMoveAxis();st.usedAsLock=true;}else if(interaction?.kind==='move'&&interaction.midMoveAxisLock){if(!keepHoverAxis)unlockActiveMoveAxis();st.usedAsLock=true;}else if(interaction?.kind==='geometryMove'&&interaction.midMoveAxisLock){if(!keepHoverAxis)unlockActiveGeometryMoveAxis();st.usedAsLock=true;}const mode=viewModeForJoyDirection(st.dir);const heldFor=performance.now()-st.directionSince;viewAxisHold=null;viewJoystickGesture=null;if(!keepHoverAxis)axisLock=null;setJoystickKnob('view',null);if(!cancel&&!st.dir&&primaryDockMode()==='base'&&!hoveringMove){toggleWorkplaneLock();}else if(!cancel&&mode){if((st.pointerType==='mouse'||st.pointerType==='pen')&&(mode==='x'||mode==='y'||mode==='z')&&heldFor>=VIEW_AXIS_TAP_MS&&canAxisLockSelectedMove()){desktopAxisMoveArmed=mode;showToast(`${mode.toUpperCase()} MOVE · NEXT DRAG`);}else if(!st.usedAsLock){desktopAxisMoveArmed=null;setProjectionMode(mode,true,null,true);}}if(hoveringMove&&maHoverMoveSession?.phase==='hover')maHoverMoveApplyLastPosition();updateMobileDrawUI();}function toggleShadowsFromMoodJoystick(){
   const wasEnabled=maIsLineRendering()?maLineShadowsActive():maViewShadowsEnabled;
   maViewShadowsEnabled=!wasEnabled;
   if(maIsLineRendering()&&maViewShadowsEnabled&&maLineShadowIntensity===0)maLineShadowIntensity=0.5;
@@ -3669,7 +3688,7 @@ function maThumbnailPaintDraft(incremental=false){
  maThumbnailDrawAction(maThumbnailDraftCtx,a);
  maThumbnailDraftDrawn=(a.type==='pen'||a.type==='rectbrush')?(a.points?.length||0):1;
 }
-let maThumbnailData={base:null,w:0,h:0,actions:[],tool:'pen',color:'#000000',size:3,wheelHue:0,wheelSat:0};
+let maThumbnailData={base:null,w:0,h:0,actions:[],tool:'pen',color:'#000000',size:3,wheelHue:0,wheelSat:0,colorVariation:false};
 let maThumbnailImage=null,maThumbnailImageReady=false,maThumbnailImageSerial=0;
 let maThumbnailActionIndex=0,maThumbnailDraft=null,maThumbnailPointer=null;
 let maThumbnailScale=1,maThumbnailX=0,maThumbnailY=0;
@@ -3700,13 +3719,11 @@ function maThumbnailSyncPickerVisuals(){
 function syncThumbnailViewControl(){
  const root=document.getElementById('viewJoystick');if(!root)return;
  const up=root.querySelector('.joyUp'),left=root.querySelector('.joyLeft'),right=root.querySelector('.joyRight'),down=root.querySelector('.joyDown');
- // VALUE belongs to the normal 2D drawing dock, never to Library, Settings, Export or other dock menus.
  const active=viewMode==='thumbnail'&&primaryDockMode()==='base'&&!maThumbnailPicker;
- root.classList.toggle('thumbnailStreamlineControl',active);
+ root.classList.toggle('thumbnailColorControl',active);
+ root.classList.toggle('thumbnailColorVariationOn',active&&!!maThumbnailData.colorVariation);
  if(active){
-   if(up)up.textContent='+';if(left)left.textContent='';if(right)right.textContent='';if(down)down.textContent='−';
-   // Give VALUE precisely the same label typography as the visible ADD / ERASE buttons.
-   // Keep these variables local to the thumbnail control so Appearance remains unchanged.
+   if(up)up.textContent='';if(left)left.textContent='';if(right)right.textContent='';if(down)down.textContent='';
    const addLabel=document.querySelector('#drawAddHoldBtn .primaryLabel');
    if(addLabel){
      const style=getComputedStyle(addLabel);
@@ -3716,34 +3733,34 @@ function syncThumbnailViewControl(){
      root.style.setProperty('--ma-dial-letter-spacing',style.letterSpacing);
      root.style.setProperty('--ma-dial-line-height',style.lineHeight);
    }
-   let face=root.querySelector('.maThumbnailValuePreview');
+   let face=root.querySelector('.maThumbnailColorPreview');
    if(!face){
-     face=document.createElement('span');face.className='maThumbnailValuePreview';face.setAttribute('aria-hidden','true');
-     face.textContent='VALUE';root.appendChild(face);
+     face=document.createElement('span');face.className='maThumbnailColorPreview';
+     face.setAttribute('aria-hidden','true');face.textContent='COLOR';root.appendChild(face);
    }
-   const brightness=maThumbnailRGBtoHSV(maThumbnailData.color).v;
-   // VALUE displays only its brightness as a neutral grey, never the hue.
-   const tone=Math.round(brightness*255);
-   face.style.backgroundColor=`rgb(${tone},${tone},${tone})`;
-   face.style.color=brightness>.57?'#222':'#fff';
-   root.dataset.thumbnailLabel='VALUE';root.title=`Value ${Math.round(brightness*100)}%`;
-   root.setAttribute('aria-label',`Color brightness ${Math.round(brightness*100)}%. Drag up for lighter or down for darker.`);
+   maThumbnailSyncColorDial();
+   root.title='COLOR · tap to toggle variation · hold for hue/saturation';
+   root.setAttribute('aria-pressed',String(!!maThumbnailData.colorVariation));
+   root.setAttribute('aria-label',`COLOR. Color variation ${maThumbnailData.colorVariation?'on':'off'}. Tap to toggle variation, hold to choose hue and saturation. Second finger on paper adjusts brightness.`);
  }else{
    if(up)up.textContent='Z';if(left)left.textContent='X';if(right)right.textContent='Y';if(down)down.textContent='P';
-   delete root.dataset.thumbnailLabel;root.removeAttribute('title');
+   root.removeAttribute('title');root.removeAttribute('aria-pressed');
    root.setAttribute('aria-label','View joystick. Tap locks or unlocks the current workplane. Left X, right Y, up Z, down Perspective. Hold X/Y/Z to axis-lock Move.');
  }
 }
 function maThumbnailSetTool(kind){if(!MA_THUMBNAIL_TOOLS.includes(kind))return;maThumbnailData.tool=kind;showToast('2D · '+maThumbnailPickerText(kind));scheduleAutosave();}
 function maThumbnailSyncColorDial(){
- const root=document.getElementById('selectHoldBtn');if(!root)return;
- if(root.classList.contains('maThumbnailColorSlot')){
-   const hex=maThumbnailNormalizeColor(maThumbnailData.color);
-   const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
-   root.style.setProperty('--ma-thumbnail-color-ink',(.2126*r+.7152*g+.0722*b)/255>.57?'#222':'#fff');
-   root.setAttribute('aria-label','COLOR. Hold and move to choose hue and saturation, tap for palette.');
-   root.title='COLOR · hold to choose hue and saturation';
- }
+ const root=document.getElementById('viewJoystick');if(!root)return;
+ const hex=maThumbnailNormalizeColor(maThumbnailData.color);
+ const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+ root.style.setProperty('--ma-thumbnail-color-ink',(.2126*r+.7152*g+.0722*b)/255>.57?'#222':'#fff');
+}
+function maThumbnailToggleColorVariation(){
+ if(viewMode!=='thumbnail'||primaryDockMode()!=='base')return;
+ maThumbnailData.colorVariation=!maThumbnailData.colorVariation;
+ syncThumbnailViewControl();
+ showToast(maThumbnailData.colorVariation?'COLOR VARIATION · ON':'COLOR VARIATION · OFF');
+ scheduleAutosave();
 }
 function maThumbnailNormalizeColor(color){return /^#[0-9a-f]{6}$/i.test(String(color||''))?String(color).toLowerCase():'#000000';}
 let maThumbnailLastHue=0;
@@ -3798,6 +3815,7 @@ function maThumbnailCloseTransientControls(){
  maThumbnailButtonPress=null;maThumbnailPicker=null;
  for(const press of maThumbnailColorPresses.values())if(press.timer)clearTimeout(press.timer);
  maThumbnailColorPresses.clear();
+ for(const valueTouch of maThumbnailValueTouches.values())valueTouch.active=false;
  maThumbnailCloseColorWheel();
  maThumbnailCloseColorPalette();
  maThumbnailSyncPickerVisuals();
@@ -3806,7 +3824,7 @@ function maThumbnailOpenColorPicker(){
  if(viewMode!=='thumbnail'||primaryDockMode()!=='base')return;
  const palette=document.getElementById('maThumbnailColorPalette');if(!palette)return;
  if(palette.classList.contains('open')){maThumbnailCloseColorPalette();return;}
- const btn=document.getElementById('selectHoldBtn');
+ const btn=document.getElementById('viewJoystick');
  if(!btn)return;const r=btn.getBoundingClientRect();
  palette.classList.add('open');
  const w=236,h=palette.getBoundingClientRect().height||235;
@@ -3820,7 +3838,7 @@ function maThumbnailOpenColorPicker(){
  const list=document.getElementById('maThumbnailSwatches');if(!list)return;
  for(const color of MA_THUMBNAIL_COLORS){const b=document.createElement('button');b.type='button';b.style.setProperty('--swatch',color);b.dataset.color=color;b.setAttribute('aria-label',color);b.addEventListener('click',e=>{e.stopPropagation();maThumbnailSetColor(color);maThumbnailCloseColorPalette();});list.appendChild(b);}
  const palette=document.getElementById('maThumbnailColorPalette');palette.addEventListener('pointerdown',e=>e.stopPropagation());palette.addEventListener('click',e=>e.stopPropagation());
- document.addEventListener('pointerdown',e=>{if(palette.classList.contains('open')&&!palette.contains(e.target)&&!e.target.closest?.('#selectHoldBtn'))maThumbnailCloseColorPalette();},{capture:true});
+ document.addEventListener('pointerdown',e=>{if(palette.classList.contains('open')&&!palette.contains(e.target)&&!e.target.closest?.('#viewJoystick'))maThumbnailCloseColorPalette();},{capture:true});
 })();
 function maThumbnailUpdateSizeVisual(){if(viewMode!=='thumbnail')return;const dot=document.getElementById('brushSizeCircle');if(dot){const t=maThumbnailClamp((maThumbnailData.size-1)/59,0,1);dot.style.transform=`scale(${((7+25*t)/32).toFixed(4)})`;}if(maThumbnailSizeGuideActive)maThumbnailPositionSizeGuide();}
 function maThumbnailStreamPoint(a,p,{final=false}={}){if(!a)return p;const strength=clamp(thumbnailStableAmount/100,0,1);if((a.type!=='pen'&&a.type!=='rectbrush')||strength<=0){a.streamlinePoint={x:p.x,y:p.y};return p;}if(!a.streamlinePoint){a.streamlinePoint={x:p.x,y:p.y};return p;}const sp=a.streamlinePoint;const dx=p.x-sp.x,dy=p.y-sp.y;const dist=Math.hypot(dx,dy);const lag=14*Math.pow(strength,1.22)/Math.max(.35,maThumbnailScale);if(dist>1e-6){if(final){sp.x=p.x;sp.y=p.y;}else if(dist>lag){const targetX=p.x-dx*(lag/dist),targetY=p.y-dy*(lag/dist);const response=clamp(.46+.28*(1-strength)+.09*Math.min(1,(dist-lag)/Math.max(1,lag)),.44,.80);sp.x+=(targetX-sp.x)*response;sp.y+=(targetY-sp.y)*response;}else{const micro=.44+.25*(1-strength);sp.x+=(p.x-sp.x)*micro;sp.y+=(p.y-sp.y)*micro;}}return{x:sp.x,y:sp.y};}
@@ -3905,7 +3923,7 @@ let maThumbnailPendingPaperView=null;
 function maThumbnailLoad(saved,{preservePaperView=false}={}){
  const paperView=preservePaperView?(maThumbnailPendingPaperView||maThumbnailCapturePaperView()):null;
  maThumbnailImageSerial++;maThumbnailImage=null;maThumbnailImageReady=false;
- maThumbnailData={base:typeof saved?.base==='string'?saved.base:null,w:+saved?.w||0,h:+saved?.h||0,actions:Array.isArray(saved?.actions)?saved.actions:[],tool:MA_THUMBNAIL_TOOLS.includes(saved?.tool)?saved.tool:'pen',color:maThumbnailNormalizeColor(saved?.color),size:maThumbnailClamp(+saved?.size||3,1,60),wheelHue:Number.isFinite(saved?.wheelHue)?((saved.wheelHue%360+360)%360):maThumbnailRGBtoHSV(saved?.color).h,wheelSat:Number.isFinite(saved?.wheelSat)?maThumbnailClamp(saved.wheelSat,0,1):maThumbnailRGBtoHSV(saved?.color).s};
+ maThumbnailData={base:typeof saved?.base==='string'?saved.base:null,w:+saved?.w||0,h:+saved?.h||0,actions:Array.isArray(saved?.actions)?saved.actions:[],tool:MA_THUMBNAIL_TOOLS.includes(saved?.tool)?saved.tool:'pen',color:maThumbnailNormalizeColor(saved?.color),size:maThumbnailClamp(+saved?.size||3,1,60),wheelHue:Number.isFinite(saved?.wheelHue)?((saved.wheelHue%360+360)%360):maThumbnailRGBtoHSV(saved?.color).h,wheelSat:Number.isFinite(saved?.wheelSat)?maThumbnailClamp(saved.wheelSat,0,1):maThumbnailRGBtoHSV(saved?.color).s,colorVariation:!!saved?.colorVariation};
  maThumbnailActionIndex=maThumbnailData.actions.length;maThumbnailDraft=null;maThumbnailEraseBaselineReady=false;
  maThumbnailClearStraightTimer();maThumbnailClearEyedropperTimer();maThumbnailTouches.clear();maThumbnailPointer=null;maThumbnailPinch=null;maThumbnailHold=null;maThumbnailButtonPress=null;
  if(maThumbnailData.base)maThumbnailLoadImage(paperView);
@@ -4006,7 +4024,7 @@ function maThumbnailSyncMode(){const on=viewMode==='thumbnail';
     // A previously loaded paper may still have an old zoom/pan. Fit whenever
     // entering 2D, but NEVER when switching saved shots while already inside 2D.
     if(entering&&maThumbnailImageReady)maThumbnailFit();
-  }else{maThumbnailShowSizeGuide(false);maThumbnailCancelDraftPaint();maThumbnailCloseColorWheel();for(const st of maThumbnailColorPresses.values())clearTimeout(st.timer);maThumbnailColorPresses.clear();maThumbnailClearStraightTimer();maThumbnailClearEyedropperTimer();maThumbnailCloseColorPalette();maThumbnailHideColorInput();maThumbnailPicker=null;maThumbnailButtonPress=null;maThumbnailHold=null;updateBrushSizeButton();maThumbnailSyncPickerVisuals();maThumbnailTouches.clear();maThumbnailTapGesture=null;maThumbnailPointer=null;maThumbnailPinch=null;maThumbnailDraft=null;maThumbnailEraseBaselineReady=false;maThumbnailEraseLastBounds=null;maThumbnailDraftCtx.clearRect(0,0,maThumbnailDraftLayer.width,maThumbnailDraftLayer.height);maThumbnailDraftDrawn=0;}syncThumbnailViewControl();maThumbnailPositionInkOverlays();renderSceneBar();syncLookJoystickUI?.();}
+  }else{maThumbnailShowSizeGuide(false);maThumbnailCancelDraftPaint();maThumbnailCloseColorWheel();for(const st of maThumbnailColorPresses.values())clearTimeout(st.timer);maThumbnailColorPresses.clear();for(const valueTouch of maThumbnailValueTouches.values())valueTouch.active=false;maThumbnailClearStraightTimer();maThumbnailClearEyedropperTimer();maThumbnailCloseColorPalette();maThumbnailHideColorInput();maThumbnailPicker=null;maThumbnailButtonPress=null;maThumbnailHold=null;updateBrushSizeButton();maThumbnailSyncPickerVisuals();maThumbnailTouches.clear();maThumbnailTapGesture=null;maThumbnailPointer=null;maThumbnailPinch=null;maThumbnailDraft=null;maThumbnailEraseBaselineReady=false;maThumbnailEraseLastBounds=null;maThumbnailDraftCtx.clearRect(0,0,maThumbnailDraftLayer.width,maThumbnailDraftLayer.height);maThumbnailDraftDrawn=0;}syncThumbnailViewControl();maThumbnailPositionInkOverlays();renderSceneBar();syncLookJoystickUI?.();}
 
 
 /* ===== THUMBNAIL · viewport interaction ===== */
@@ -4116,7 +4134,48 @@ function maThumbnailPaintFlatStroke(ctx,points,width){
  for(let i=1;i<points.length;i++)ctx.lineTo(points[i][0],points[i][1]);
  ctx.lineWidth=size;ctx.lineCap='square';ctx.lineJoin='round';ctx.stroke();
 }
-function maThumbnailDrawAction(ctx,a){if(!a)return;ctx.save();ctx.globalCompositeOperation=a.action==='erase'?'destination-out':'source-over';const ink=a.color||'#000000';ctx.strokeStyle=ink;ctx.fillStyle=ink;ctx.lineWidth=Math.max(.5,a.size||3);ctx.lineCap='round';ctx.lineJoin='round';if(a.type==='rectbrush'){maThumbnailPaintFlatStroke(ctx,a.points,ctx.lineWidth);}else if(a.type==='pen'||a.type==='lasso'){const pts=a.points||[];if(pts.length){ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);if(a.type==='pen'){if(a.action==='erase'){for(let i=0;i<pts.length;i++){const p=pts[i],prev=pts[Math.max(0,i-1)];ctx.beginPath();ctx.moveTo(prev[0],prev[1]);ctx.lineTo(p[0]+(i===0?.001:0),p[1]);ctx.stroke();}}else{if(pts.length===1){ctx.lineTo(pts[0][0]+.001,pts[0][1]);}else for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.stroke();}}else{for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);if(pts.length>=3){ctx.closePath();ctx.fill();}else ctx.stroke();}}}else if(a.type==='line'){ctx.beginPath();ctx.moveTo(a.x0,a.y0);ctx.lineTo(a.x1,a.y1);ctx.stroke();}else if(a.type==='rect'){ctx.fillRect(Math.min(a.x0,a.x1),Math.min(a.y0,a.y1),Math.abs(a.x1-a.x0),Math.abs(a.y1-a.y0));}else if(a.type==='circle'){ctx.beginPath();ctx.ellipse((a.x0+a.x1)*.5,(a.y0+a.y1)*.5,Math.max(.001,Math.abs(a.x1-a.x0)*.5),Math.max(.001,Math.abs(a.y1-a.y0)*.5),0,0,Math.PI*2);ctx.fill();}ctx.restore();}
+// A deterministic, seamless colour texture keeps each ROUND / FLAT line intact.
+// Each stroke stores its random seed, so preview, PNG/PSD and undo/redo match.
+// 2D canvas draws the stroke just once: no slow per-point colour stamping.
+const maThumbnailVariationTileCache=new Map();
+function maThumbnailVariationTile(a){
+ const hex=maThumbnailNormalizeColor(a.color),seed=(a.variationSeed>>>0)||1;
+ const key=hex+':'+seed;
+ if(maThumbnailVariationTileCache.has(key))return maThumbnailVariationTileCache.get(key);
+ const hsv=maThumbnailRGBtoHSV(hex);
+ const lo=maThumbnailHSVtoHex(hsv.h-8,hsv.s*.98,hsv.v*.80);
+ const hi=maThumbnailHSVtoHex(hsv.h+8,Math.min(1,hsv.s*1.03),Math.min(1,hsv.v*1.18+.065*(1-hsv.v)));
+ const lower=[1,3,5].map(i=>parseInt(lo.slice(i,i+2),16));
+ const upper=[1,3,5].map(i=>parseInt(hi.slice(i,i+2),16));
+ const side=160,canvas=document.createElement('canvas');canvas.width=side;canvas.height=side;
+ const ctx=canvas.getContext('2d'),pixels=ctx.createImageData(side,side),dest=pixels.data;
+ const phi=(seed/4294967296)*Math.PI*2;
+ const x1=new Float32Array(side),x2=new Float32Array(side),x3=new Float32Array(side);
+ const y1=new Float32Array(side),y2=new Float32Array(side),y3=new Float32Array(side);
+ for(let i=0;i<side;i++){
+  const t=i/side*Math.PI*2;
+  x1[i]=Math.sin(t+phi);y1[i]=Math.cos(t+phi*.73);
+  x2[i]=Math.sin(2*t+phi*.37);y2[i]=Math.sin(2*t+phi*.57);
+  x3[i]=Math.cos(3*t+phi*.83);y3[i]=Math.cos(t+phi*.41);
+ }
+ for(let y=0;y<side;y++)for(let x=0;x<side;x++){
+  const wave=.64*x1[x]*y1[y]+.27*x2[x]*y2[y]+.13*x3[x]*y3[y];
+  const t=Math.max(0,Math.min(1,.5+.57*wave)),i=(y*side+x)*4;
+  dest[i]=lower[0]+(upper[0]-lower[0])*t;
+  dest[i+1]=lower[1]+(upper[1]-lower[1])*t;
+  dest[i+2]=lower[2]+(upper[2]-lower[2])*t;
+  dest[i+3]=255;
+ }
+ ctx.putImageData(pixels,0,0);
+ maThumbnailVariationTileCache.set(key,canvas);
+ if(maThumbnailVariationTileCache.size>32)maThumbnailVariationTileCache.delete(maThumbnailVariationTileCache.keys().next().value);
+ return canvas;
+}
+function maThumbnailStrokeColor(ctx,a){
+ if(a.action!=='add'||!a.colorVariation||(a.type!=='pen'&&a.type!=='rectbrush'))return a.color||'#000000';
+ return ctx.createPattern(maThumbnailVariationTile(a),'repeat')||a.color||'#000000';
+}
+function maThumbnailDrawAction(ctx,a){if(!a)return;ctx.save();ctx.globalCompositeOperation=a.action==='erase'?'destination-out':'source-over';const ink=maThumbnailStrokeColor(ctx,a);ctx.strokeStyle=ink;ctx.fillStyle=ink;ctx.lineWidth=Math.max(.5,a.size||3);ctx.lineCap='round';ctx.lineJoin='round';if(a.type==='rectbrush'){maThumbnailPaintFlatStroke(ctx,a.points,ctx.lineWidth);}else if(a.type==='pen'||a.type==='lasso'){const pts=a.points||[];if(pts.length){ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);if(a.type==='pen'){if(a.action==='erase'){for(let i=0;i<pts.length;i++){const p=pts[i],prev=pts[Math.max(0,i-1)];ctx.beginPath();ctx.moveTo(prev[0],prev[1]);ctx.lineTo(p[0]+(i===0?.001:0),p[1]);ctx.stroke();}}else{if(pts.length===1){ctx.lineTo(pts[0][0]+.001,pts[0][1]);}else for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.stroke();}}else{for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);if(pts.length>=3){ctx.closePath();ctx.fill();}else ctx.stroke();}}}else if(a.type==='line'){ctx.beginPath();ctx.moveTo(a.x0,a.y0);ctx.lineTo(a.x1,a.y1);ctx.stroke();}else if(a.type==='rect'){ctx.fillRect(Math.min(a.x0,a.x1),Math.min(a.y0,a.y1),Math.abs(a.x1-a.x0),Math.abs(a.y1-a.y0));}else if(a.type==='circle'){ctx.beginPath();ctx.ellipse((a.x0+a.x1)*.5,(a.y0+a.y1)*.5,Math.max(.001,Math.abs(a.x1-a.x0)*.5),Math.max(.001,Math.abs(a.y1-a.y0)*.5),0,0,Math.PI*2);ctx.fill();}ctx.restore();}
 function maThumbnailBucket(a){if(!maThumbnailImageReady)return;const w=maThumbnailData.w,h=maThumbnailData.h;const px=Math.floor(a.x),py=Math.floor(a.y);if(px<0||px>=w||py<0||py>=h)return;const composite=document.createElement('canvas');composite.width=w;composite.height=h;const c=composite.getContext('2d',{willReadFrequently:true});c.drawImage(maThumbnailImage,0,0,w,h);c.drawImage(maThumbnailLayer,0,0);const data=c.getImageData(0,0,w,h).data;const start=py*w+px;const seed=start*4,rr=data[seed],gg=data[seed+1],bb=data[seed+2];const sameRegion=i=>{const j=i*4;return Math.max(Math.abs(data[j]-rr),Math.abs(data[j+1]-gg),Math.abs(data[j+2]-bb))<48;};const visited=new Uint8Array(w*h);const queue=new Int32Array(w*h);let head=0,tail=0;queue[tail++]=start;visited[start]=1;const fill=new Uint8ClampedArray(w*h*4);const hex=maThumbnailNormalizeColor(a.color);const cr=parseInt(hex.slice(1,3),16),cg=parseInt(hex.slice(3,5),16),cb=parseInt(hex.slice(5,7),16);while(head<tail){const i=queue[head++];const p=i*4;fill[p]=cr;fill[p+1]=cg;fill[p+2]=cb;fill[p+3]=255;const x=i%w,y=(i-x)/w;const visit=j=>{if(!visited[j]&&sameRegion(j)){visited[j]=1;queue[tail++]=j;}};if(x>0)visit(i-1);if(x<w-1)visit(i+1);if(y>0)visit(i-w);if(y<h-1)visit(i+w);}const mask=document.createElement('canvas');mask.width=w;mask.height=h;mask.getContext('2d').putImageData(new ImageData(fill,w,h),0,0);maThumbnailLayerCtx.save();maThumbnailLayerCtx.globalCompositeOperation=a.action==='erase'?'destination-out':'source-over';maThumbnailLayerCtx.drawImage(mask,0,0);maThumbnailLayerCtx.restore();}
 function maThumbnailRebuild(){maThumbnailCancelDraftPaint();if(!maThumbnailImageReady)return;const w=maThumbnailData.w,h=maThumbnailData.h;if(maThumbnailLayer.width!==w||maThumbnailLayer.height!==h){maThumbnailLayer.width=w;maThumbnailLayer.height=h;}maThumbnailLayerCtx.clearRect(0,0,w,h);for(const a of maThumbnailData.actions.slice(0,maThumbnailActionIndex)){if(a.type==='bucket')maThumbnailBucket(a);else maThumbnailDrawAction(maThumbnailLayerCtx,a);}maThumbnailRender();}
 function maThumbnailRender(){if(viewMode!=='thumbnail'||!maThumbnailPaper.width)return;maThumbnailPositionInkOverlays();const dpr=Math.min(2,window.devicePixelRatio||1),w=maThumbnailPaper.width/dpr,h=maThumbnailPaper.height/dpr;maThumbnail2d.setTransform(dpr,0,0,dpr,0,0);maThumbnail2d.fillStyle='#e9e9e6';maThumbnail2d.fillRect(0,0,w,h);if(!maThumbnailImageReady)return;maThumbnail2d.save();maThumbnail2d.translate(maThumbnailX,maThumbnailY);maThumbnail2d.scale(maThumbnailScale,maThumbnailScale);maThumbnail2d.shadowColor='rgba(0,0,0,.18)';maThumbnail2d.shadowBlur=17/maThumbnailScale;maThumbnail2d.shadowOffsetY=3/maThumbnailScale;maThumbnail2d.fillStyle='#fff';maThumbnail2d.fillRect(0,0,maThumbnailData.w,maThumbnailData.h);maThumbnail2d.shadowColor='transparent';maThumbnail2d.shadowBlur=0;maThumbnail2d.shadowOffsetY=0;maThumbnail2d.beginPath();maThumbnail2d.rect(0,0,maThumbnailData.w,maThumbnailData.h);maThumbnail2d.clip();maThumbnail2d.drawImage(maThumbnailImage,0,0,maThumbnailData.w,maThumbnailData.h);maThumbnail2d.restore();maThumbnailPaintDraft();}
@@ -4192,7 +4251,7 @@ function maThumbnailPickPaperColor(clientX,clientY){
 }
 let maThumbnailPickedBlinkTimer=0;
 function maThumbnailBlinkPickedColor(){
- const btn=document.getElementById('selectHoldBtn');if(!btn)return;
+ const btn=document.getElementById('viewJoystick');if(!btn)return;
  clearTimeout(maThumbnailPickedBlinkTimer);
  btn.classList.remove('maThumbnailColorPicked');
  // Restart the animation on successive colour samples (without touching its swatch).
@@ -4252,7 +4311,9 @@ function maThumbnailBeginPointer(e){
   holdX:e.clientX,holdY:e.clientY};
  if(!draw)return;
  const a={type:maThumbnailData.tool,action:mode,color:maThumbnailData.color,
-  size:maThumbnailData.size,x0:p.x,y0:p.y,x1:p.x,y1:p.y};
+  size:maThumbnailData.size,x0:p.x,y0:p.y,x1:p.x,y1:p.y,
+  colorVariation:mode==='add'&&maThumbnailData.colorVariation,
+  variationSeed:Math.floor(Math.random()*0x100000000)>>>0};
  if(a.type==='pen'||a.type==='rectbrush'||a.type==='lasso'){
   const start=(a.type==='pen'||a.type==='rectbrush')?maThumbnailStreamPoint(a,p):p;
   a.points=[[start.x,start.y]];
@@ -4413,27 +4474,83 @@ window.addEventListener('pointermove',e=>{
 window.addEventListener('pointerup',e=>maThumbnailFinishButtonPress(e,false),{capture:true,passive:false});
 window.addEventListener('pointercancel',e=>maThumbnailFinishButtonPress(e,true),{capture:true,passive:false});
 const maThumbnailColorPresses=new Map();
-const MA_THUMBNAIL_WHEEL_HOLD_MS=260;
+const maThumbnailValueTouches=new Map();
+// Workspace VALUE is available only while another finger holds COLOR.
+function maThumbnailStartWorkspaceValue(e){
+ if(e.pointerType!=='touch'||viewMode!=='thumbnail'||primaryDockMode()!=='base'||
+    !(e.target instanceof Element)||!e.target.closest('#maThumbnailPaper')||
+    !maThumbnailColorPresses.size)return false;
+ const colorPress=[...maThumbnailColorPresses.values()][0];
+ if(!colorPress||colorPress.released)return false;
+ if(!colorPress.wheel)maThumbnailStartWheel(colorPress);
+ if(!colorPress.wheel)return false;
+ maThumbnailValueTouches.set(e.pointerId,{
+   startY:e.clientY,initialValue:maThumbnailWheelHSV().v,
+   active:true,changed:false
+ });
+ // VALUE is not a drawing stroke and should never enter the thumbnail touch map.
+ e.preventDefault();e.stopImmediatePropagation();
+ try{maThumbnailPaper.setPointerCapture?.(e.pointerId);}catch(_){}
+ return true;
+}
+function maThumbnailMoveWorkspaceValue(e){
+ const st=maThumbnailValueTouches.get(e.pointerId);if(!st)return false;
+ e.preventDefault();e.stopImmediatePropagation();
+ if(!st.active||!maThumbnailColorPresses.size||viewMode!=='thumbnail')return true;
+ // One workspace swipe covers the full black-to-white range. Up = lighter.
+ const next=clamp(st.initialValue+(st.startY-e.clientY)/180,0,1);
+ const hsv=maThumbnailWheelHSV();
+ if(Math.abs(next-hsv.v)>.0015){
+   maThumbnailSetColor(maThumbnailHSVtoHex(hsv.h,hsv.s,next),{
+     autosave:false,preserveWheelSelection:true
+   });
+   st.changed=true;
+ }
+ return true;
+}
+function maThumbnailEndWorkspaceValue(e){
+ const st=maThumbnailValueTouches.get(e.pointerId);if(!st)return false;
+ maThumbnailValueTouches.delete(e.pointerId);
+ e.preventDefault();e.stopImmediatePropagation();
+ try{maThumbnailPaper.releasePointerCapture?.(e.pointerId);}catch(_){}
+ if(st.changed)scheduleAutosave();
+ return true;
+}
+window.addEventListener('pointerdown',e=>maThumbnailStartWorkspaceValue(e),{capture:true,passive:false});
+window.addEventListener('pointermove',e=>maThumbnailMoveWorkspaceValue(e),{capture:true,passive:false});
+for(const eventName of ['pointerup','pointercancel','lostpointercapture']){
+ window.addEventListener(eventName,e=>maThumbnailEndWorkspaceValue(e),{capture:true,passive:false});
+}
+const MA_THUMBNAIL_WHEEL_HOLD_MS=80;
 let maThumbnailActiveWheel=null;
+// Build the static hue/saturation texture before first interaction.
+// Numeric HSV avoids thousands of allocations/hex conversions on mobile Safari.
+function maThumbnailPrepareWheelCache(){
+ const canvas=document.getElementById('maThumbnailColorWheelCanvas');
+ if(!canvas||canvas._maWheelBase)return;
+ const w=canvas.width,h=canvas.height,base=new Uint8ClampedArray(w*h*4),rad=w*.48;
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+   const dx=x-(w-1)*.5,dy=y-(h-1)*.5,r=Math.hypot(dx,dy),i=4*(y*w+x);
+   if(r>rad+1)continue;
+   const hue=(Math.atan2(dy,dx)*180/Math.PI+450)%360;
+   const sat=Math.min(1,r/rad),c=sat,xx=c*(1-Math.abs((hue/60)%2-1)),m=1-c;
+   const rgb=hue<60?[c,xx,0]:hue<120?[xx,c,0]:hue<180?[0,c,xx]:hue<240?[0,xx,c]:hue<300?[xx,0,c]:[c,0,xx];
+   base[i]=Math.round((rgb[0]+m)*255);
+   base[i+1]=Math.round((rgb[1]+m)*255);
+   base[i+2]=Math.round((rgb[2]+m)*255);
+   base[i+3]=Math.round(255*Math.min(1,Math.max(0,rad+1-r)));
+ }
+ canvas._maWheelBase=base;
+}
+if(typeof requestIdleCallback==='function')requestIdleCallback(maThumbnailPrepareWheelCache,{timeout:1000});
+else setTimeout(maThumbnailPrepareWheelCache,250);
 function maThumbnailPaintColorWheel(){
  const wheel=document.getElementById('maThumbnailColorWheel');
  const canvas=document.getElementById('maThumbnailColorWheelCanvas');
  if(!canvas||!wheel?.classList.contains('open'))return;
+ maThumbnailPrepareWheelCache();
  const ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height;
- // Cache the full-brightness RGB wheel, then apply VALUE to the entire preview.
- // Repainting during value drag is cheap and does NOT alter H/S selection.
- if(!canvas._maWheelBase){
-   const base=new Uint8ClampedArray(w*h*4),rad=w*.48;
-   for(let y=0;y<h;y++)for(let x=0;x<w;x++){
-     const dx=x-(w-1)*.5,dy=y-(h-1)*.5,r=Math.hypot(dx,dy),i=4*(y*w+x);
-     if(r>rad+1)continue;
-     const hue=(Math.atan2(dy,dx)*180/Math.PI+90+360)%360;
-     const color=maThumbnailHSVtoHex(hue,Math.min(1,r/rad),1);
-     base[i]=parseInt(color.slice(1,3),16);base[i+1]=parseInt(color.slice(3,5),16);base[i+2]=parseInt(color.slice(5,7),16);
-     base[i+3]=Math.round(255*Math.min(1,Math.max(0,rad+1-r)));
-   }
-   canvas._maWheelBase=base;
- }
+ // VALUE changes only wheel brightness; hue/saturation coordinates stay independent.
  const level=Math.round(maThumbnailWheelHSV().v*255);
  if(canvas._maWheelLevel===level)return;
  const data=ctx.createImageData(w,h),base=canvas._maWheelBase;
@@ -4456,11 +4573,6 @@ function maThumbnailSyncColorWheelCursor({move=true}={}){
  }
  marker.style.background=maThumbnailData.color;
 }
-function maThumbnailShowValueWheel(){
- const wheel=document.getElementById('maThumbnailColorWheel');if(!wheel)return;
- maThumbnailCloseColorPalette();wheel.classList.add('open');wheel.classList.toggle('valuePreview',!maThumbnailActiveWheel);
- maThumbnailPaintColorWheel();maThumbnailSyncColorWheelCursor();
-}
 function maThumbnailWheelLimit(st){
  const length=Math.hypot(st.targetX,st.targetY);
  if(length>1){st.targetX/=length;st.targetY/=length;}
@@ -4469,8 +4581,7 @@ function maThumbnailWheelApply(st){
  const sat=Math.min(1,Math.hypot(st.posX,st.posY));
  const hue=(Math.atan2(st.posY,st.posX)*180/Math.PI+90+360)%360;
  let v=maThumbnailWheelHSV().v;
- // Selecting a hue on a fully black swatch must still produce a visible color.
- if(v<.08&&sat>.03)v=.9;
+ // Keep the brightness chosen by the second finger, including full black.
  const hsv=maThumbnailWheelHSV();
  if(Math.abs(hue-hsv.h)<.08&&Math.abs(sat-hsv.s)<.0005&&v===hsv.v)return;
  maThumbnailSetColor(maThumbnailHSVtoHex(hue,sat,v),{
@@ -4503,9 +4614,9 @@ function maThumbnailWheelFrame(st,now){
  const speed=Math.hypot(st.velX,st.velY);
  const drift=Math.hypot(st.inertiaVX||0,st.inertiaVY||0);
  // Dismiss promptly after letting the colour marker finish its short weighted glide.
- if(st.released&&(now-st.releaseAt>650||(now-st.releaseAt>220&&gap<.004&&speed<.0015&&drift<.0006))){
+ if(st.released&&(now-st.releaseAt>100||(now-st.releaseAt>55&&gap<.004&&speed<.0015&&drift<.0006))){
    if(st.changed)scheduleAutosave();
-   maThumbnailCloseColorWheel();showToast('COLOR · HUE / SAT');return;
+   maThumbnailCloseColorWheel();return;
  }
  st.raf=requestAnimationFrame(t=>maThumbnailWheelFrame(st,t));
 }
@@ -4551,11 +4662,11 @@ function maThumbnailCloseColorWheel(){
  document.getElementById('maThumbnailColorWheel')?.classList.remove('open','valuePreview');
 }
 
-// Thumbnail color: short tap = existing swatches; hold/drag = H/S wheel.
+// Thumbnail COLOR: tap toggles colour variation; hold/drag navigates H/S wheel.
 window.addEventListener('pointerdown',e=>{
- if(viewMode!=='thumbnail'||primaryDockMode()!=='base'||!(e.target instanceof Element)||!e.target.closest('#selectHoldBtn'))return;
- const btn=document.getElementById('selectHoldBtn');
- const st={x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,startColor:maThumbnailData.color,startWheel:maThumbnailWheelHSV(),wheel:false,changed:false,timer:null};
+ if(viewMode!=='thumbnail'||primaryDockMode()!=='base'||!(e.target instanceof Element)||!e.target.closest('#viewJoystick'))return;
+ const btn=document.getElementById('viewJoystick');
+ const st={x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,startColor:maThumbnailData.color,startWheel:maThumbnailWheelHSV(),wheel:false,moved:false,pressedAt:performance.now(),changed:false,timer:null};
  st.timer=setTimeout(()=>{if(maThumbnailColorPresses.get(e.pointerId)===st)maThumbnailStartWheel(st);},MA_THUMBNAIL_WHEEL_HOLD_MS);
  maThumbnailColorPresses.set(e.pointerId,st);e.preventDefault();e.stopImmediatePropagation();
  try{btn.setPointerCapture?.(e.pointerId);}catch(_){}
@@ -4563,29 +4674,35 @@ window.addEventListener('pointerdown',e=>{
 window.addEventListener('pointermove',e=>{
  const st=maThumbnailColorPresses.get(e.pointerId);if(!st)return;
  e.preventDefault();e.stopImmediatePropagation();
- if(!st.wheel&&Math.hypot(e.clientX-st.x,e.clientY-st.y)>8){clearTimeout(st.timer);maThumbnailStartWheel(st);}
+ if(Math.hypot(e.clientX-st.x,e.clientY-st.y)>5)st.moved=true;
+ if(!st.wheel&&st.moved){clearTimeout(st.timer);maThumbnailStartWheel(st);}
  if(st.wheel)maThumbnailNavigateWheel(st,e);
  st.lastX=e.clientX;st.lastY=e.clientY;
 },{capture:true,passive:false});
 for(const kind of ['pointerup','pointercancel'])window.addEventListener(kind,e=>{
  const st=maThumbnailColorPresses.get(e.pointerId);if(!st)return;
  maThumbnailColorPresses.delete(e.pointerId);clearTimeout(st.timer);
+ if(!maThumbnailColorPresses.size)for(const valueTouch of maThumbnailValueTouches.values())valueTouch.active=false;
  e.preventDefault();e.stopImmediatePropagation();
- try{document.getElementById('selectHoldBtn')?.releasePointerCapture?.(e.pointerId);}catch(_){}
+ try{document.getElementById('viewJoystick')?.releasePointerCapture?.(e.pointerId);}catch(_){}
  if(kind==='pointercancel'){maThumbnailCloseColorWheel();maThumbnailSetColor(st.startColor,{autosave:false,wheelSelection:st.startWheel});return;}
- if(st.wheel)maThumbnailReleaseWheel(st);
- else maThumbnailOpenColorPicker();
+ if(st.wheel){
+   // A short, motionless press toggles variation, even if the 80ms wheel timer ran.
+   const quickTap=!st.moved&&performance.now()-st.pressedAt<200&&!st.changed;
+   if(quickTap){maThumbnailCloseColorWheel();maThumbnailToggleColorVariation();}
+   else maThumbnailReleaseWheel(st);
+ }else if(!st.moved)maThumbnailToggleColorVariation();
 },{capture:true,passive:false});
 window.addEventListener('click',e=>{
- if(viewMode!=='thumbnail'||primaryDockMode()!=='base'||!(e.target instanceof Element)||!e.target.closest('#selectHoldBtn'))return;
+ if(viewMode!=='thumbnail'||primaryDockMode()!=='base'||!(e.target instanceof Element)||!e.target.closest('#viewJoystick'))return;
  e.preventDefault();e.stopImmediatePropagation();
 },{capture:true});
 window.addEventListener('keydown',e=>{
- if(viewMode!=='thumbnail'||primaryDockMode()!=='base'||!(e.target instanceof Element)||!e.target.closest('#selectHoldBtn'))return;
+ if(viewMode!=='thumbnail'||primaryDockMode()!=='base'||!(e.target instanceof Element)||!e.target.closest('#viewJoystick'))return;
  if(e.key!=='Enter'&&e.key!==' ')return;
- e.preventDefault();e.stopImmediatePropagation();maThumbnailOpenColorPicker();
+ e.preventDefault();e.stopImmediatePropagation();maThumbnailToggleColorVariation();
 },{capture:true});
-// COLOR replaces the old Redo dock slot; the Size slot reuses the ordinary 3D drag control.
+// COLOR now occupies the left former VALUE control; SIZE keeps the shared 3D drag control.
 document.getElementById('maThumbnailColorInput')?.addEventListener('pointerdown',e=>e.stopPropagation());
 window.addEventListener('keydown',e=>{if(viewMode!=='thumbnail')return;if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.stopImmediatePropagation();if(e.shiftKey)maThumbnailRedo();else maThumbnailUndo();return;}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();e.stopImmediatePropagation();maThumbnailRedo();return;}if(/^Digit[1-6]$/.test(e.code)){maThumbnailSetTool(MA_THUMBNAIL_TOOLS[+e.code.slice(-1)-1]);maThumbnailUpdateToolbar();e.preventDefault();e.stopImmediatePropagation();return;}if(e.code==='KeyB'){maThumbnailOpenColorPicker();e.preventDefault();e.stopImmediatePropagation();return;}if(e.code==='BracketLeft'||e.code==='BracketRight'){maThumbnailData.size=maThumbnailClamp(maThumbnailData.size+(e.code==='BracketRight'?1:-1),1,60);maThumbnailUpdateSizeVisual();maThumbnailPulseSizeGuide();scheduleAutosave();e.preventDefault();e.stopImmediatePropagation();return;}if(e.code==='Space'){maThumbnailShiftPan=true;e.preventDefault();e.stopImmediatePropagation();return;}if(e.code!=='Escape'&&!(e.target instanceof Element&&e.target.closest('#maThumbnailColorInput,#maSelectionColorPanel,#shortcutPanel'))){e.preventDefault();e.stopImmediatePropagation();}},{capture:true});
 window.addEventListener('keyup',e=>{if(viewMode==='thumbnail'&&e.code==='Space'){maThumbnailShiftPan=false;e.preventDefault();e.stopImmediatePropagation();}},{capture:true});
